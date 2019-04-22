@@ -1,0 +1,48 @@
+{
+  "cfg": {
+    "lg": "it", // language
+    "tm": "05:11:04", // time
+    "dt": "11/07/2017", // date
+    "sc": { // schedule
+      "m": 1, // mower active (boolean)
+      "p": -38, // mowing time variation (in %)
+      "d": [ // days
+        // each with the values: start time, duration, boundary cut
+        [ "00:00", 0, 1 ], // Sunday
+        [ "04:30", 210, 1 ], // Monday
+        [ "05:00", 240, 1 ], // Tuesday
+        [ "00:00", 0, 1 ], // Wednesday
+        [ "04:00", 300, 1 ], // Thursday
+        [ "19:45", 254, 1 ], // Friday
+        [ "19:00", 298, 1 ] // Saturday
+      ]
+    },
+    "cmd": 0, // command? possible values are: 1 - start mowing; 2 - pause; 3 - go home
+    "mz": [ 0, 0, 0, 0 ], // mowing zone
+    "mzv": [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+    "rd": 150, // rain delay - minutes to wait with mowing after it stops raining
+    "sn": "301741021703100000" // serial number
+  },
+  "dat": {
+    "mac": "XXXXX", // mac address
+    "fw": 2.5, // firmware version
+    "bt": { // battery
+      "t": 21.9, // temperatur
+      "v": 19.37, // voltage
+      "p": 79, // percentage
+      "nr": 217, // number of charge cycles
+      "c": 0 // charging (boolean)
+    },
+    "dmp": [ -4.3, 0.9, 302.7 ],
+    "st": {
+      "b": 2636, // blade time (in minutes)
+      "d": 45393, // distance mowed (in meters)
+      "wt": 2895 // work time (in minutes)
+    },
+    "ls": 1, // mower status code
+    "le": 5, // mower error code (?)
+    "lz": 0, // current mowing zone
+    "rsi": 52, // wifi quality
+    "lk": 0
+  }
+}
