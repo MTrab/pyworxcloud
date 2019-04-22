@@ -1,0 +1,4 @@
+pyworxcloud/__pycache__/
+pyworxcloud.egg-info/
+ dist/
+.vs/
