@@ -1,18 +1,18 @@
 import contextlib
 
-from .wordlandroidapi import *
+from .worxlandroidapi import *
 
 from pprint import pprint
 
 
 class WorxCloud:
     """Worx by Landroid Cloud connector."""
-    def __init__(self, username, password, receive_message):
+    def __init__(self, username, password, dev_id):
         import paho.mqtt.client as mqtt
 
         self._worx_mqtt_client_id = ''
         self._worx_mqtt_endpoint = ''
-        self._callback = receive_message
+        self._dev_id = dev_id
 
         self._api = WorxLandroidAPI()
         self._authenticate(username, password)
@@ -54,12 +54,8 @@ class WorxCloud:
 
     def _get_mac_address(self):
         self.update()
-        #products = self._api.get_products()
-        #idx = 0
-        #self._mac_address = products[idx]["mac_address"]
-        self._mac_address = self.mac_address
-        self._mqtt_out = self._mqtt_topics['command_out']
-        self._mqtt_in = self._mqtt_topics['command_in']
+        self.mqtt_out = self.mqtt_topics['command_out']
+        self.mqtt_in = self.mqtt_topics['command_in']
 
     def _forward_on_message(self, client, userdata, message):
         import json
@@ -67,51 +63,81 @@ class WorxCloud:
         json_message = message.payload.decode('utf-8')
 
         try:
-            self._callback(json.loads(json_message))
+            data = json.loads(json_message)
+            self.rssi = data['dat']['rsi']
+            self.status = data['dat']['ls']
+            self.error = data['dat']['le']
+            self.current_zone = data['dat']['lz']
+            self.locked = data['dat']['lk']
+            self.battery_temperature = data['dat']['bt']['t']
+            self.battery_voltage = data['dat']['bt']['v']
+            self.battery_percent = data['dat']['bt']['p']
+            self.battery_charging = data['dat']['bt']['c']
+            self.battery_charge_cycle = data['dat']['bt']['nr']
+            self.blade_time = data['dat']['st']['b']
+            self.distance = data['dat']['st']['d']
+            self.work_time = data['dat']['st']['wt']
+            self.status_time = data['cfg']['tm']
+            self.status_date = data['cfg']['dt']
+            self.schedule_mower_active = data['cfg']['sc']['m']
+            self.schedule_variation = data['cfg']['sc']['p']
+            self.schedule_day_sunday_start = data['cfg']['sc']['d'][0][0]
+            self.schedule_day_sunday_duration = data['cfg']['sc']['d'][0][1]
+            self.schedule_day_sunday_boundary = data['cfg']['sc']['d'][0][2]
+            self.schedule_day_monday_start = data['cfg']['sc']['d'][1][0]
+            self.schedule_day_monday_duration = data['cfg']['sc']['d'][1][1]
+            self.schedule_day_monday_boundary = data['cfg']['sc']['d'][1][2]
+            self.schedule_day_tuesday_start = data['cfg']['sc']['d'][2][0]
+            self.schedule_day_tuesday_duration = data['cfg']['sc']['d'][2][1]
+            self.schedule_day_tuesday_boundary = data['cfg']['sc']['d'][2][2]
+            self.schedule_day_wednesday_start = data['cfg']['sc']['d'][3][0]
+            self.schedule_day_wednesday_duration = data['cfg']['sc']['d'][3][1]
+            self.schedule_day_wednesday_boundary = data['cfg']['sc']['d'][3][2]
+            self.schedule_day_thursday_start = data['cfg']['sc']['d'][4][0]
+            self.schedule_day_thursday_duration = data['cfg']['sc']['d'][4][1]
+            self.schedule_day_thursday_boundary = data['cfg']['sc']['d'][4][2]
+            self.schedule_day_friday_start = data['cfg']['sc']['d'][5][0]
+            self.schedule_day_friday_duration = data['cfg']['sc']['d'][5][1]
+            self.schedule_day_friday_boundary = data['cfg']['sc']['d'][5][2]
+            self.schedule_day_saturday_start = data['cfg']['sc']['d'][6][0]
+            self.schedule_day_saturday_duration = data['cfg']['sc']['d'][6][1]
+            self.schedule_day_saturday_boundary = data['cfg']['sc']['d'][6][2]
+            self.rain_delay = data['cfg']['rd']
+            self.pitch = data['dat']['dmp'][0]
+            self.roll = data['dat']['dmp'][1]
+            self.yaw = data['dat']['dmp'][2]
+
+            print(self.battery_percent)
+            print(self.status)
+            print(self.battery_charging)
         except:
             pass
 
     def _on_connect(self, client, userdata, flags, rc):
-        client.subscribe(self._mqtt_out)
+        client.subscribe(self.mqtt_out)
 
     def start(self):
-        self.mqttc.publish(self._mqtt_in, '{"cmd":1}', qos=0, retain=False)
+        self.mqttc.publish(self.mqtt_in, '{"cmd":1}', qos=0, retain=False)
     
     def pause(self):
-        self.mqttc.publish(self._mqtt_in, '{"cmd":2}', qos=0, retain=False)
+        self.mqttc.publish(self.mqtt_in, '{"cmd":2}', qos=0, retain=False)
 
     def stop(self):
-        self.mqttc.publish(self._mqtt_in, '{"cmd":3}', qos=0, retain=False)
+        self.mqttc.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
 
     def update(self):
         products = self._api.get_products()
 
-        for attr, val in products[0].items():
-            setattr(self, "_" + str(attr), val)
+        for attr, val in products[self._dev_id].items():
+            setattr(self, str(attr), val)
+            debug = '{}: {}'.format(attr, val)
+            print(debug)
 
-        for attr in dir(self):
-            print(attr)
-
-    @property
-    def name(self):
-        """Return name for device."""
-        try:
-            return self._name
-        except:
-            return None
-
-    @property
-    def mac_address(self):
-        """Return name for device."""
-        try:
-            return self._mac_address
-        except:
-            return None
 
 @contextlib.contextmanager
 def pfx_to_pem(pfx_data):
     ''' Decrypts the .pfx file to be used with requests.'''
-    '''Based on https://gist.github.com/erikbern/756b1d8df2d1487497d29b90e81f8068'''
+    ''' Based on https://gist.github.com/erikbern/756b1d8df2d1487497d29b90e81f8068 '''
     import base64
     import OpenSSL.crypto
     import tempfile
