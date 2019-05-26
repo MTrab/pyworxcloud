@@ -30,6 +30,7 @@ class WorxCloud:
             return None
 
         self._mqtt.loop_start()
+        self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
 
     def _authenticate(self, username, password):
         auth_data = self._api.auth(username, password)
