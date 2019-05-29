@@ -2,7 +2,7 @@ import contextlib
 from .worxlandroidapi import *
 import time
 
-__version__ = '1.0.4'
+__version__ = '1.1.0'
 
 StateDict = {
     0: "Idle",
@@ -57,7 +57,9 @@ class WorxCloud:
         self._dev_id = dev_id
 
         self._api = WorxLandroidAPI()
-        self._authenticate(username, password)
+        if self._authenticate(username, password) is False:
+            return None
+
         self._get_mac_address()
 
         self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
@@ -79,13 +81,17 @@ class WorxCloud:
     def _authenticate(self, username, password):
         auth_data = self._api.auth(username, password)
 
-        self._api.set_token(auth_data['access_token'])
-        self._api.set_token_type(auth_data['token_type'])
+        try:
+            self._api.set_token(auth_data['access_token'])
+            self._api.set_token_type(auth_data['token_type'])
 
-        profile = self._api.get_profile()
-        self._worx_mqtt_endpoint = profile['mqtt_endpoint']
+            profile = self._api.get_profile()
+            self._worx_mqtt_endpoint = profile['mqtt_endpoint']
 
-        self._worx_mqtt_client_id = 'android-' + self._api.uuid
+            self._worx_mqtt_client_id = 'android-' + self._api.uuid
+        
+        except:
+            return False
 
     @contextlib.contextmanager
     def _get_cert(self):

@@ -1,5 +1,6 @@
 import pyworxcloud
 import time
+from sys import exit
 from pprint import pprint
 
 def test_func(message):
@@ -7,6 +8,9 @@ def test_func(message):
     print()
 
 worx = pyworxcloud.WorxCloud("morten@trab.dk","Cm69dofz!", 0)
+
+if not worx:
+    exit(0)
 
 attrs = vars(worx)
 for item in attrs:
