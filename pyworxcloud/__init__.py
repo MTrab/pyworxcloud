@@ -2,7 +2,7 @@ import contextlib
 from .worxlandroidapi import *
 import time
 
-__version__ = '1.1.0'
+__version__ = '1.1.1'
 
 StateDict = {
     0: "Idle",
@@ -104,7 +104,7 @@ class WorxCloud:
             yield pem_cert
 
     def _get_mac_address(self):
-        self.update()
+        self._fetch()
         self.mqtt_out = self.mqtt_topics['command_out']
         self.mqtt_in = self.mqtt_topics['command_in']
 
@@ -178,11 +178,19 @@ class WorxCloud:
     def stop(self):
         self.mqttc.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
 
-    def update(self):
+    def _fetch(self):
         products = self._api.get_products()
 
         for attr, val in products[self._dev_id].items():
             setattr(self, str(attr), val)
+
+    def update(self):
+        self.wait = True
+
+        self._fetch()
+        self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
+        while self.wait:
+            time.sleep(0.1)
 
 
 @contextlib.contextmanager
