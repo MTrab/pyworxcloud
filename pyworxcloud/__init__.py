@@ -1,8 +1,8 @@
 import contextlib
 from .worxlandroidapi import *
-from pprint import pprint
+import time
 
-__version__ = '1.0.3'
+__version__ = '1.0.4'
 
 StateDict = {
     0: "Idle",
@@ -47,6 +47,8 @@ ErrorDict = {
 
 class WorxCloud:
     """Worx by Landroid Cloud connector."""
+    wait = True
+
     def __init__(self, username, password, dev_id):
         import paho.mqtt.client as mqtt
 
@@ -71,6 +73,8 @@ class WorxCloud:
 
         self._mqtt.loop_start()
         self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
+        while self.wait:
+            time.sleep(0.1)
 
     def _authenticate(self, username, password):
         auth_data = self._api.auth(username, password)
@@ -150,6 +154,8 @@ class WorxCloud:
             self.pitch = data['dat']['dmp'][0]
             self.roll = data['dat']['dmp'][1]
             self.yaw = data['dat']['dmp'][2]
+
+            self.wait = False
 
         except:
             pass
