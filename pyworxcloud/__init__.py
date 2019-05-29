@@ -2,7 +2,7 @@ import contextlib
 from .worxlandroidapi import *
 from pprint import pprint
 
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 class WorxCloud:
     """Worx by Landroid Cloud connector."""
