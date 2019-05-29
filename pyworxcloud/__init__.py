@@ -2,7 +2,48 @@ import contextlib
 from .worxlandroidapi import *
 from pprint import pprint
 
-__version__ = '1.0.2'
+__version__ = '1.0.3'
+
+StateDict = {
+    0: "Idle",
+    1: "Home",
+    2: "Start sequence",
+    3: "Leaving home",
+    4: "Follow wire",
+    5: "Searching home",
+    6: "Searching wire",
+    7: "Mowing",
+    8: "Lifted",
+    9: "Trapped",
+    10: "Blade blocked",
+    11: "Debug",
+    12: "Remote control",
+    30: "Going home",
+    32: "Border Cut",
+    33: "Searching zone",
+    34: "Pause"
+}
+
+ErrorDict = {
+    0: "No error",
+    1: "Trapped",
+    2: "Lifted",
+    3: "Wire missing",
+    4: "Outside wire",
+    5: "Raining",
+    6: "Close door to mow",
+    7: "Close door to go home",
+    8: "Blade motor blocked",
+    9: "Wheel motor blocked",
+    10: "Trapped timeout",
+    11: "Upside down",
+    12: "Battery low",
+    13: "Reverse wire",
+    14: "Charge error",
+    15: "Timeout finding home"
+}
+
+
 
 class WorxCloud:
     """Worx by Landroid Cloud connector."""
@@ -66,7 +107,9 @@ class WorxCloud:
             data = json.loads(json_message)
             self.rssi = data['dat']['rsi']
             self.status = data['dat']['ls']
+            self.status_description = StateDict[data['dat']['ls']]
             self.error = data['dat']['le']
+            self.error_description = ErrorDict[data['dat']['le']]
             self.current_zone = data['dat']['lz']
             self.locked = data['dat']['lk']
             self.battery_temperature = data['dat']['bt']['t']
@@ -77,8 +120,9 @@ class WorxCloud:
             self.blade_time = data['dat']['st']['b']
             self.distance = data['dat']['st']['d']
             self.work_time = data['dat']['st']['wt']
-            self.status_time = data['cfg']['tm']
-            self.status_date = data['cfg']['dt']
+            self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
+            #self.status_time = data['cfg']['tm']
+            #self.status_date = data['cfg']['dt']
             self.schedule_mower_active = data['cfg']['sc']['m']
             self.schedule_variation = data['cfg']['sc']['p']
             self.schedule_day_sunday_start = data['cfg']['sc']['d'][0][0]
