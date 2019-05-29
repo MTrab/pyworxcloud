@@ -2,7 +2,7 @@ import contextlib
 from .worxlandroidapi import *
 from pprint import pprint
 
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 class WorxCloud:
     """Worx by Landroid Cloud connector."""
@@ -107,9 +107,6 @@ class WorxCloud:
             self.roll = data['dat']['dmp'][1]
             self.yaw = data['dat']['dmp'][2]
 
-            print(self.battery_percent)
-            print(self.status)
-            print(self.battery_charging)
         except:
             pass
 
@@ -130,8 +127,6 @@ class WorxCloud:
 
         for attr, val in products[self._dev_id].items():
             setattr(self, str(attr), val)
-            debug = '{}: {}'.format(attr, val)
-            print(debug)
 
 
 @contextlib.contextmanager
