@@ -4,7 +4,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.1'
+__version__ = '1.2.2'
 
 StateDict = {
     0: "Idle",
@@ -185,13 +185,13 @@ class WorxCloud:
         client.subscribe(self.mqtt_out)
 
     def start(self):
-        self.mqttc.publish(self.mqtt_in, '{"cmd":1}', qos=0, retain=False)
+        self._mqtt.publish(self.mqtt_in, '{"cmd":1}', qos=0, retain=False)
     
     def pause(self):
-        self.mqttc.publish(self.mqtt_in, '{"cmd":2}', qos=0, retain=False)
+        self._mqtt.publish(self.mqtt_in, '{"cmd":2}', qos=0, retain=False)
 
     def stop(self):
-        self.mqttc.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
+        self._mqtt.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
 
     async def _fetch(self):
         await self._api.get_products()
