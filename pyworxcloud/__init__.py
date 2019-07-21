@@ -1,8 +1,10 @@
+import asyncio
 import contextlib
-from .worxlandroidapi import *
 import time
 
-__version__ = '1.1.1'
+from .worxlandroidapi import *
+
+__version__ = '1.2.0'
 
 StateDict = {
     0: "Idle",
@@ -49,15 +51,18 @@ class WorxCloud:
     """Worx by Landroid Cloud connector."""
     wait = True
 
-    def __init__(self, username, password, dev_id):
+    def __init__(self):
         import paho.mqtt.client as mqtt
 
         self._worx_mqtt_client_id = ''
         self._worx_mqtt_endpoint = ''
-        self._dev_id = dev_id
 
         self._api = WorxLandroidAPI()
-        if self._authenticate(username, password) is False:
+
+    async def initialize(self, username, password, dev_id):
+        self._dev_id = dev_id
+        auth = await self._authenticate(username, password)
+        if auth is False:
             return None
 
         self._get_mac_address()
@@ -69,7 +74,7 @@ class WorxCloud:
         with self._get_cert() as cert:
             self._mqtt.tls_set(certfile=cert)
 
-        conn_res = self._mqtt.connect(self._worx_mqtt_endpoint, port=8883, keepalive=600)
+        conn_res = await self._mqtt.connect(self._worx_mqtt_endpoint, port=8883, keepalive=600)
         if (conn_res):
             return None
 
@@ -78,8 +83,9 @@ class WorxCloud:
         while self.wait:
             time.sleep(0.1)
 
-    def _authenticate(self, username, password):
-        auth_data = self._api.auth(username, password)
+
+    async def _authenticate(self, username, password):
+        auth_data = await self._api.auth(username, password)
 
         try:
             self._api.set_token(auth_data['access_token'])

@@ -1,3 +1,5 @@
+import asyncio
+
 API_HOST = "api.worxlandroid.com"
 API_BASE = ("https://{}/api/v2").format(API_HOST)
 
@@ -35,7 +37,7 @@ class WorxLandroidAPI():
 
         return header_data
 
-    def auth(self, username, password, type='app'):
+    async def auth(self, username, password, type='app'):
         import uuid
         import json
 
@@ -54,18 +56,22 @@ class WorxLandroidAPI():
 
         payload = json.dumps(payload_data)
 
-        return self._call('/oauth/token', payload)
+        callData = await self._call('/oauth/token', payload)
+        return callData
 
-    def get_profile(self):
-        return self._call('/users/me')
+    async def get_profile(self):
+        callData = await self._call('/users/me')
+        return callData
 
-    def get_cert(self):
-        return self._call('/users/certificate')
+    async def get_cert(self):
+        callData = await self._call('/users/certificate')
+        return callData
 
-    def get_products(self):
-        return self._call('/product-items')
+    async def get_products(self):
+        callData = await self._call('/product-items')
+        return callData
 
-    def _call(self, path, payload=None):
+    async def _call(self, path, payload=None):
         import requests
 
         if payload:
