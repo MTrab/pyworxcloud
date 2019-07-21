@@ -56,22 +56,25 @@ class WorxLandroidAPI():
 
         payload = json.dumps(payload_data)
 
-        callData = await self._call('/oauth/token', payload)
+        callData = self._call('/oauth/token', payload)
         return callData
 
     async def get_profile(self):
-        callData = await self._call('/users/me')
+        callData = self._call('/users/me')
+        self._data = callData
         return callData
 
-    async def get_cert(self):
-        callData = await self._call('/users/certificate')
+    def get_cert(self):
+        callData = self._call('/users/certificate')
+        self._data = callData
         return callData
 
     async def get_products(self):
-        callData = await self._call('/product-items')
+        callData = self._call('/product-items')
+        self._data = callData
         return callData
 
-    async def _call(self, path, payload=None):
+    def _call(self, path, payload=None):
         import requests
 
         if payload:
@@ -83,3 +86,7 @@ class WorxLandroidAPI():
             return False
 
         return req.json()
+
+    @property
+    def data(self):
+        return self._data

@@ -4,7 +4,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.0'
+__version__ = '1.2.1'
 
 StateDict = {
     0: "Idle",
@@ -52,30 +52,32 @@ class WorxCloud:
     wait = True
 
     def __init__(self):
-        import paho.mqtt.client as mqtt
-
         self._worx_mqtt_client_id = ''
         self._worx_mqtt_endpoint = ''
 
         self._api = WorxLandroidAPI()
 
     async def initialize(self, username, password, dev_id):
+        import paho.mqtt.client as mqtt
         self._dev_id = dev_id
         auth = await self._authenticate(username, password)
         if auth is False:
+            self._auth_result = False
             return None
 
-        self._get_mac_address()
+        await self._get_mac_address()
 
         self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
 
         self._mqtt.on_message = self._forward_on_message
         self._mqtt.on_connect = self._on_connect
+        
         with self._get_cert() as cert:
             self._mqtt.tls_set(certfile=cert)
 
-        conn_res = await self._mqtt.connect(self._worx_mqtt_endpoint, port=8883, keepalive=600)
+        conn_res = self._mqtt.connect(self._worx_mqtt_endpoint, port=8883, keepalive=600)
         if (conn_res):
+            self._auth_result = False
             return None
 
         self._mqtt.loop_start()
@@ -83,6 +85,12 @@ class WorxCloud:
         while self.wait:
             time.sleep(0.1)
 
+        self._auth_result = True
+        return True
+
+    @property
+    def auth_result(self):
+        return self._auth_result
 
     async def _authenticate(self, username, password):
         auth_data = await self._api.auth(username, password)
@@ -91,7 +99,8 @@ class WorxCloud:
             self._api.set_token(auth_data['access_token'])
             self._api.set_token_type(auth_data['token_type'])
 
-            profile = self._api.get_profile()
+            await self._api.get_profile()
+            profile = self._api.data
             self._worx_mqtt_endpoint = profile['mqtt_endpoint']
 
             self._worx_mqtt_client_id = 'android-' + self._api.uuid
@@ -109,8 +118,8 @@ class WorxCloud:
         with pfx_to_pem(certresp['pkcs12']) as pem_cert:
             yield pem_cert
 
-    def _get_mac_address(self):
-        self._fetch()
+    async def _get_mac_address(self):
+        await self._fetch()
         self.mqtt_out = self.mqtt_topics['command_out']
         self.mqtt_in = self.mqtt_topics['command_in']
 
@@ -184,16 +193,18 @@ class WorxCloud:
     def stop(self):
         self.mqttc.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
 
-    def _fetch(self):
-        products = self._api.get_products()
+    async def _fetch(self):
+        await self._api.get_products()
+        products = self._api.data
+        #products = self._api.get_products()
 
         for attr, val in products[self._dev_id].items():
             setattr(self, str(attr), val)
 
-    def update(self):
+    async def update(self):
         self.wait = True
 
-        self._fetch()
+        await self._fetch()
         self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
         while self.wait:
             time.sleep(0.1)

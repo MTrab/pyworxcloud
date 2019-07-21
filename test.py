@@ -11,9 +11,9 @@ def test_func(message):
 
 async def main():
     worx = pyworxcloud.WorxCloud()
-    await worx.initialize("morten@trab.dk","Cm69dofz!", 0)
+    auth = await worx.initialize("morten@trab.dk","Cm69dofz!", 0)
 
-    if not worx:
+    if not auth:
         exit(0)
 
     attrs = vars(worx)
