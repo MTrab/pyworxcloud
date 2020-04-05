@@ -78,9 +78,9 @@ class WorxLandroidAPI():
         import requests
 
         if payload:
-            req = requests.post(API_BASE + path, data=payload, headers=self._get_headers())
+            req = requests.post(API_BASE + path, data=payload, headers=self._get_headers(), timeout=15)
         else:
-            req = requests.get(API_BASE + path, headers=self._get_headers())
+            req = requests.get(API_BASE + path, headers=self._get_headers(), timeout=15)
 
         if not req.ok:
             return False
