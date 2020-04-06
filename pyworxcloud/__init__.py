@@ -4,7 +4,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.6'
+__version__ = '1.2.2'
 
 StateDict = {
     0: "Idle",
