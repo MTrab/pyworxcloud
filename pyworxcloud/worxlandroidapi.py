@@ -1,4 +1,3 @@
-import async_timeout
 import asyncio
 
 API_HOST = "api.worxlandroid.com"
@@ -57,8 +56,7 @@ class WorxLandroidAPI():
 
         payload = json.dumps(payload_data)
 
-        async with async_timeout.timeout(10):
-            callData = await self._call('/oauth/token', payload)
+        callData = await asyncio.wait_for(self._call('/oauth/token', payload), timeout=10)
 
         return callData
 

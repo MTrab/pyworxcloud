@@ -5,7 +5,7 @@ import setuptools
 
 requirements = ['paho-mqtt==1.3.1',
                 'pyOpenSSL==17.5.0',
-                'async_timeout=3.0.1']
+                'async-timeout=3.0.1']
 
 setuptools.setup(
     name = 'pyworxcloud',
