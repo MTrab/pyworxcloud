@@ -56,7 +56,7 @@ class WorxLandroidAPI():
 
         payload = json.dumps(payload_data)
 
-        callData = await asyncio.wait_for(self._call('/oauth/token', payload), timeout=10)
+        callData = self._call('/oauth/token', payload)
 
         return callData
 
@@ -65,8 +65,8 @@ class WorxLandroidAPI():
         self._data = callData
         return callData
 
-    async def get_cert(self):
-        callData = await self._call('/users/certificate')
+    def get_cert(self):
+        self._call('/users/certificate')
         self._data = callData
         return callData
 
@@ -75,7 +75,7 @@ class WorxLandroidAPI():
         self._data = callData
         return callData
 
-    async def _call(self, path, payload=None):
+    def _call(self, path, payload=None):
         import requests
 
         if payload:
