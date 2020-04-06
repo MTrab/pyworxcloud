@@ -61,17 +61,17 @@ class WorxLandroidAPI():
         return callData
 
     async def get_profile(self):
-        callData = self._call('/users/me')
+        callData = await self._call('/users/me')
         self._data = callData
         return callData
 
-    def get_cert(self):
-        callData = self._call('/users/certificate')
+    async def get_cert(self):
+        callData = await self._call('/users/certificate')
         self._data = callData
         return callData
 
     async def get_products(self):
-        callData = self._call('/product-items')
+        callData = await self._call('/product-items')
         self._data = callData
         return callData
 
