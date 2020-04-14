@@ -4,7 +4,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.2'
+__version__ = '1.2.3'
 
 StateDict = {
     0: "Idle",
@@ -60,12 +60,12 @@ class WorxCloud:
     async def initialize(self, username, password, dev_id):
         import paho.mqtt.client as mqtt
         self._dev_id = dev_id
-        auth = await self._authenticate(username, password)
+        auth = self._authenticate(username, password)
         if auth is False:
             self._auth_result = False
             return None
 
-        await self._get_mac_address()
+        self._get_mac_address()
 
         self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
 
@@ -92,14 +92,14 @@ class WorxCloud:
     def auth_result(self):
         return self._auth_result
 
-    async def _authenticate(self, username, password):
-        auth_data = await self._api.auth(username, password)
+    def _authenticate(self, username, password):
+        auth_data = self._api.auth(username, password)
 
         try:
             self._api.set_token(auth_data['access_token'])
             self._api.set_token_type(auth_data['token_type'])
 
-            await self._api.get_profile()
+            self._api.get_profile()
             profile = self._api.data
             self._worx_mqtt_endpoint = profile['mqtt_endpoint']
 
@@ -118,8 +118,8 @@ class WorxCloud:
         with pfx_to_pem(certresp['pkcs12']) as pem_cert:
             yield pem_cert
 
-    async def _get_mac_address(self):
-        await self._fetch()
+    def _get_mac_address(self):
+        self._fetch()
         self.mqtt_out = self.mqtt_topics['command_out']
         self.mqtt_in = self.mqtt_topics['command_in']
 
@@ -193,18 +193,18 @@ class WorxCloud:
     def stop(self):
         self._mqtt.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
 
-    async def _fetch(self):
-        await self._api.get_products()
+    def _fetch(self):
+        self._api.get_products()
         products = self._api.data
         #products = self._api.get_products()
 
         for attr, val in products[self._dev_id].items():
             setattr(self, str(attr), val)
 
-    async def update(self):
+    def update(self):
         self.wait = True
 
-        await self._fetch()
+        self._fetch()
         self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
         while self.wait:
             time.sleep(0.1)
