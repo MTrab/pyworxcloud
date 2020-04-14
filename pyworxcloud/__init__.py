@@ -4,7 +4,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.7'
+__version__ = '1.2.8'
 
 StateDict = {
     0: "Idle",
@@ -81,9 +81,9 @@ class WorxCloud:
             return None
 
         self._mqtt.loop_start()
-        self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
+        """self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
         while self.wait:
-            time.sleep(0.1)
+            time.sleep(0.1)"""
 
         self._auth_result = True
         return True
