@@ -47,6 +47,8 @@ ErrorDict = {
     17: "Battery temperature error"
 }
 
+Unknown_Error = "Unknown error (%s)"
+
 
 
 class WorxCloud:
@@ -148,8 +150,6 @@ class WorxCloud:
             self.distance = data['dat']['st']['d']
             self.work_time = data['dat']['st']['wt']
             self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
-            #self.status_time = data['cfg']['tm']
-            #self.status_date = data['cfg']['dt']
             self.schedule_mower_active = data['cfg']['sc']['m']
             self.schedule_variation = data['cfg']['sc']['p']
             self.schedule_day_sunday_start = data['cfg']['sc']['d'][0][0]
