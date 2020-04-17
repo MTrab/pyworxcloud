@@ -21,8 +21,8 @@ StateDict = {
     11: "Debug",
     12: "Remote control",
     30: "Going home",
-    32: "Border Cut",
-    33: "Searching zone",
+    32: "Cutting edge",
+    33: "Searching area",
     34: "Pause"
 }
 
@@ -32,7 +32,7 @@ ErrorDict = {
     2: "Lifted",
     3: "Wire missing",
     4: "Outside wire",
-    5: "Raining",
+    5: "Rain delay",
     6: "Close door to mow",
     7: "Close door to go home",
     8: "Blade motor blocked",
