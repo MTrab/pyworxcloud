@@ -4,7 +4,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.9'
+__version__ = '1.2.10'
 
 StateDict = {
     0: "Idle",
@@ -42,7 +42,9 @@ ErrorDict = {
     12: "Battery low",
     13: "Reverse wire",
     14: "Charge error",
-    15: "Timeout finding home"
+    15: "Timeout finding home",
+	16: "Locked",
+    17: "Battery temperature error"
 }
 
 
