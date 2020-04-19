@@ -4,7 +4,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.10'
+__version__ = '1.2.11'
 
 StateDict = {
     0: "Idle",
@@ -47,7 +47,7 @@ ErrorDict = {
     17: "Battery temperature error"
 }
 
-Unknown_Error = "Unknown error (%s)"
+UNKNOWN_ERROR = "Unknown error (%s)"
 
 
 
@@ -61,14 +61,18 @@ class WorxCloud:
 
         self._api = WorxLandroidAPI()
 
-    async def initialize(self, username, password, dev_id):
-        import paho.mqtt.client as mqtt
-        self._dev_id = dev_id
+    async def initialize(self, username, password):
         auth = self._authenticate(username, password)
         if auth is False:
             self._auth_result = False
             return None
 
+        self._auth_result = True
+        return True
+
+    async def connect(self, dev_id):
+        import paho.mqtt.client as mqtt
+        self._dev_id = dev_id
         self._get_mac_address()
 
         self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
@@ -81,7 +85,7 @@ class WorxCloud:
 
         conn_res = self._mqtt.connect(self._worx_mqtt_endpoint, port=8883, keepalive=600)
         if (conn_res):
-            self._auth_result = False
+            #self._auth_result = False
             return None
 
         self._mqtt.loop_start()
@@ -89,8 +93,8 @@ class WorxCloud:
         while not mqp.is_published:
             time.sleep(0.1)
 
-        self._auth_result = True
         return True
+
 
     @property
     def auth_result(self):
@@ -198,7 +202,6 @@ class WorxCloud:
     def _fetch(self):
         self._api.get_products()
         products = self._api.data
-        #products = self._api.get_products()
 
         for attr, val in products[self._dev_id].items():
             setattr(self, str(attr), val)
@@ -210,6 +213,11 @@ class WorxCloud:
         self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
         while self.wait:
             time.sleep(0.1)
+
+    def enumerate(self):
+        self._api.get_products()
+        products = self._api.data
+        return len(products)
 
 
 @contextlib.contextmanager
