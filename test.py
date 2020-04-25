@@ -17,8 +17,8 @@ async def main():
     if not auth:
         exit(0)
 
-    await worx.connect(1)
-    worx.update()
+    await worx.connect(0)
+    #worx.update()
 
     attrs = vars(worx)
     for item in attrs:
