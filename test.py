@@ -11,18 +11,19 @@ def test_func(message):
 
 async def main():
     worx = pyworxcloud.WorxCloud()
-    auth = await worx.initialize("morten@trab.dk","Cm69dofz!")
+    #auth = await worx.initialize("morten@trab.dk","Cm69dofz!")
+    auth = await worx.initialize("Landroid@cyberslacker.dk","mortentrabtest2")
 
     if not auth:
         exit(0)
 
-    await worx.connect(0)
+    await worx.connect(1)
+    worx.update()
 
     attrs = vars(worx)
     for item in attrs:
         print(item , ':' , attrs[item])
-
-    print(worx.enumerate())
+ 
 
 asyncio.get_event_loop().run_until_complete(main())
 

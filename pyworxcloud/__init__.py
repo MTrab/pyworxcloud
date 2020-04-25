@@ -4,7 +4,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.11'
+__version__ = '1.2.12'
 
 StateDict = {
     0: "Idle",
@@ -70,7 +70,7 @@ class WorxCloud:
         self._auth_result = True
         return True
 
-    async def connect(self, dev_id):
+    async def connect(self, dev_id, verify_ssl = True):
         import paho.mqtt.client as mqtt
         self._dev_id = dev_id
         self._get_mac_address()
@@ -82,6 +82,9 @@ class WorxCloud:
         
         with self._get_cert() as cert:
             self._mqtt.tls_set(certfile=cert)
+
+        if not verify_ssl:
+            self._mqtt.tls_insecure_set(True)
 
         conn_res = self._mqtt.connect(self._worx_mqtt_endpoint, port=8883, keepalive=600)
         if (conn_res):
