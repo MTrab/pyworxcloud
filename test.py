@@ -11,14 +11,16 @@ def test_func(message):
 
 async def main():
     worx = pyworxcloud.WorxCloud()
-    #auth = await worx.initialize("morten@trab.dk","Cm69dofz!")
-    auth = await worx.initialize("Landroid@cyberslacker.dk","mortentrabtest2")
+    auth = await worx.initialize("morten@trab.dk","Cm69dofz!")
+    #auth = await worx.initialize("Landroid@cyberslacker.dk","mortentrabtest2")
 
     if not auth:
         exit(0)
 
     await worx.connect(0)
     #worx.update()
+
+    #worx.setRainDelay(60)
 
     attrs = vars(worx)
     for item in attrs:

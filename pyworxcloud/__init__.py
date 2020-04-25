@@ -202,6 +202,10 @@ class WorxCloud:
     def stop(self):
         self._mqtt.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
 
+    def setRainDelay(self, rainDelay):
+        msg = '{"rd": %s}' % (rainDelay)
+        self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+
     def _fetch(self):
         self._api.get_products()
         products = self._api.data
