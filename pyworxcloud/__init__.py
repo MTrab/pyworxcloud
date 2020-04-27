@@ -221,7 +221,10 @@ class WorxCloud:
             self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
             sleep = 0
             while self.wait:
+                if sleep == 100:
+                    return
                 time.sleep(0.1)
+                sleep += 1
 
     def enumerate(self):
         self._api.get_products()
