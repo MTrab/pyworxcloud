@@ -4,7 +4,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.13'
+__version__ = '1.2.14'
 
 StateDict = {
     0: "Idle",
@@ -138,57 +138,63 @@ class WorxCloud:
         import json
 
         json_message = message.payload.decode('utf-8')
+        self._decodeData(json_message)
 
-        try:
-            data = json.loads(json_message)
-            self.rssi = data['dat']['rsi']
-            self.status = data['dat']['ls']
-            self.status_description = StateDict[data['dat']['ls']]
-            self.error = data['dat']['le']
-            self.error_description = ErrorDict[data['dat']['le']]
-            self.current_zone = data['dat']['lz']
-            self.locked = data['dat']['lk']
-            self.battery_temperature = data['dat']['bt']['t']
-            self.battery_voltage = data['dat']['bt']['v']
-            self.battery_percent = data['dat']['bt']['p']
-            self.battery_charging = data['dat']['bt']['c']
-            self.battery_charge_cycle = data['dat']['bt']['nr']
-            self.blade_time = data['dat']['st']['b']
-            self.distance = data['dat']['st']['d']
-            self.work_time = data['dat']['st']['wt']
-            self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
-            self.schedule_mower_active = data['cfg']['sc']['m']
-            self.schedule_variation = data['cfg']['sc']['p']
-            self.schedule_day_sunday_start = data['cfg']['sc']['d'][0][0]
-            self.schedule_day_sunday_duration = data['cfg']['sc']['d'][0][1]
-            self.schedule_day_sunday_boundary = data['cfg']['sc']['d'][0][2]
-            self.schedule_day_monday_start = data['cfg']['sc']['d'][1][0]
-            self.schedule_day_monday_duration = data['cfg']['sc']['d'][1][1]
-            self.schedule_day_monday_boundary = data['cfg']['sc']['d'][1][2]
-            self.schedule_day_tuesday_start = data['cfg']['sc']['d'][2][0]
-            self.schedule_day_tuesday_duration = data['cfg']['sc']['d'][2][1]
-            self.schedule_day_tuesday_boundary = data['cfg']['sc']['d'][2][2]
-            self.schedule_day_wednesday_start = data['cfg']['sc']['d'][3][0]
-            self.schedule_day_wednesday_duration = data['cfg']['sc']['d'][3][1]
-            self.schedule_day_wednesday_boundary = data['cfg']['sc']['d'][3][2]
-            self.schedule_day_thursday_start = data['cfg']['sc']['d'][4][0]
-            self.schedule_day_thursday_duration = data['cfg']['sc']['d'][4][1]
-            self.schedule_day_thursday_boundary = data['cfg']['sc']['d'][4][2]
-            self.schedule_day_friday_start = data['cfg']['sc']['d'][5][0]
-            self.schedule_day_friday_duration = data['cfg']['sc']['d'][5][1]
-            self.schedule_day_friday_boundary = data['cfg']['sc']['d'][5][2]
-            self.schedule_day_saturday_start = data['cfg']['sc']['d'][6][0]
-            self.schedule_day_saturday_duration = data['cfg']['sc']['d'][6][1]
-            self.schedule_day_saturday_boundary = data['cfg']['sc']['d'][6][2]
-            self.rain_delay = data['cfg']['rd']
-            self.pitch = data['dat']['dmp'][0]
-            self.roll = data['dat']['dmp'][1]
-            self.yaw = data['dat']['dmp'][2]
+    def getStatus(self):
+        status = self._api.get_status(self.serial_number)
+        status = str(status).replace("'","\"")
 
-            self.wait = False
+        self._decodeData(status)
 
-        except:
-            pass
+    def _decodeData(self, indata):
+        import json
+
+        data = json.loads(indata)
+        self.rssi = data['dat']['rsi']
+        self.status = data['dat']['ls']
+        self.status_description = StateDict[data['dat']['ls']]
+        self.error = data['dat']['le']
+        self.error_description = ErrorDict[data['dat']['le']]
+        self.current_zone = data['dat']['lz']
+        self.locked = data['dat']['lk']
+        self.battery_temperature = data['dat']['bt']['t']
+        self.battery_voltage = data['dat']['bt']['v']
+        self.battery_percent = data['dat']['bt']['p']
+        self.battery_charging = data['dat']['bt']['c']
+        self.battery_charge_cycle = data['dat']['bt']['nr']
+        self.blade_time = data['dat']['st']['b']
+        self.distance = data['dat']['st']['d']
+        self.work_time = data['dat']['st']['wt']
+        self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
+        self.schedule_mower_active = data['cfg']['sc']['m']
+        self.schedule_variation = data['cfg']['sc']['p']
+        self.schedule_day_sunday_start = data['cfg']['sc']['d'][0][0]
+        self.schedule_day_sunday_duration = data['cfg']['sc']['d'][0][1]
+        self.schedule_day_sunday_boundary = data['cfg']['sc']['d'][0][2]
+        self.schedule_day_monday_start = data['cfg']['sc']['d'][1][0]
+        self.schedule_day_monday_duration = data['cfg']['sc']['d'][1][1]
+        self.schedule_day_monday_boundary = data['cfg']['sc']['d'][1][2]
+        self.schedule_day_tuesday_start = data['cfg']['sc']['d'][2][0]
+        self.schedule_day_tuesday_duration = data['cfg']['sc']['d'][2][1]
+        self.schedule_day_tuesday_boundary = data['cfg']['sc']['d'][2][2]
+        self.schedule_day_wednesday_start = data['cfg']['sc']['d'][3][0]
+        self.schedule_day_wednesday_duration = data['cfg']['sc']['d'][3][1]
+        self.schedule_day_wednesday_boundary = data['cfg']['sc']['d'][3][2]
+        self.schedule_day_thursday_start = data['cfg']['sc']['d'][4][0]
+        self.schedule_day_thursday_duration = data['cfg']['sc']['d'][4][1]
+        self.schedule_day_thursday_boundary = data['cfg']['sc']['d'][4][2]
+        self.schedule_day_friday_start = data['cfg']['sc']['d'][5][0]
+        self.schedule_day_friday_duration = data['cfg']['sc']['d'][5][1]
+        self.schedule_day_friday_boundary = data['cfg']['sc']['d'][5][2]
+        self.schedule_day_saturday_start = data['cfg']['sc']['d'][6][0]
+        self.schedule_day_saturday_duration = data['cfg']['sc']['d'][6][1]
+        self.schedule_day_saturday_boundary = data['cfg']['sc']['d'][6][2]
+        self.rain_delay = data['cfg']['rd']
+        self.pitch = data['dat']['dmp'][0]
+        self.roll = data['dat']['dmp'][1]
+        self.yaw = data['dat']['dmp'][2]
+
+        self.wait = False
 
     def _on_connect(self, client, userdata, flags, rc):
         client.subscribe(self.mqtt_out)

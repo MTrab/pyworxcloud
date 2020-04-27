@@ -74,6 +74,11 @@ class WorxLandroidAPI():
         self._data = callData
         return callData
 
+    def get_status(self, serial):
+        callStr = "/product-items/{}/status".format(serial)
+        callData = self._call(callStr)
+        return callData
+
     def _call(self, path, payload=None):
         import requests
 

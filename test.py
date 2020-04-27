@@ -18,7 +18,8 @@ async def main():
         exit(0)
 
     await worx.connect(0, False)
-    worx.update()
+    #worx.update()
+    worx.getStatus()
 
     #worx.setRainDelay(60)
 
