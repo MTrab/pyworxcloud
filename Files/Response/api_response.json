@@ -1,0 +1,62 @@
+[
+  {
+    "activated": "True",
+    "activated_at": "None",
+    "app_settings": "None",
+    "battery_charge_cycles": 1261,
+    "blade_work_time": 17077,
+    "city": {
+      "country_id": 208,
+      "created_at": "2018-02-15 22:41:43",
+      "id": 2613887,
+      "latitude": 56.039909,
+      "longitude": 9.9272,
+      "name": "Skanderborg",
+      "updated_at": "2018-02-15 22:41:43"
+    },
+    "city_id": 2613887,
+    "created_at": "2018-02-06 17:45:04",
+    "dealer_id": "None",
+    "distance_covered": 316671,
+    "firmware_auto_upgrade": "True",
+    "firmware_version": 3.45,
+    "hubspot_deal_id": "None",
+    "hubspot_updated_at": "None",
+    "id": 124371,
+    "iot_registered": "True",
+    "lawn_perimeter": "None",
+    "lawn_size": 302,
+    "locked": "True",
+    "mac_address": "F0FE6B83B4A8",
+    "messages_in": 355,
+    "messages_out": 28625,
+    "mower_work_time": 18372,
+    "mqtt_topics": {
+      "command_in": "DB510/F0FE6B83B4A8/commandIn",
+      "command_out": "DB510/F0FE6B83B4A8/commandOut"
+    },
+    "name": "Robotklipper",
+    "online": "True",
+    "pin_code": "None",
+    "product_id": 24,
+    "purchase_date": "2018-04-20 00:00:00",
+    "push_notifications": "True",
+    "push_notifications_level": "warning",
+    "raw_messages_in": 32623,
+    "raw_messages_out": 28625,
+    "registration_date": "2018-04-26 13:06:55",
+    "serial_number": "2018301737010002069C",
+    "setup_location": {
+      "latitude": 55.9966126,
+      "longitude": 9.8814044
+    },
+    "sim_id": "None",
+    "test": 0,
+    "time_zone": "Europe/Copenhagen",
+    "time_zone_id": 138,
+    "updated_at": "2019-04-22 00:14:53",
+    "user_id": 38465,
+    "warranty_expiration_date": "2021-04-20 00:00:00",
+    "warranty_registered": "True"
+  }
+]
