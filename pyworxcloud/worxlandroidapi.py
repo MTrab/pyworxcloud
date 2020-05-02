@@ -52,11 +52,12 @@ class WorxLandroidAPI():
         payload_data['type'] = type
         payload_data['client_secret'] = self._token
         payload_data['scope'] = "*"
-        payload_data['uuid'] = self.uuid
+        #payload_data['uuid'] = self.uuid
 
         payload = json.dumps(payload_data)
 
         callData = self._call('/oauth/token', payload)
+        
         return callData
 
     def get_profile(self):
@@ -91,6 +92,7 @@ class WorxLandroidAPI():
             if not req.ok:
                 return False
         except:
+            raise("Timeout connecting")
             return False
 
         return req.json()

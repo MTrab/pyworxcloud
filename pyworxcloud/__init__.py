@@ -1,10 +1,11 @@
 import asyncio
+import concurrent.futures
 import contextlib
 import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.14'
+__version__ = '1.2.15'
 
 StateDict = {
     0: "Idle",
@@ -60,9 +61,12 @@ class WorxCloud:
         self._worx_mqtt_endpoint = ''
 
         self._api = WorxLandroidAPI()
+        
 
     async def initialize(self, username, password):
-        auth = self._authenticate(username, password)
+        loop = asyncio.get_running_loop()
+
+        auth = await loop.run_in_executor(None, self._authenticate, username, password)
         if auth is False:
             self._auth_result = False
             return None
@@ -70,7 +74,7 @@ class WorxCloud:
         self._auth_result = True
         return True
 
-    async def connect(self, dev_id, verify_ssl = True):
+    def connect(self, dev_id, verify_ssl = True):
         import paho.mqtt.client as mqtt
         self._dev_id = dev_id
         self._get_mac_address()
@@ -230,10 +234,10 @@ class WorxCloud:
             self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
             sleep = 0
             while self.wait:
-                if sleep == 100:
-                    return
+                #if sleep == 100:
+                #    return
                 time.sleep(0.1)
-                sleep += 1
+                #sleep += 1
 
     def enumerate(self):
         self._api.get_products()
