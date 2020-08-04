@@ -5,7 +5,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.18'
+__version__ = '1.2.19'
 
 StateDict = {
     0: "Idle",
@@ -137,6 +137,7 @@ class WorxCloud:
         self._fetch()
         self.mqtt_out = self.mqtt_topics['command_out']
         self.mqtt_in = self.mqtt_topics['command_in']
+        self.mac = self.mac_address
 
     def _forward_on_message(self, client, userdata, message):
         import json
@@ -198,6 +199,7 @@ class WorxCloud:
         self.roll = data['dat']['dmp'][1]
         self.yaw = data['dat']['dmp'][2]
         self.firmware = data['dat']['fw']
+        self.serial = data['cfg']['sn']
         self.gps_latitude = None
         self.gps_longitude = None
 
