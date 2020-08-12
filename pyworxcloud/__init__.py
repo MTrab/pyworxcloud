@@ -5,7 +5,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.19'
+__version__ = '1.2.20'
 
 StateDict = {
     0: "Idle",
@@ -200,6 +200,7 @@ class WorxCloud:
         self.yaw = data['dat']['dmp'][2]
         self.firmware = data['dat']['fw']
         self.serial = data['cfg']['sn']
+        self.mowing_zone = data['dat']['lz']
         self.gps_latitude = None
         self.gps_longitude = None
 
