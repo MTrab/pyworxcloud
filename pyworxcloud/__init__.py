@@ -216,7 +216,6 @@ class WorxCloud:
                 self.schedule_day_saturday_duration = data['cfg']['sc']['d'][6][1]
                 self.schedule_day_saturday_boundary = data['cfg']['sc']['d'][6][2]
 
-
         self.wait = False
 
     def _on_connect(self, client, userdata, flags, rc):
