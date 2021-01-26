@@ -155,59 +155,67 @@ class WorxCloud:
         import json
 
         data = json.loads(indata)
-        self.rssi = data['dat']['rsi']
-        self.status = data['dat']['ls']
-        self.status_description = StateDict[data['dat']['ls']]
-        self.error = data['dat']['le']
-        self.error_description = ErrorDict[data['dat']['le']]
-        self.current_zone = data['dat']['lz']
-        self.locked = data['dat']['lk']
-        self.battery_temperature = data['dat']['bt']['t']
-        self.battery_voltage = data['dat']['bt']['v']
-        self.battery_percent = data['dat']['bt']['p']
-        self.battery_charging = data['dat']['bt']['c']
-        self.battery_charge_cycle = data['dat']['bt']['nr']
-        self.blade_time = data['dat']['st']['b']
-        self.distance = data['dat']['st']['d']
-        self.work_time = data['dat']['st']['wt']
-        self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
-        self.schedule_mower_active = data['cfg']['sc']['m']
-        self.schedule_variation = data['cfg']['sc']['p']
-        self.schedule_day_sunday_start = data['cfg']['sc']['d'][0][0]
-        self.schedule_day_sunday_duration = data['cfg']['sc']['d'][0][1]
-        self.schedule_day_sunday_boundary = data['cfg']['sc']['d'][0][2]
-        self.schedule_day_monday_start = data['cfg']['sc']['d'][1][0]
-        self.schedule_day_monday_duration = data['cfg']['sc']['d'][1][1]
-        self.schedule_day_monday_boundary = data['cfg']['sc']['d'][1][2]
-        self.schedule_day_tuesday_start = data['cfg']['sc']['d'][2][0]
-        self.schedule_day_tuesday_duration = data['cfg']['sc']['d'][2][1]
-        self.schedule_day_tuesday_boundary = data['cfg']['sc']['d'][2][2]
-        self.schedule_day_wednesday_start = data['cfg']['sc']['d'][3][0]
-        self.schedule_day_wednesday_duration = data['cfg']['sc']['d'][3][1]
-        self.schedule_day_wednesday_boundary = data['cfg']['sc']['d'][3][2]
-        self.schedule_day_thursday_start = data['cfg']['sc']['d'][4][0]
-        self.schedule_day_thursday_duration = data['cfg']['sc']['d'][4][1]
-        self.schedule_day_thursday_boundary = data['cfg']['sc']['d'][4][2]
-        self.schedule_day_friday_start = data['cfg']['sc']['d'][5][0]
-        self.schedule_day_friday_duration = data['cfg']['sc']['d'][5][1]
-        self.schedule_day_friday_boundary = data['cfg']['sc']['d'][5][2]
-        self.schedule_day_saturday_start = data['cfg']['sc']['d'][6][0]
-        self.schedule_day_saturday_duration = data['cfg']['sc']['d'][6][1]
-        self.schedule_day_saturday_boundary = data['cfg']['sc']['d'][6][2]
-        self.rain_delay = data['cfg']['rd']
-        self.pitch = data['dat']['dmp'][0]
-        self.roll = data['dat']['dmp'][1]
-        self.yaw = data['dat']['dmp'][2]
-        self.firmware = data['dat']['fw']
-        self.serial = data['cfg']['sn']
-        self.mowing_zone = data['dat']['lz']
-        self.gps_latitude = None
-        self.gps_longitude = None
+        if 'dat' in data:
+            self.firmware = data['dat']['fw']
+            self.mowing_zone = data['dat']['lz']
+            if 'rsi' in data['dat']:
+                self.rssi = data['dat']['rsi']
+                self.status = data['dat']['ls']
+                self.status_description = StateDict[data['dat']['ls']]
+                self.error = data['dat']['le']
+                self.error_description = ErrorDict[data['dat']['le']]
+                self.current_zone = data['dat']['lz']
+                self.locked = data['dat']['lk']
+            if 'bt' in data['dat']:
+                self.battery_temperature = data['dat']['bt']['t']
+                self.battery_voltage = data['dat']['bt']['v']
+                self.battery_percent = data['dat']['bt']['p']
+                self.battery_charging = data['dat']['bt']['c']
+                self.battery_charge_cycle = data['dat']['bt']['nr']
+            if 'st' in data['dat']:
+                self.blade_time = data['dat']['st']['b']
+                self.distance = data['dat']['st']['d']
+                self.work_time = data['dat']['st']['wt']
+            if 'dmp' in data['dat']:
+                self.pitch = data['dat']['dmp'][0]
+                self.roll = data['dat']['dmp'][1]
+                self.yaw = data['dat']['dmp'][2]
+            if 'modules' in data['dat']:
+                self.gps_latitude = None
+                self.gps_longitude = None
+                if "4G" in data['dat']['modules']:
+                    self.gps_latitude = data['dat']['modules']['4G']['gps']['coo'][0]
+                    self.gps_longitude = data['dat']['modules']['4G']['gps']['coo'][1] 
 
-        if "modules" in data['dat']:
-            if "4G" in data['dat']['modules']:
-                self.gps_latitude = data['dat']['modules']['4G']['gps']['coo'][0]
-                self.gps_longitude = data['dat']['modules']['4G']['gps']['coo'][1] 
+        if 'cfg' in data:
+            self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
+            self.rain_delay = data['cfg']['rd']
+            self.serial = data['cfg']['sn']
+            if 'sc' in data['cfg']:
+                self.schedule_mower_active = data['cfg']['sc']['m']
+                self.schedule_variation = data['cfg']['sc']['p']
+                self.schedule_day_sunday_start = data['cfg']['sc']['d'][0][0]
+                self.schedule_day_sunday_duration = data['cfg']['sc']['d'][0][1]
+                self.schedule_day_sunday_boundary = data['cfg']['sc']['d'][0][2]
+                self.schedule_day_monday_start = data['cfg']['sc']['d'][1][0]
+                self.schedule_day_monday_duration = data['cfg']['sc']['d'][1][1]
+                self.schedule_day_monday_boundary = data['cfg']['sc']['d'][1][2]
+                self.schedule_day_tuesday_start = data['cfg']['sc']['d'][2][0]
+                self.schedule_day_tuesday_duration = data['cfg']['sc']['d'][2][1]
+                self.schedule_day_tuesday_boundary = data['cfg']['sc']['d'][2][2]
+                self.schedule_day_wednesday_start = data['cfg']['sc']['d'][3][0]
+                self.schedule_day_wednesday_duration = data['cfg']['sc']['d'][3][1]
+                self.schedule_day_wednesday_boundary = data['cfg']['sc']['d'][3][2]
+                self.schedule_day_thursday_start = data['cfg']['sc']['d'][4][0]
+                self.schedule_day_thursday_duration = data['cfg']['sc']['d'][4][1]
+                self.schedule_day_thursday_boundary = data['cfg']['sc']['d'][4][2]
+                self.schedule_day_friday_start = data['cfg']['sc']['d'][5][0]
+                self.schedule_day_friday_duration = data['cfg']['sc']['d'][5][1]
+                self.schedule_day_friday_boundary = data['cfg']['sc']['d'][5][2]
+                self.schedule_day_saturday_start = data['cfg']['sc']['d'][6][0]
+                self.schedule_day_saturday_duration = data['cfg']['sc']['d'][6][1]
+                self.schedule_day_saturday_boundary = data['cfg']['sc']['d'][6][2]
+
 
         self.wait = False
 
