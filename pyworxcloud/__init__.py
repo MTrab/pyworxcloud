@@ -158,14 +158,13 @@ class WorxCloud:
         if 'dat' in data:
             self.firmware = data['dat']['fw']
             self.mowing_zone = data['dat']['lz']
-            if 'rsi' in data['dat']:
-                self.rssi = data['dat']['rsi']
-                self.status = data['dat']['ls']
-                self.status_description = StateDict[data['dat']['ls']]
-                self.error = data['dat']['le']
-                self.error_description = ErrorDict[data['dat']['le']]
-                self.current_zone = data['dat']['lz']
-                self.locked = data['dat']['lk']
+            self.rssi = data['dat']['rsi']
+            self.status = data['dat']['ls']
+            self.status_description = StateDict[data['dat']['ls']]
+            self.error = data['dat']['le']
+            self.error_description = ErrorDict[data['dat']['le']]
+            self.current_zone = data['dat']['lz']
+            self.locked = data['dat']['lk']
             if 'bt' in data['dat']:
                 self.battery_temperature = data['dat']['bt']['t']
                 self.battery_voltage = data['dat']['bt']['v']
