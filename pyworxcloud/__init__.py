@@ -5,7 +5,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.20'
+__version__ = '1.2.22'
 
 StateDict = {
     0: "Idle",
@@ -228,6 +228,9 @@ class WorxCloud:
 
     def stop(self):
         self._mqtt.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
+
+    def zonetraining(self):
+        self._mqtt.publish(self.mqtt_in, '{"cmd":4}', qos=0, retain=False)
 
     def setRainDelay(self, rainDelay):
         msg = '{"rd": %s}' % (rainDelay)
