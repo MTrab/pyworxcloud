@@ -220,6 +220,9 @@ class WorxCloud:
     def _on_connect(self, client, userdata, flags, rc):
         client.subscribe(self.mqtt_out)
 
+    def poll(self):
+        self._mqtt.publish(self.mqtt_in, '{"cmd":0}', qos=0, retain=False)
+
     def start(self):
         self._mqtt.publish(self.mqtt_in, '{"cmd":1}', qos=0, retain=False)
 
