@@ -64,10 +64,11 @@ class WorxCloud:
         self._api = WorxLandroidAPI()
         
 
-    async def initialize(self, username, password, landxcape=False ):
+    async def initialize(self, username, password, type="worx" ):
+        """Usable types are: worx, kress and landxcape."""
         loop = asyncio.get_running_loop()
 
-        auth = await loop.run_in_executor(None, self._authenticate, username, password, landxcape)
+        auth = await loop.run_in_executor(None, self._authenticate, username, password, type)
         if auth is False:
             self._auth_result = False
             return None
@@ -108,8 +109,8 @@ class WorxCloud:
     def auth_result(self):
         return self._auth_result
 
-    def _authenticate(self, username, password, landxcape):
-        auth_data = self._api.auth(username, password, landxcape)
+    def _authenticate(self, username, password, type):
+        auth_data = self._api.auth(username, password, type)
 
         try:
             self._api.set_token(auth_data['access_token'])
