@@ -5,7 +5,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.22'
+__version__ = '1.3.0'
 
 StateDict = {
     0: "Idle",
@@ -64,10 +64,10 @@ class WorxCloud:
         self._api = WorxLandroidAPI()
         
 
-    async def initialize(self, username, password):
+    async def initialize(self, username, password, landxcape=False ):
         loop = asyncio.get_running_loop()
 
-        auth = await loop.run_in_executor(None, self._authenticate, username, password)
+        auth = await loop.run_in_executor(None, self._authenticate, username, password, landxcape)
         if auth is False:
             self._auth_result = False
             return None
@@ -108,8 +108,8 @@ class WorxCloud:
     def auth_result(self):
         return self._auth_result
 
-    def _authenticate(self, username, password):
-        auth_data = self._api.auth(username, password)
+    def _authenticate(self, username, password, landxcape):
+        auth_data = self._api.auth(username, password, landxcape)
 
         try:
             self._api.set_token(auth_data['access_token'])

@@ -3,12 +3,16 @@ import asyncio
 API_HOST = "api.worxlandroid.com"
 API_BASE = ("https://{}/api/v2").format(API_HOST)
 
+API_HOST_LANDXCAPE = "api.landxcape-services.com"
+API_BASE_LANDXCAPE = ("https://{}/api/v2").format(API_HOST_LANDXCAPE)
+
 
 class WorxLandroidAPI():
     def __init__(self):
+        self.landxcape = False
         self._token = self._generate_identify_token('725f542f5d2c4b6a5145722a2a6a5b736e764f6e725b462e4568764d4b58755f6a767b2b76526457')
         self._token_type = 'app'
-
+        
     def set_token(self, token):
         self._token = token
 
@@ -16,7 +20,10 @@ class WorxLandroidAPI():
         self._token_type = token_type
 
     def _generate_identify_token(self, seed_token):
-        text_to_char = [ord(c) for c in API_HOST]
+        if self.landxcape:
+            text_to_char = [ord(c) for c in API_HOST_LANDXCAPE]
+        else:
+            text_to_char = [ord(c) for c in API_HOST]
 
         import re
         step_one = re.findall(r".{1,2}", seed_token)
@@ -37,12 +44,15 @@ class WorxLandroidAPI():
 
         return header_data
 
-    def auth(self, username, password, type='app'):
+    def auth(self, username, password, landxcape, type='app'):
         import uuid
         import json
 
         self.uuid = str(uuid.uuid1())
+        self.landxcape = landxcape
 
+        if self.landxcape:
+            self._token = self._generate_identify_token('071916003330192318141c080b10131a056115181634352016310817031c0b25391c1a176a0a0102')
 
         payload_data = {}
         payload_data['username'] = username
@@ -85,9 +95,16 @@ class WorxLandroidAPI():
 
         try:
             if payload:
-                req = requests.post(API_BASE + path, data=payload, headers=self._get_headers(), timeout=10)
+                if self.landxcape:
+                    req = requests.post(API_BASE_LANDXCAPE + path, data=payload, headers=self._get_headers(), timeout=10)
+                else:
+                    req = requests.post(API_BASE + path, data=payload, headers=self._get_headers(), timeout=10)
             else:
-                req = requests.get(API_BASE + path, headers=self._get_headers(), timeout=10)
+                if self.landxcape:
+                    req = requests.get(API_BASE_LANDXCAPE + path, headers=self._get_headers(), timeout=10)
+                else:
+                    req = requests.get(API_BASE + path, headers=self._get_headers(), timeout=10)
+
 
             if not req.ok:
                 return False
