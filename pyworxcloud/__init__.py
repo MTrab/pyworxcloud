@@ -194,7 +194,7 @@ class WorxCloud:
             self.rain_delay = data['cfg']['rd']
             self.serial = data['cfg']['sn']
             if 'sc' in data['cfg']:
-                self.schedule_mower_active = data['cfg']['sc']['m']
+                self.schedule_mower_active = True if str(data['cfg']['sc']['m']) == "1" else False
                 self.schedule_variation = data['cfg']['sc']['p']
                 self.schedule_day_sunday_start = data['cfg']['sc']['d'][0][0]
                 self.schedule_day_sunday_duration = data['cfg']['sc']['d'][0][1]
