@@ -63,6 +63,7 @@ class WorxCloud:
 
         self._api = WorxLandroidAPI()
         
+        self._raw = ''
 
     async def initialize(self, username, password, type="worx" ):
         """Usable types are: worx, kress and landxcape."""
@@ -149,6 +150,7 @@ class WorxCloud:
     def getStatus(self):
         status = self._api.get_status(self.serial_number)
         status = str(status).replace("'","\"")
+        self._raw = status
 
         self._decodeData(status)
 
