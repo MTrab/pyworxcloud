@@ -110,7 +110,7 @@ class WorxLandroidAPI():
             if not req.ok:
                 return False
         except:
-            raise("Timeout connecting")
+            raise Exception("Timeout connecting")
             return False
 
         return req.json()
