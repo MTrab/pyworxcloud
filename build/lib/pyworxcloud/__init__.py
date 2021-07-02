@@ -5,7 +5,7 @@ import time
 
 from .worxlandroidapi import *
 
-__version__ = '1.2.22'
+__version__ = '1.3.0'
 
 StateDict = {
     0: "Idle",
@@ -63,11 +63,13 @@ class WorxCloud:
 
         self._api = WorxLandroidAPI()
         
+        self._raw = ''
 
-    async def initialize(self, username, password):
+    async def initialize(self, username, password, type="worx" ):
+        """Usable types are: worx, kress and landxcape."""
         loop = asyncio.get_running_loop()
 
-        auth = await loop.run_in_executor(None, self._authenticate, username, password)
+        auth = await loop.run_in_executor(None, self._authenticate, username, password, type)
         if auth is False:
             self._auth_result = False
             return None
@@ -108,8 +110,8 @@ class WorxCloud:
     def auth_result(self):
         return self._auth_result
 
-    def _authenticate(self, username, password):
-        auth_data = self._api.auth(username, password)
+    def _authenticate(self, username, password, type):
+        auth_data = self._api.auth(username, password, type)
 
         try:
             self._api.set_token(auth_data['access_token'])
@@ -148,6 +150,7 @@ class WorxCloud:
     def getStatus(self):
         status = self._api.get_status(self.serial_number)
         status = str(status).replace("'","\"")
+        self._raw = status
 
         self._decodeData(status)
 
@@ -191,7 +194,7 @@ class WorxCloud:
             self.rain_delay = data['cfg']['rd']
             self.serial = data['cfg']['sn']
             if 'sc' in data['cfg']:
-                self.schedule_mower_active = data['cfg']['sc']['m']
+                self.schedule_mower_active = True if str(data['cfg']['sc']['m']) == "1" else False
                 self.schedule_variation = data['cfg']['sc']['p']
                 self.schedule_day_sunday_start = data['cfg']['sc']['d'][0][0]
                 self.schedule_day_sunday_duration = data['cfg']['sc']['d'][0][1]
@@ -234,6 +237,14 @@ class WorxCloud:
 
     def setRainDelay(self, rainDelay):
         msg = '{"rd": %s}' % (rainDelay)
+        self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+
+    def disableSchedule(self):
+        msg = '{"sc": {"m": 0}}'
+        self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+
+    def enableSchedule(self):
+        msg = '{"sc": {"m": 1}}'
         self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
 
     def _fetch(self):
