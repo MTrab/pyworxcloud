@@ -3,7 +3,7 @@
 from pyworxcloud import __version__
 import setuptools
 
-requirements = ['paho-mqtt==1.5.0',
+requirements = ['paho-mqtt==1.5.1',
                 'pyOpenSSL==17.5.0']
 
 setuptools.setup(
