@@ -51,7 +51,7 @@ ErrorDict = {
 }
 
 UNKNOWN_ERROR = "Unknown error (%s)"
-POLL_LIMIT_PERIOD = 60 #s
+POLL_LIMIT_PERIOD = 30 #s
 POLL_CALLS_LIMIT = 1 #polls per timeframe
 
 
