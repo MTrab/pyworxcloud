@@ -6,7 +6,7 @@ from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
-__version__ = '1.4.5'
+__version__ = '1.4.6'
 
 StateDict = {
     0: "Idle",
@@ -240,6 +240,7 @@ class WorxCloud:
                 self.schedule_day_saturday_duration = data['cfg']['sc']['d'][6][1]
                 self.schedule_day_saturday_boundary = data['cfg']['sc']['d'][6][2]
 
+        self.islocked = True if self.locked == 1 else False
         self.wait = False
 
     def _on_connect(self, client, userdata, flags, rc):
@@ -266,6 +267,15 @@ class WorxCloud:
 
     def zonetraining(self):
         self._mqtt.publish(self.mqtt_in, '{"cmd":4}', qos=0, retain=False)
+
+    def lock(self):
+        self._mqtt.publish(self.mqtt_in, '{"cmd":5}', qos=0, retain=False)
+
+    def unlock(self):
+        self._mqtt.publish(self.mqtt_in, '{"cmd":6}', qos=0, retain=False)
+
+    def restart(self):
+        self._mqtt.publish(self.mqtt_in, '{"cmd":7}', qos=0, retain=False)
 
     def setRainDelay(self, rainDelay):
         msg = '{"rd": %s}' % (rainDelay)
