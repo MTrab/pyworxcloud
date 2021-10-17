@@ -1,4 +1,4 @@
-#import asyncio
+import asyncio
 import concurrent.futures
 import contextlib
 import time
@@ -6,7 +6,7 @@ from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
-__version__ = '1.4.0'
+__version__ = '1.4.3'
 
 StateDict = {
     0: "Idle",
@@ -205,6 +205,8 @@ class WorxCloud:
             self.serial = data['cfg']['sn']
             if 'sc' in data['cfg']:
                 self.schedule_mower_active = True if str(data['cfg']['sc']['m']) == "1" else False
+                self.partymode_enabled = True if str(data['cfg']['sc']['m']) == "2" else False
+                self.partymode = True if "distm" in data['cfg']['sc'] else False
                 self.schedule_variation = data['cfg']['sc']['p']
                 self.schedule_day_sunday_start = data['cfg']['sc']['d'][0][0]
                 self.schedule_day_sunday_duration = data['cfg']['sc']['d'][0][1]
