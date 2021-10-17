@@ -6,7 +6,7 @@ from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
-__version__ = '1.3.1'
+__version__ = '1.4.0'
 
 StateDict = {
     0: "Idle",
@@ -47,7 +47,11 @@ ErrorDict = {
     14: "Charge error",
     15: "Timeout finding home",
     16: "Locked",
-    17: "Battery temperature error"
+    17: "Battery temperature error",
+    18: 'dummy model',
+    19: 'Battery trunk open timeout',
+    20: 'wire sync',
+    21: 'msg num'
 }
 
 UNKNOWN_ERROR = "Unknown error (%s)"
@@ -168,7 +172,10 @@ class WorxCloud:
             self.status = data['dat']['ls']
             self.status_description = StateDict[data['dat']['ls']]
             self.error = data['dat']['le']
-            self.error_description = ErrorDict[data['dat']['le']]
+            if data['dat']['le'] in ErrorDict:
+                self.error_description = ErrorDict[data['dat']['le']]
+            else:
+                self.error_description = f"Unknown error ({data['dat']['le']})"
             self.current_zone = data['dat']['lz']
             self.locked = data['dat']['lk']
             if 'bt' in data['dat']:

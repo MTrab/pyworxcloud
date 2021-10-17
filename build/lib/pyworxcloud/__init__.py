@@ -1,4 +1,4 @@
-import asyncio
+#import asyncio
 import concurrent.futures
 import contextlib
 import time
@@ -6,7 +6,7 @@ from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
-__version__ = '1.3.0'
+__version__ = '1.3.1'
 
 StateDict = {
     0: "Idle",
@@ -51,7 +51,7 @@ ErrorDict = {
 }
 
 UNKNOWN_ERROR = "Unknown error (%s)"
-POLL_LIMIT_PERIOD = 60 #s
+POLL_LIMIT_PERIOD = 30 #s
 POLL_CALLS_LIMIT = 1 #polls per timeframe
 
 
@@ -234,7 +234,7 @@ class WorxCloud:
         try:
             self._poll()
         except RateLimitException as exception:
-            return f"The rate limit of {POLL_CALLS_LIMIT} status polls per {POLL_LIMIT_PERIOD} has been exceeded. It can be polled again in {exception.period_remaining} seconds"
+            return f"The rate limit of {POLL_CALLS_LIMIT} status polls per {POLL_LIMIT_PERIOD} seconds has been exceeded. Please wait {round(exception.period_remaining)} seconds before polling again."
 
     def start(self):
         self._mqtt.publish(self.mqtt_in, '{"cmd":1}', qos=0, retain=False)
