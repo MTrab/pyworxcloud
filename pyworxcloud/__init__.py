@@ -1,4 +1,4 @@
-#import asyncio
+import asyncio
 import concurrent.futures
 import contextlib
 import time
@@ -6,7 +6,7 @@ from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
-__version__ = '1.4.0'
+__version__ = '1.4.1'
 
 StateDict = {
     0: "Idle",

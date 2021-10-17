@@ -1,5 +1,3 @@
-import asyncio
-
 API_BASE = "https://{}/api/v2"
 
 clouds = {
