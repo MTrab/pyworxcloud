@@ -293,6 +293,16 @@ class WorxCloud:
         if self.online:
             self._mqtt.publish(self.mqtt_in, data, qos=0, retain=False)
 
+    def partyMode(self, enabled):
+        if self.online:
+            if enabled:
+                msg = '{"sc": {"m": 2}}'
+                self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+            else:
+                msg = '{"sc": {"m": 1}}'
+                self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+                
+
 @contextlib.contextmanager
 def pfx_to_pem(pfx_data):
     ''' Decrypts the .pfx file to be used with requests.'''
