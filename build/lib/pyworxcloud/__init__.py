@@ -6,7 +6,7 @@ from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
-__version__ = '1.4.4'
+__version__ = '1.4.5'
 
 StateDict = {
     0: "Idle",
@@ -175,7 +175,7 @@ class WorxCloud:
             if data['dat']['le'] in ErrorDict:
                 self.error_description = ErrorDict[data['dat']['le']]
             else:
-                self.error_description = f"Unknown error ({data['dat']['le']})"
+                self.error_description = f"Unknown error"
             self.current_zone = data['dat']['lz']
             self.locked = data['dat']['lk']
             if 'bt' in data['dat']:
@@ -184,8 +184,18 @@ class WorxCloud:
                 self.battery_percent = data['dat']['bt']['p']
                 self.battery_charging = data['dat']['bt']['c']
                 self.battery_charge_cycle = data['dat']['bt']['nr']
+                if self.battery_charge_cycles_reset != None:
+                    self.battery_charge_cycle_current = self.battery_charge_cycle - self.battery_charge_cycles_reset
+                    if self.battery_charge_cycle_current < 0: self.battery_charge_cycle_current = 0
+                else:
+                    self.battery_charge_cycle_current = self.battery_charge_cycle
             if 'st' in data['dat']:
                 self.blade_time = data['dat']['st']['b']
+                if self.blade_work_time_reset != None:
+                    self.blade_time_current = self.blade_time - self.blade_work_time_reset
+                    if self.blade_time_current < 0: self.blade_time_current = 0
+                else:
+                    self.blade_time_current = self.blade_time
                 self.distance = data['dat']['st']['d']
                 self.work_time = data['dat']['st']['wt']
             if 'dmp' in data['dat']:
