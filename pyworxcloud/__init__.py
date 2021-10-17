@@ -296,10 +296,10 @@ class WorxCloud:
     def partyMode(self, enabled):
         if self.online:
             if enabled:
-                msg = '{"sc": {"m": 2}}'
+                msg = '{"sc": {"m": 2, "distm": 0}}'
                 self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
             else:
-                msg = '{"sc": {"m": 1}}'
+                msg = '{"sc": {"m": 1, "distm": 0}}'
                 self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
                 
 
