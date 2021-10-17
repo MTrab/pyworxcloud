@@ -6,7 +6,7 @@ from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
-__version__ = '1.4.3'
+__version__ = '1.4.4'
 
 StateDict = {
     0: "Idle",
@@ -303,6 +303,11 @@ class WorxCloud:
             else:
                 msg = '{"sc": {"m": 1, "distm": 0}}'
                 self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+
+    def setZone(self, zone):
+        if self.online:
+            msg = '{"mz":' + zone + '}'
+            self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
                 
 
 @contextlib.contextmanager
