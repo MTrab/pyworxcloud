@@ -6,7 +6,7 @@ from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
-__version__ = '1.4.9'
+__version__ = '1.4.10'
 
 StateDict = {
     0: "Idle",
@@ -214,6 +214,7 @@ class WorxCloud:
             self.rain_delay = data['cfg']['rd']
             self.serial = data['cfg']['sn']
             if 'sc' in data['cfg']:
+                self.ots_enabled = True if 'ots' in data['cfg']['sc'] else False
                 self.schedule_mower_active = True if str(data['cfg']['sc']['m']) == "1" else False
                 self.partymode_enabled = True if str(data['cfg']['sc']['m']) == "2" else False
                 self.partymode = True if "distm" in data['cfg']['sc'] else False
@@ -268,11 +269,11 @@ class WorxCloud:
     def zonetraining(self):
         self._mqtt.publish(self.mqtt_in, '{"cmd":4}', qos=0, retain=False)
 
-    def lock(self):
-        self._mqtt.publish(self.mqtt_in, '{"cmd":5}', qos=0, retain=False)
-
-    def unlock(self):
-        self._mqtt.publish(self.mqtt_in, '{"cmd":6}', qos=0, retain=False)
+    def lock(self, enabled):
+        if enabled:
+            self._mqtt.publish(self.mqtt_in, '{"cmd":5}', qos=0, retain=False)
+        else:
+            self._mqtt.publish(self.mqtt_in, '{"cmd":6}', qos=0, retain=False)
 
     def restart(self):
         self._mqtt.publish(self.mqtt_in, '{"cmd":7}', qos=0, retain=False)
@@ -281,13 +282,13 @@ class WorxCloud:
         msg = '{"rd": %s}' % (rainDelay)
         self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
 
-    def disableSchedule(self):
-        msg = '{"sc": {"m": 0}}'
-        self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
-
-    def enableSchedule(self):
-        msg = '{"sc": {"m": 1}}'
-        self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+    def enableSchedule(self, enable):
+        if enable:
+            msg = '{"sc": {"m": 1}}'
+            self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+        else:
+            msg = '{"sc": {"m": 0}}'
+            self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
 
     def _fetch(self):
         self._api.get_products()
