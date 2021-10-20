@@ -1,4 +1,3 @@
-import asyncio
 import concurrent.futures
 import contextlib
 import time
@@ -74,9 +73,7 @@ class WorxCloud:
 
     async def initialize(self, username, password, type="worx" ):
         """Usable types are: worx, kress and landxcape."""
-        loop = asyncio.get_running_loop()
-
-        auth = await loop.run_in_executor(None, self._authenticate, username, password, type)
+        auth = self._authenticate( username, password, type)
         if auth is False:
             self._auth_result = False
             return None
@@ -102,7 +99,6 @@ class WorxCloud:
 
         conn_res = self._mqtt.connect(self._worx_mqtt_endpoint, port=8883, keepalive=600)
         if (conn_res):
-            #self._auth_result = False
             return None
 
         self._mqtt.loop_start()
