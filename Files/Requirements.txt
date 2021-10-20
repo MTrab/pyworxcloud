@@ -1,4 +1,0 @@
-paho-mqtt
-requests
-pyopenssl
-ratelimit
