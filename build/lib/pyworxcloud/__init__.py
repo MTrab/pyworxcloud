@@ -6,7 +6,7 @@ from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
-__version__ = '1.4.6'
+__version__ = '1.4.8'
 
 StateDict = {
     0: "Idle",
@@ -167,7 +167,7 @@ class WorxCloud:
         data = json.loads(indata)
         if 'dat' in data:
             self.firmware = data['dat']['fw']
-            self.mowing_zone = data['dat']['lz']
+            self.mowing_zone = 0 if data['dat']['lz'] == 8 else data['dat']['lz']
             self.rssi = data['dat']['rsi']
             self.status = data['dat']['ls']
             self.status_description = StateDict[data['dat']['ls']]
@@ -328,6 +328,12 @@ class WorxCloud:
         if self.online:
             msg = '{"mz":' + zone + '}'
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+
+    def startEdgecut(self):
+        if self.online:
+            msg = '{"sc":{"ots":{"bc":1,"wtm":0}}}'
+            self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+
                 
 
 @contextlib.contextmanager
