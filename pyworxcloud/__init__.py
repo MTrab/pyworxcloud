@@ -5,7 +5,7 @@ from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
-__version__ = '1.4.10'
+__version__ = '1.4.11'
 
 StateDict = {
     0: "Idle",
@@ -71,7 +71,7 @@ class WorxCloud:
         
         self._raw = ''
 
-    async def initialize(self, username, password, type="worx" ):
+    def initialize(self, username, password, type="worx" ):
         """Usable types are: worx, kress and landxcape."""
         auth = self._authenticate( username, password, type)
         if auth is False:
