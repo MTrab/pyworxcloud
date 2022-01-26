@@ -289,9 +289,9 @@ class WorxCloud:
     def _fetch(self):
         self._api.get_products()
         products = self._api.data
-
-        for attr, val in products[self._dev_id].items():
-            setattr(self, str(attr), val)
+        if products != False:
+            for attr, val in products[self._dev_id].items():
+                setattr(self, str(attr), val)
 
     def update(self):
         self.wait = True
