@@ -5,7 +5,7 @@ from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
-__version__ = '1.4.11'
+__version__ = '1.4.12'
 
 StateDict = {
     0: "Idle",
