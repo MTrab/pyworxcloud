@@ -1,9 +1,8 @@
 ### Basic example using this module
 
-import asyncio
 import pyworxcloud
 
-async def main():
+def main():
     worx = pyworxcloud.WorxCloud()
 
     # Initialize connection, using your worx email and password
@@ -46,4 +45,6 @@ async def main():
     #worx.stop()
 
 
-asyncio.get_event_loop().run_until_complete(main())
+if __name__ == "__main__":
+    # execute only if run as a script
+    main()
