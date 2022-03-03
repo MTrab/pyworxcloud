@@ -7,7 +7,7 @@ async def main():
     worx = pyworxcloud.WorxCloud()
 
     # Initialize connection, using your worx email and password
-    auth = await worx.initialize("your@email","Password")
+    auth = worx.initialize("your@email","Password")
 
     if not auth:
         #If invalid credentials are used, or something happend during
