@@ -1,11 +1,14 @@
 import concurrent.futures
 import contextlib
+import logging
 import time
 from ratelimit import limits, RateLimitException
 
 from .worxlandroidapi import *
 
 __version__ = '1.4.12'
+
+_LOGGER = logging.getLogger(__name__)
 
 StateDict = {
     0: "Idle",
@@ -58,7 +61,6 @@ POLL_LIMIT_PERIOD = 30 #s
 POLL_CALLS_LIMIT = 1 #polls per timeframe
 
 
-
 class WorxCloud:
     """Worx by Landroid Cloud connector."""
     wait = True
@@ -71,17 +73,17 @@ class WorxCloud:
         
         self._raw = ''
 
-    def initialize(self, username, password, type="worx" ):
+    def initialize(self, username, password, type="worx" ) -> bool:
         """Usable types are: worx, kress and landxcape."""
         auth = self._authenticate( username, password, type)
         if auth is False:
             self._auth_result = False
-            return None
+            return False
 
         self._auth_result = True
         return True
 
-    def connect(self, dev_id, verify_ssl = True):
+    def connect(self, dev_id, verify_ssl = True) -> bool:
         import paho.mqtt.client as mqtt
         self._dev_id = dev_id
         self._get_mac_address()
@@ -99,7 +101,7 @@ class WorxCloud:
 
         conn_res = self._mqtt.connect(self._worx_mqtt_endpoint, port=8883, keepalive=600)
         if (conn_res):
-            return None
+            return False
 
         self._mqtt.loop_start()
         mqp = self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
@@ -108,9 +110,8 @@ class WorxCloud:
 
         return True
 
-
     @property
-    def auth_result(self):
+    def auth_result(self) -> bool:
         return self._auth_result
 
     def _authenticate(self, username, password, type):
