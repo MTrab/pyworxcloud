@@ -6,26 +6,25 @@ _LOGGER = logging.getLogger(__name__)
 
 clouds = {
     "worx": {
-        "url": 'api.worxlandroid.com',
-        "key": '725f542f5d2c4b6a5145722a2a6a5b736e764f6e725b462e4568764d4b58755f6a767b2b76526457'
+        "url": "api.worxlandroid.com",
+        "key": "725f542f5d2c4b6a5145722a2a6a5b736e764f6e725b462e4568764d4b58755f6a767b2b76526457",
     },
     "kress": {
-        "url": 'api.kress-robotik.com',
-        "key": '5a1c6f60645658795b78416f747d7a591a494a5c6a1c4d571d194a6b595f5a7f7d7b5656771e1c5f'
+        "url": "api.kress-robotik.com",
+        "key": "5a1c6f60645658795b78416f747d7a591a494a5c6a1c4d571d194a6b595f5a7f7d7b5656771e1c5f",
     },
     "landxcape": {
-        "url": 'api.landxcape-services.com',
-        "key": '071916003330192318141c080b10131a056115181634352016310817031c0b25391c1a176a0a0102'
-    }
+        "url": "api.landxcape-services.com",
+        "key": "071916003330192318141c080b10131a056115181634352016310817031c0b25391c1a176a0a0102",
+    },
 }
 
 
-
-class WorxLandroidAPI():
+class WorxLandroidAPI:
     def __init__(self):
         self.cloud = clouds["worx"]
-        self._token_type = 'app'
-        
+        self._token_type = "app"
+
     def set_token(self, token):
         self._token = token
 
@@ -36,27 +35,38 @@ class WorxLandroidAPI():
         text_to_char = [ord(c) for c in self.cloud["url"]]
 
         import re
+
         step_one = re.findall(r".{1,2}", seed_token)
         step_two = list(map((lambda hex: int(hex, 16)), step_one))
 
         import functools
         import operator
-        step_three = list(map((lambda foo: functools.reduce((lambda x, y: operator.xor(x, y)), text_to_char, foo)), step_two))
+
+        step_three = list(
+            map(
+                (
+                    lambda foo: functools.reduce(
+                        (lambda x, y: operator.xor(x, y)), text_to_char, foo
+                    )
+                ),
+                step_two,
+            )
+        )
         step_four = list(map(chr, step_three))
 
-        final = ''.join(step_four)
+        final = "".join(step_four)
         return final
 
     def _get_headers(self):
         header_data = {}
-        header_data['Content-Type'] = 'application/json'
-        header_data['Authorization'] = self._token_type + ' ' + self._token
+        header_data["Content-Type"] = "application/json"
+        header_data["Authorization"] = self._token_type + " " + self._token
 
         return header_data
 
-    def auth(self, username, password, cloud, type='app'):
-        import uuid
+    def auth(self, username, password, cloud, type="app"):
         import json
+        import uuid
 
         self.uuid = str(uuid.uuid1())
         self.cloud = clouds[cloud]
@@ -65,32 +75,32 @@ class WorxLandroidAPI():
         self._token = self._generate_identify_token(self.cloud["key"])
 
         payload_data = {}
-        payload_data['username'] = username
-        payload_data['password'] = password
-        payload_data['grant_type'] = "password"
-        payload_data['client_id'] = 1
-        payload_data['type'] = type
-        payload_data['client_secret'] = self._token
-        payload_data['scope'] = "*"
+        payload_data["username"] = username
+        payload_data["password"] = password
+        payload_data["grant_type"] = "password"
+        payload_data["client_id"] = 1
+        payload_data["type"] = type
+        payload_data["client_secret"] = self._token
+        payload_data["scope"] = "*"
 
         payload = json.dumps(payload_data)
 
-        callData = self._call('/oauth/token', payload)
-        
+        callData = self._call("/oauth/token", payload)
+
         return callData
 
     def get_profile(self):
-        callData = self._call('/users/me')
+        callData = self._call("/users/me")
         self._data = callData
         return callData
 
     def get_cert(self):
-        callData = self._call('/users/certificate')
+        callData = self._call("/users/certificate")
         self._data = callData
         return callData
 
     def get_products(self):
-        callData = self._call('/product-items')
+        callData = self._call("/product-items")
         self._data = callData
         return callData
 
@@ -101,13 +111,21 @@ class WorxLandroidAPI():
 
     def _call(self, path, payload=None):
         import json
+
         import requests
 
         try:
             if payload:
-                req = requests.post(self._api_host + path, data=payload, headers=self._get_headers(), timeout=10)
+                req = requests.post(
+                    self._api_host + path,
+                    data=payload,
+                    headers=self._get_headers(),
+                    timeout=10,
+                )
             else:
-                req = requests.get(self._api_host + path, headers=self._get_headers(), timeout=10)
+                req = requests.get(
+                    self._api_host + path, headers=self._get_headers(), timeout=10
+                )
 
             if not req.ok:
                 response = {}
@@ -130,7 +148,10 @@ class WorxLandroidAPI():
                     _LOGGER.error("Error: Service unavailable")
                 else:
                     response["error"] = "Unknown error"
-                    _LOGGER.error("Error: Return code %s was received - unknown error", req.status_code)
+                    _LOGGER.error(
+                        "Error: Return code %s was received - unknown error",
+                        req.status_code,
+                    )
                 return json.dumps(response)
         except TimeoutError:
             response = {"error": "timeout"}
@@ -138,11 +159,12 @@ class WorxLandroidAPI():
             return json.dumps(response)
         except:
             response = {"error": "unexpected error"}
-            _LOGGER.warning("Error: Unexpected error occured in communication with API service")
+            _LOGGER.warning(
+                "Error: Unexpected error occured in communication with API service"
+            )
             return json.dumps(response)
 
         return req.json()
-
 
     @property
     def data(self):
