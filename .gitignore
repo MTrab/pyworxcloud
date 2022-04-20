@@ -364,3 +364,4 @@ FodyWeavers.xsd
 
 build/
 test.py
+__pycache__/
