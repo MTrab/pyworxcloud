@@ -7,8 +7,6 @@ from ratelimit import RateLimitException, limits
 
 from .worxlandroidapi import *
 
-__version__ = "1.4.14"
-
 _LOGGER = logging.getLogger(__name__)
 
 StateDict = {
