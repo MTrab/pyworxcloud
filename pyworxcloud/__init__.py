@@ -2,11 +2,12 @@ import concurrent.futures
 import contextlib
 import logging
 import time
-from ratelimit import limits, RateLimitException
+
+from ratelimit import RateLimitException, limits
 
 from .worxlandroidapi import *
 
-__version__ = '1.4.14'
+__version__ = "1.4.14"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ StateDict = {
     31: "Zoning",
     32: "Cutting edge",
     33: "Searching area",
-    34: "Pause"
+    34: "Pause",
 }
 
 ErrorDict = {
@@ -50,32 +51,33 @@ ErrorDict = {
     15: "Timeout finding home",
     16: "Locked",
     17: "Battery temperature error",
-    18: 'dummy model',
-    19: 'Battery trunk open timeout',
-    20: 'wire sync',
-    21: 'msg num'
+    18: "dummy model",
+    19: "Battery trunk open timeout",
+    20: "wire sync",
+    21: "msg num",
 }
 
 UNKNOWN_ERROR = "Unknown error (%s)"
-POLL_LIMIT_PERIOD = 30 #s
-POLL_CALLS_LIMIT = 1 #polls per timeframe
+POLL_LIMIT_PERIOD = 30  # s
+POLL_CALLS_LIMIT = 1  # polls per timeframe
 
 
 class WorxCloud:
     """Worx by Landroid Cloud connector."""
+
     wait = True
 
     def __init__(self):
-        self._worx_mqtt_client_id = ''
-        self._worx_mqtt_endpoint = ''
+        self._worx_mqtt_client_id = ""
+        self._worx_mqtt_endpoint = ""
 
         self._api = WorxLandroidAPI()
-        
-        self._raw = ''
 
-    def initialize(self, username, password, type="worx" ) -> bool:
+        self._raw = ""
+
+    def initialize(self, username, password, type="worx") -> bool:
         """Usable types are: worx, kress and landxcape."""
-        auth = self._authenticate( username, password, type)
+        auth = self._authenticate(username, password, type)
         if auth is False:
             self._auth_result = False
             return False
@@ -83,8 +85,9 @@ class WorxCloud:
         self._auth_result = True
         return True
 
-    def connect(self, dev_id, verify_ssl = True) -> bool:
+    def connect(self, dev_id, verify_ssl=True) -> bool:
         import paho.mqtt.client as mqtt
+
         self._dev_id = dev_id
         self._get_mac_address()
 
@@ -99,12 +102,14 @@ class WorxCloud:
         if not verify_ssl:
             self._mqtt.tls_insecure_set(True)
 
-        conn_res = self._mqtt.connect(self._worx_mqtt_endpoint, port=8883, keepalive=600)
-        if (conn_res):
+        conn_res = self._mqtt.connect(
+            self._worx_mqtt_endpoint, port=8883, keepalive=600
+        )
+        if conn_res:
             return False
 
         self._mqtt.loop_start()
-        mqp = self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
+        mqp = self._mqtt.publish(self.mqtt_in, "{}", qos=0, retain=False)
         while not mqp.is_published:
             time.sleep(0.1)
 
@@ -118,14 +123,14 @@ class WorxCloud:
         auth_data = self._api.auth(username, password, type)
 
         try:
-            self._api.set_token(auth_data['access_token'])
-            self._api.set_token_type(auth_data['token_type'])
+            self._api.set_token(auth_data["access_token"])
+            self._api.set_token_type(auth_data["token_type"])
 
             self._api.get_profile()
             profile = self._api.data
-            self._worx_mqtt_endpoint = profile['mqtt_endpoint']
+            self._worx_mqtt_endpoint = profile["mqtt_endpoint"]
 
-            self._worx_mqtt_client_id = 'android-' + self._api.uuid
+            self._worx_mqtt_client_id = "android-" + self._api.uuid
         except:
             return False
 
@@ -134,26 +139,26 @@ class WorxCloud:
         import base64
 
         certresp = self._api.get_cert()
-        cert = base64.b64decode(certresp['pkcs12'])
+        cert = base64.b64decode(certresp["pkcs12"])
 
-        with pfx_to_pem(certresp['pkcs12']) as pem_cert:
+        with pfx_to_pem(certresp["pkcs12"]) as pem_cert:
             yield pem_cert
 
     def _get_mac_address(self):
         self._fetch()
-        self.mqtt_out = self.mqtt_topics['command_out']
-        self.mqtt_in = self.mqtt_topics['command_in']
+        self.mqtt_out = self.mqtt_topics["command_out"]
+        self.mqtt_in = self.mqtt_topics["command_in"]
         self.mac = self.mac_address
 
     def _forward_on_message(self, client, userdata, message):
         import json
 
-        json_message = message.payload.decode('utf-8')
+        json_message = message.payload.decode("utf-8")
         self._decodeData(json_message)
 
     def getStatus(self):
         status = self._api.get_status(self.serial_number)
-        status = str(status).replace("'","\"")
+        status = str(status).replace("'", '"')
         self._raw = status
 
         self._decodeData(status)
@@ -162,105 +167,115 @@ class WorxCloud:
         import json
 
         data = json.loads(indata)
-        if 'dat' in data:
-            self.firmware = data['dat']['fw']
-            self.mowing_zone = 0 if data['dat']['lz'] == 8 else data['dat']['lz']
-            self.rssi = data['dat']['rsi']
-            self.status = data['dat']['ls']
-            self.status_description = StateDict[data['dat']['ls']]
-            self.error = data['dat']['le']
-            if data['dat']['le'] in ErrorDict:
-                self.error_description = ErrorDict[data['dat']['le']]
+        if "dat" in data:
+            self.firmware = data["dat"]["fw"]
+            self.mowing_zone = 0 if data["dat"]["lz"] == 8 else data["dat"]["lz"]
+            self.rssi = data["dat"]["rsi"]
+            self.status = data["dat"]["ls"]
+            self.status_description = StateDict[data["dat"]["ls"]]
+            self.error = data["dat"]["le"]
+            if data["dat"]["le"] in ErrorDict:
+                self.error_description = ErrorDict[data["dat"]["le"]]
             else:
                 self.error_description = f"Unknown error"
-            self.current_zone = data['dat']['lz']
-            self.locked = data['dat']['lk']
-            if 'bt' in data['dat']:
-                self.battery_temperature = data['dat']['bt']['t']
-                self.battery_voltage = data['dat']['bt']['v']
-                self.battery_percent = data['dat']['bt']['p']
-                self.battery_charging = data['dat']['bt']['c']
-                self.battery_charge_cycle = data['dat']['bt']['nr']
+            self.current_zone = data["dat"]["lz"]
+            self.locked = data["dat"]["lk"]
+            if "bt" in data["dat"]:
+                self.battery_temperature = data["dat"]["bt"]["t"]
+                self.battery_voltage = data["dat"]["bt"]["v"]
+                self.battery_percent = data["dat"]["bt"]["p"]
+                self.battery_charging = data["dat"]["bt"]["c"]
+                self.battery_charge_cycle = data["dat"]["bt"]["nr"]
                 if self.battery_charge_cycles_reset != None:
-                    self.battery_charge_cycle_current = self.battery_charge_cycle - self.battery_charge_cycles_reset
-                    if self.battery_charge_cycle_current < 0: self.battery_charge_cycle_current = 0
+                    self.battery_charge_cycle_current = (
+                        self.battery_charge_cycle - self.battery_charge_cycles_reset
+                    )
+                    if self.battery_charge_cycle_current < 0:
+                        self.battery_charge_cycle_current = 0
                 else:
                     self.battery_charge_cycle_current = self.battery_charge_cycle
-            if 'st' in data['dat']:
-                self.blade_time = data['dat']['st']['b']
+            if "st" in data["dat"]:
+                self.blade_time = data["dat"]["st"]["b"]
                 if self.blade_work_time_reset != None:
-                    self.blade_time_current = self.blade_time - self.blade_work_time_reset
-                    if self.blade_time_current < 0: self.blade_time_current = 0
+                    self.blade_time_current = (
+                        self.blade_time - self.blade_work_time_reset
+                    )
+                    if self.blade_time_current < 0:
+                        self.blade_time_current = 0
                 else:
                     self.blade_time_current = self.blade_time
-                self.distance = data['dat']['st']['d']
-                self.work_time = data['dat']['st']['wt']
-            if 'dmp' in data['dat']:
-                self.pitch = data['dat']['dmp'][0]
-                self.roll = data['dat']['dmp'][1]
-                self.yaw = data['dat']['dmp'][2]
-            if 'modules' in data['dat']:
+                self.distance = data["dat"]["st"]["d"]
+                self.work_time = data["dat"]["st"]["wt"]
+            if "dmp" in data["dat"]:
+                self.pitch = data["dat"]["dmp"][0]
+                self.roll = data["dat"]["dmp"][1]
+                self.yaw = data["dat"]["dmp"][2]
+            if "modules" in data["dat"]:
                 self.gps_latitude = None
                 self.gps_longitude = None
-                if "4G" in data['dat']['modules']:
-                    self.gps_latitude = data['dat']['modules']['4G']['gps']['coo'][0]
-                    self.gps_longitude = data['dat']['modules']['4G']['gps']['coo'][1] 
-            if 'rain' in data['dat']:
-                self.rain_delay_time_remaining = data['dat']['rain']['cnt']
+                if "4G" in data["dat"]["modules"]:
+                    self.gps_latitude = data["dat"]["modules"]["4G"]["gps"]["coo"][0]
+                    self.gps_longitude = data["dat"]["modules"]["4G"]["gps"]["coo"][1]
+            if "rain" in data["dat"]:
+                self.rain_delay_time_remaining = data["dat"]["rain"]["cnt"]
 
-        if 'cfg' in data:
+        if "cfg" in data:
             self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
-            self.rain_delay = data['cfg']['rd']
-            self.serial = data['cfg']['sn']
-            if 'sc' in data['cfg']:
-                self.ots_enabled = True if 'ots' in data['cfg']['sc'] else False
-                self.schedule_mower_active = True if str(data['cfg']['sc']['m']) == "1" else False
-                self.partymode_enabled = True if str(data['cfg']['sc']['m']) == "2" else False
-                self.partymode = True if "distm" in data['cfg']['sc'] else False
-                self.schedule_variation = data['cfg']['sc']['p']
-                self.schedule_day_sunday_start = data['cfg']['sc']['d'][0][0]
-                self.schedule_day_sunday_duration = data['cfg']['sc']['d'][0][1]
-                self.schedule_day_sunday_boundary = data['cfg']['sc']['d'][0][2]
-                self.schedule_day_monday_start = data['cfg']['sc']['d'][1][0]
-                self.schedule_day_monday_duration = data['cfg']['sc']['d'][1][1]
-                self.schedule_day_monday_boundary = data['cfg']['sc']['d'][1][2]
-                self.schedule_day_tuesday_start = data['cfg']['sc']['d'][2][0]
-                self.schedule_day_tuesday_duration = data['cfg']['sc']['d'][2][1]
-                self.schedule_day_tuesday_boundary = data['cfg']['sc']['d'][2][2]
-                self.schedule_day_wednesday_start = data['cfg']['sc']['d'][3][0]
-                self.schedule_day_wednesday_duration = data['cfg']['sc']['d'][3][1]
-                self.schedule_day_wednesday_boundary = data['cfg']['sc']['d'][3][2]
-                self.schedule_day_thursday_start = data['cfg']['sc']['d'][4][0]
-                self.schedule_day_thursday_duration = data['cfg']['sc']['d'][4][1]
-                self.schedule_day_thursday_boundary = data['cfg']['sc']['d'][4][2]
-                self.schedule_day_friday_start = data['cfg']['sc']['d'][5][0]
-                self.schedule_day_friday_duration = data['cfg']['sc']['d'][5][1]
-                self.schedule_day_friday_boundary = data['cfg']['sc']['d'][5][2]
-                self.schedule_day_saturday_start = data['cfg']['sc']['d'][6][0]
-                self.schedule_day_saturday_duration = data['cfg']['sc']['d'][6][1]
-                self.schedule_day_saturday_boundary = data['cfg']['sc']['d'][6][2]
-            if 'dd' in data['cfg']['sc']:
-                self.schedule_day_sunday_2_start = data['cfg']['sc']['dd'][0][0]
-                self.schedule_day_sunday_2_duration = data['cfg']['sc']['dd'][0][1]
-                self.schedule_day_sunday_2_boundary = data['cfg']['sc']['dd'][0][2]
-                self.schedule_day_monday_2_start = data['cfg']['sc']['dd'][1][0]
-                self.schedule_day_monday_2_duration = data['cfg']['sc']['dd'][1][1]
-                self.schedule_day_monday_2_boundary = data['cfg']['sc']['dd'][1][2]
-                self.schedule_day_tuesday_2_start = data['cfg']['sc']['dd'][2][0]
-                self.schedule_day_tuesday_2_duration = data['cfg']['sc']['dd'][2][1]
-                self.schedule_day_tuesday_2_boundary = data['cfg']['sc']['dd'][2][2]
-                self.schedule_day_wednesday_2_start = data['cfg']['sc']['dd'][3][0]
-                self.schedule_day_wednesday_2_duration = data['cfg']['sc']['dd'][3][1]
-                self.schedule_day_wednesday_2_boundary = data['cfg']['sc']['dd'][3][2]
-                self.schedule_day_thursday_2_start = data['cfg']['sc']['dd'][4][0]
-                self.schedule_day_thursday_2_duration = data['cfg']['sc']['dd'][4][1]
-                self.schedule_day_thursday_2_boundary = data['cfg']['sc']['dd'][4][2]
-                self.schedule_day_friday_2_start = data['cfg']['sc']['dd'][5][0]
-                self.schedule_day_friday_2_duration = data['cfg']['sc']['dd'][5][1]
-                self.schedule_day_friday_2_boundary = data['cfg']['sc']['dd'][5][2]
-                self.schedule_day_saturday_2_start = data['cfg']['sc']['dd'][6][0]
-                self.schedule_day_saturday_2_duration = data['cfg']['sc']['dd'][6][1]
-                self.schedule_day_saturday_2_boundary = data['cfg']['sc']['dd'][6][2]
+            self.rain_delay = data["cfg"]["rd"]
+            self.serial = data["cfg"]["sn"]
+            if "sc" in data["cfg"]:
+                self.ots_enabled = True if "ots" in data["cfg"]["sc"] else False
+                self.schedule_mower_active = (
+                    True if str(data["cfg"]["sc"]["m"]) == "1" else False
+                )
+                self.partymode_enabled = (
+                    True if str(data["cfg"]["sc"]["m"]) == "2" else False
+                )
+                self.partymode = True if "distm" in data["cfg"]["sc"] else False
+                self.schedule_variation = data["cfg"]["sc"]["p"]
+                self.schedule_day_sunday_start = data["cfg"]["sc"]["d"][0][0]
+                self.schedule_day_sunday_duration = data["cfg"]["sc"]["d"][0][1]
+                self.schedule_day_sunday_boundary = data["cfg"]["sc"]["d"][0][2]
+                self.schedule_day_monday_start = data["cfg"]["sc"]["d"][1][0]
+                self.schedule_day_monday_duration = data["cfg"]["sc"]["d"][1][1]
+                self.schedule_day_monday_boundary = data["cfg"]["sc"]["d"][1][2]
+                self.schedule_day_tuesday_start = data["cfg"]["sc"]["d"][2][0]
+                self.schedule_day_tuesday_duration = data["cfg"]["sc"]["d"][2][1]
+                self.schedule_day_tuesday_boundary = data["cfg"]["sc"]["d"][2][2]
+                self.schedule_day_wednesday_start = data["cfg"]["sc"]["d"][3][0]
+                self.schedule_day_wednesday_duration = data["cfg"]["sc"]["d"][3][1]
+                self.schedule_day_wednesday_boundary = data["cfg"]["sc"]["d"][3][2]
+                self.schedule_day_thursday_start = data["cfg"]["sc"]["d"][4][0]
+                self.schedule_day_thursday_duration = data["cfg"]["sc"]["d"][4][1]
+                self.schedule_day_thursday_boundary = data["cfg"]["sc"]["d"][4][2]
+                self.schedule_day_friday_start = data["cfg"]["sc"]["d"][5][0]
+                self.schedule_day_friday_duration = data["cfg"]["sc"]["d"][5][1]
+                self.schedule_day_friday_boundary = data["cfg"]["sc"]["d"][5][2]
+                self.schedule_day_saturday_start = data["cfg"]["sc"]["d"][6][0]
+                self.schedule_day_saturday_duration = data["cfg"]["sc"]["d"][6][1]
+                self.schedule_day_saturday_boundary = data["cfg"]["sc"]["d"][6][2]
+            if "dd" in data["cfg"]["sc"]:
+                self.schedule_day_sunday_2_start = data["cfg"]["sc"]["dd"][0][0]
+                self.schedule_day_sunday_2_duration = data["cfg"]["sc"]["dd"][0][1]
+                self.schedule_day_sunday_2_boundary = data["cfg"]["sc"]["dd"][0][2]
+                self.schedule_day_monday_2_start = data["cfg"]["sc"]["dd"][1][0]
+                self.schedule_day_monday_2_duration = data["cfg"]["sc"]["dd"][1][1]
+                self.schedule_day_monday_2_boundary = data["cfg"]["sc"]["dd"][1][2]
+                self.schedule_day_tuesday_2_start = data["cfg"]["sc"]["dd"][2][0]
+                self.schedule_day_tuesday_2_duration = data["cfg"]["sc"]["dd"][2][1]
+                self.schedule_day_tuesday_2_boundary = data["cfg"]["sc"]["dd"][2][2]
+                self.schedule_day_wednesday_2_start = data["cfg"]["sc"]["dd"][3][0]
+                self.schedule_day_wednesday_2_duration = data["cfg"]["sc"]["dd"][3][1]
+                self.schedule_day_wednesday_2_boundary = data["cfg"]["sc"]["dd"][3][2]
+                self.schedule_day_thursday_2_start = data["cfg"]["sc"]["dd"][4][0]
+                self.schedule_day_thursday_2_duration = data["cfg"]["sc"]["dd"][4][1]
+                self.schedule_day_thursday_2_boundary = data["cfg"]["sc"]["dd"][4][2]
+                self.schedule_day_friday_2_start = data["cfg"]["sc"]["dd"][5][0]
+                self.schedule_day_friday_2_duration = data["cfg"]["sc"]["dd"][5][1]
+                self.schedule_day_friday_2_boundary = data["cfg"]["sc"]["dd"][5][2]
+                self.schedule_day_saturday_2_start = data["cfg"]["sc"]["dd"][6][0]
+                self.schedule_day_saturday_2_duration = data["cfg"]["sc"]["dd"][6][1]
+                self.schedule_day_saturday_2_boundary = data["cfg"]["sc"]["dd"][6][2]
 
         self.islocked = True if self.locked == 1 else False
         self.wait = False
@@ -271,7 +286,7 @@ class WorxCloud:
     @limits(calls=POLL_CALLS_LIMIT, period=POLL_LIMIT_PERIOD)
     def _poll(self):
         self._mqtt.publish(self.mqtt_in, '{"cmd":0}', qos=0, retain=False)
-    
+
     def tryToPoll(self):
         try:
             self._poll()
@@ -323,7 +338,7 @@ class WorxCloud:
 
         self._fetch()
         if self.online:
-            self._mqtt.publish(self.mqtt_in, '{}', qos=0, retain=False)
+            self._mqtt.publish(self.mqtt_in, "{}", qos=0, retain=False)
             sleep = 0
             while self.wait:
                 time.sleep(0.1)
@@ -348,7 +363,7 @@ class WorxCloud:
 
     def setZone(self, zone):
         if self.online:
-            msg = '{"mz":' + zone + '}'
+            msg = '{"mz":' + zone + "}"
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
 
     def startEdgecut(self):
@@ -356,24 +371,34 @@ class WorxCloud:
             msg = '{"sc":{"ots":{"bc":1,"wtm":0}}}'
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
 
-                
 
 @contextlib.contextmanager
 def pfx_to_pem(pfx_data):
-    ''' Decrypts the .pfx file to be used with requests.'''
-    ''' Based on https://gist.github.com/erikbern/756b1d8df2d1487497d29b90e81f8068 '''
+    """Decrypts the .pfx file to be used with requests."""
+    """ Based on https://gist.github.com/erikbern/756b1d8df2d1487497d29b90e81f8068 """
     import base64
-    import OpenSSL.crypto
     import tempfile
 
-    with tempfile.NamedTemporaryFile(suffix='.pem', delete=False) as t_pem:
-        f_pem = open(t_pem.name, 'wb')
-        p12 = OpenSSL.crypto.load_pkcs12(base64.b64decode(pfx_data), '')
-        f_pem.write(OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, p12.get_privatekey()))
-        f_pem.write(OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, p12.get_certificate()))
+    import OpenSSL.crypto
+
+    with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as t_pem:
+        f_pem = open(t_pem.name, "wb")
+        p12 = OpenSSL.crypto.load_pkcs12(base64.b64decode(pfx_data), "")
+        f_pem.write(
+            OpenSSL.crypto.dump_privatekey(
+                OpenSSL.crypto.FILETYPE_PEM, p12.get_privatekey()
+            )
+        )
+        f_pem.write(
+            OpenSSL.crypto.dump_certificate(
+                OpenSSL.crypto.FILETYPE_PEM, p12.get_certificate()
+            )
+        )
         ca = p12.get_ca_certificates()
         if ca is not None:
             for cert in ca:
-                f_pem.write(OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert))
+                f_pem.write(
+                    OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert)
+                )
         f_pem.close()
         yield t_pem.name
