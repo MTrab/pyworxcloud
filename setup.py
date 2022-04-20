@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 
+from pip.req import parse_requirements
 from pyworxcloud import __version__
 import setuptools
 
-requirements = ['paho-mqtt==1.6.1',
-                'pyOpenSSL==22.0.0',
-                'ratelimit==2.2.1']
+# requirements = ['paho-mqtt==1.6.1',
+                # 'pyOpenSSL==22.0.0',
+                # 'ratelimit==2.2.1']
+
+requirements = parse_requirements('requirements.txt', session='hack')
 
 setuptools.setup(
     name = 'pyworxcloud',
