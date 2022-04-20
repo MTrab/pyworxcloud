@@ -205,6 +205,8 @@ class WorxCloud:
                 if "4G" in data['dat']['modules']:
                     self.gps_latitude = data['dat']['modules']['4G']['gps']['coo'][0]
                     self.gps_longitude = data['dat']['modules']['4G']['gps']['coo'][1] 
+            if 'rain' in data['dat']:
+                self.rain_delay_time_remaining = data['dat']['rain']['cnt']
 
         if 'cfg' in data:
             self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
@@ -237,6 +239,28 @@ class WorxCloud:
                 self.schedule_day_saturday_start = data['cfg']['sc']['d'][6][0]
                 self.schedule_day_saturday_duration = data['cfg']['sc']['d'][6][1]
                 self.schedule_day_saturday_boundary = data['cfg']['sc']['d'][6][2]
+            if 'dd' in data['cfg']['sc']:
+                self.schedule_day_sunday_2_start = data['cfg']['sc']['dd'][0][0]
+                self.schedule_day_sunday_2_duration = data['cfg']['sc']['dd'][0][1]
+                self.schedule_day_sunday_2_boundary = data['cfg']['sc']['dd'][0][2]
+                self.schedule_day_monday_2_start = data['cfg']['sc']['dd'][1][0]
+                self.schedule_day_monday_2_duration = data['cfg']['sc']['dd'][1][1]
+                self.schedule_day_monday_2_boundary = data['cfg']['sc']['dd'][1][2]
+                self.schedule_day_tuesday_2_start = data['cfg']['sc']['dd'][2][0]
+                self.schedule_day_tuesday_2_duration = data['cfg']['sc']['dd'][2][1]
+                self.schedule_day_tuesday_2_boundary = data['cfg']['sc']['dd'][2][2]
+                self.schedule_day_wednesday_2_start = data['cfg']['sc']['dd'][3][0]
+                self.schedule_day_wednesday_2_duration = data['cfg']['sc']['dd'][3][1]
+                self.schedule_day_wednesday_2_boundary = data['cfg']['sc']['dd'][3][2]
+                self.schedule_day_thursday_2_start = data['cfg']['sc']['dd'][4][0]
+                self.schedule_day_thursday_2_duration = data['cfg']['sc']['dd'][4][1]
+                self.schedule_day_thursday_2_boundary = data['cfg']['sc']['dd'][4][2]
+                self.schedule_day_friday_2_start = data['cfg']['sc']['dd'][5][0]
+                self.schedule_day_friday_2_duration = data['cfg']['sc']['dd'][5][1]
+                self.schedule_day_friday_2_boundary = data['cfg']['sc']['dd'][5][2]
+                self.schedule_day_saturday_2_start = data['cfg']['sc']['dd'][6][0]
+                self.schedule_day_saturday_2_duration = data['cfg']['sc']['dd'][6][1]
+                self.schedule_day_saturday_2_boundary = data['cfg']['sc']['dd'][6][2]
 
         self.islocked = True if self.locked == 1 else False
         self.wait = False
