@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import setuptools
-from pip.req import parse_requirements
 
 from pyworxcloud import __version__
 
@@ -9,7 +8,8 @@ from pyworxcloud import __version__
 # 'pyOpenSSL==22.0.0',
 # 'ratelimit==2.2.1']
 
-requirements = parse_requirements("requirements.txt", session="hack")
+with open("requirements.txt") as reqs_file:
+    requirements = reqs_file.readlines()
 
 setuptools.setup(
     name="pyworxcloud",
