@@ -216,6 +216,9 @@ class WorxCloud:
                     self.gps_longitude = data["dat"]["modules"]["4G"]["gps"]["coo"][1]
             if "rain" in data["dat"]:
                 self.rain_delay_time_remaining = data["dat"]["rain"]["cnt"]
+                self.rain_sensor_triggered = (
+                    True if str(data["dat"]["rain"]["s"]) == "1" else False
+                )
 
         if "cfg" in data:
             self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
