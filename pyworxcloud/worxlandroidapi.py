@@ -1,6 +1,9 @@
 import logging
 import time
 
+from .exceptions import BadRequest, UnauthorizedError, APIEndpointError, InternalServerError, ServiceUnavailableError, UnknownError
+
+
 API_BASE = "https://{}/api/v2"
 
 _LOGGER = logging.getLogger(__name__)
@@ -164,35 +167,44 @@ class WorxLandroidAPI:
                 if req.status_code == 400:
                     response["error"] = "Bad request"
                     _LOGGER.error("Error: Bad request")
+                    raise BadRequest
                 elif req.status_code == 401:
                     response["error"] = "Unauthorized"
                     _LOGGER.error("Error: Unauthorized")
+                    raise UnauthorizedError
                 elif req.status_code == 404:
                     response["error"] = "API endpoint doesn't exist"
                     _LOGGER.error("Error: API endpoint doesn't exist")
+                    raise APIEndpointError("API endpoint doesn't exist")
                 elif req.status_code == 500:
                     response["error"] = "Internal server error"
                     _LOGGER.error("Error: Internal server error")
+                    raise InternalServerError
                 elif req.status_code == 503:
                     response["error"] = "Service unavailable"
                     _LOGGER.error("Error: Service unavailable")
+                    raise ServiceUnavailableError
                 else:
                     response["error"] = "Unknown error"
                     _LOGGER.error(
                         "Error: Return code %s was received - unknown error",
                         req.status_code,
                     )
-                return json.dumps(response)
-        except TimeoutError:
+                    raise UnknownError(req.status_code)
+
+                # return json.dumps(response)
+        except TimeoutError as te:
             response = {"error": "timeout"}
             _LOGGER.warning("Error: Timeout in communication with API service")
-            return json.dumps(response)
-        except:
+            raise TimeoutError from te
+            # return json.dumps(response)
+        except Exception as ex:
             response = {"error": "unexpected error"}
             _LOGGER.warning(
                 "Error: Unexpected error occured in communication with API service"
             )
-            return json.dumps(response)
+            raise UnknownError("Unexpected error occured in communication with API service") from ex
+            # return json.dumps(response)
 
         return req.json()
 
