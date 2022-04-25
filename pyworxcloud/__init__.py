@@ -1,14 +1,16 @@
-import concurrent.futures
+"""pyWorxCloud definition."""
 import contextlib
 import logging
 import time
 
 from ratelimit import RateLimitException, limits
 
+from .const import MAX_WAIT
 from .worxlandroidapi import *
 
 _LOGGER = logging.getLogger(__name__)
 
+# Valid states - some are missing as these haven't been identified yet
 StateDict = {
     0: "Idle",
     1: "Home",
@@ -30,6 +32,7 @@ StateDict = {
     34: "Pause",
 }
 
+# Valid error states
 ErrorDict = {
     0: "No error",
     1: "Trapped",
@@ -66,6 +69,7 @@ class WorxCloud:
     wait = True
 
     def __init__(self):
+        """Define WorxCloud object."""
         self._worx_mqtt_client_id = ""
         self._worx_mqtt_endpoint = ""
 
@@ -73,17 +77,25 @@ class WorxCloud:
 
         self._raw = ""
 
-    def initialize(self, username, password, type="worx") -> bool:
-        """Usable types are: worx, kress and landxcape."""
+    def initialize(self, username: str, password: str, type: str="worx") -> bool:
+        """Initialize current object."""
+        
+        #Usable types are: worx, kress and landxcape.
+
         auth = self._authenticate(username, password, type)
         if auth is False:
             self._auth_result = False
             return False
 
         self._auth_result = True
+        self._api.username = username
+        self._api.password = password
+        self._api.type = type
+
         return True
 
-    def connect(self, dev_id, verify_ssl=True) -> bool:
+    def connect(self, dev_id: int, verify_ssl: bool=True) -> bool:
+        """Connect to cloud services."""
         import paho.mqtt.client as mqtt
 
         self._dev_id = dev_id
@@ -115,9 +127,11 @@ class WorxCloud:
 
     @property
     def auth_result(self) -> bool:
+        """Return current authentication result."""
         return self._auth_result
 
     def _authenticate(self, username, password, type):
+        """Authenticate the user."""
         auth_data = self._api.auth(username, password, type)
 
         try:
@@ -134,6 +148,7 @@ class WorxCloud:
 
     @contextlib.contextmanager
     def _get_cert(self):
+        """Cet current certificate."""
         import base64
 
         certresp = self._api.get_cert()
@@ -143,25 +158,29 @@ class WorxCloud:
             yield pem_cert
 
     def _get_mac_address(self):
+        """Get device MAC address for identification."""
         self._fetch()
         self.mqtt_out = self.mqtt_topics["command_out"]
         self.mqtt_in = self.mqtt_topics["command_in"]
         self.mac = self.mac_address
 
     def _forward_on_message(self, client, userdata, message):
+        """MQTT callback method definition."""
         import json
 
         json_message = message.payload.decode("utf-8")
         self._decodeData(json_message)
 
-    def getStatus(self):
+    def getStatus(self) -> None:
+        """Retrive current device status."""
         status = self._api.get_status(self.serial_number)
         status = str(status).replace("'", '"')
         self._raw = status
 
         self._decodeData(status)
 
-    def _decodeData(self, indata):
+    def _decodeData(self, indata) -> None:
+        """Decode incoming JSON data."""
         import json
 
         data = json.loads(indata)
@@ -172,12 +191,17 @@ class WorxCloud:
             self.status = data["dat"]["ls"]
             self.status_description = StateDict[data["dat"]["ls"]]
             self.error = data["dat"]["le"]
+
+            # Translate error code to text
             if data["dat"]["le"] in ErrorDict:
                 self.error_description = ErrorDict[data["dat"]["le"]]
             else:
                 self.error_description = f"Unknown error"
+
             self.current_zone = data["dat"]["lz"]
             self.locked = data["dat"]["lk"]
+
+            # Get battery info if available
             if "bt" in data["dat"]:
                 self.battery_temperature = data["dat"]["bt"]["t"]
                 self.battery_voltage = data["dat"]["bt"]["v"]
@@ -192,6 +216,8 @@ class WorxCloud:
                         self.battery_charge_cycle_current = 0
                 else:
                     self.battery_charge_cycle_current = self.battery_charge_cycle
+
+            # Get blade data if available
             if "st" in data["dat"]:
                 self.blade_time = data["dat"]["st"]["b"]
                 if self.blade_work_time_reset != None:
@@ -204,16 +230,22 @@ class WorxCloud:
                     self.blade_time_current = self.blade_time
                 self.distance = data["dat"]["st"]["d"]
                 self.work_time = data["dat"]["st"]["wt"]
+            
+            # Get orientation if available.
             if "dmp" in data["dat"]:
                 self.pitch = data["dat"]["dmp"][0]
                 self.roll = data["dat"]["dmp"][1]
                 self.yaw = data["dat"]["dmp"][2]
+
+            # Check for extra module availability
             if "modules" in data["dat"]:
                 self.gps_latitude = None
                 self.gps_longitude = None
                 if "4G" in data["dat"]["modules"]:
                     self.gps_latitude = data["dat"]["modules"]["4G"]["gps"]["coo"][0]
                     self.gps_longitude = data["dat"]["modules"]["4G"]["gps"]["coo"][1]
+
+            # Get remaining rain delay if available
             if "rain" in data["dat"]:
                 self.rain_delay_time_remaining = data["dat"]["rain"]["cnt"]
 
@@ -221,6 +253,8 @@ class WorxCloud:
             self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
             self.rain_delay = data["cfg"]["rd"]
             self.serial = data["cfg"]["sn"]
+
+            # Fetch main schedule
             if "sc" in data["cfg"]:
                 self.ots_enabled = True if "ots" in data["cfg"]["sc"] else False
                 self.schedule_mower_active = (
@@ -252,6 +286,8 @@ class WorxCloud:
                 self.schedule_day_saturday_start = data["cfg"]["sc"]["d"][6][0]
                 self.schedule_day_saturday_duration = data["cfg"]["sc"]["d"][6][1]
                 self.schedule_day_saturday_boundary = data["cfg"]["sc"]["d"][6][2]
+
+            # Fetch secondary schedule    
             if "dd" in data["cfg"]["sc"]:
                 self.schedule_day_sunday_2_start = data["cfg"]["sc"]["dd"][0][0]
                 self.schedule_day_sunday_2_duration = data["cfg"]["sc"]["dd"][0][1]
@@ -279,44 +315,56 @@ class WorxCloud:
         self.wait = False
 
     def _on_connect(self, client, userdata, flags, rc):
+        """MQTT callback method."""
         client.subscribe(self.mqtt_out)
 
     @limits(calls=POLL_CALLS_LIMIT, period=POLL_LIMIT_PERIOD)
-    def _poll(self):
+    def _poll(self) -> None:
+        """Force poll."""
+        # DO NOT CALL TOO OFTEN AS YOU WILL GET BANNED!
         self._mqtt.publish(self.mqtt_in, '{"cmd":0}', qos=0, retain=False)
 
-    def tryToPoll(self):
+    def tryToPoll(self) -> None:
+        """Try to issue a forced poll."""
         try:
             self._poll()
         except RateLimitException as exception:
             return f"The rate limit of {POLL_CALLS_LIMIT} status polls per {POLL_LIMIT_PERIOD} seconds has been exceeded. Please wait {round(exception.period_remaining)} seconds before polling again."
 
-    def start(self):
+    def start(self) -> None:
+        """Start mowing."""
         self._mqtt.publish(self.mqtt_in, '{"cmd":1}', qos=0, retain=False)
 
-    def pause(self):
+    def pause(self) -> None:
+        """Pause mowing."""
         self._mqtt.publish(self.mqtt_in, '{"cmd":2}', qos=0, retain=False)
 
-    def stop(self):
+    def stop(self) -> None:
+        """Stop (and go home)."""
         self._mqtt.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
 
-    def zonetraining(self):
+    def zonetraining(self) -> None:
+        """Start zonetraining."""
         self._mqtt.publish(self.mqtt_in, '{"cmd":4}', qos=0, retain=False)
 
-    def lock(self, enabled):
+    def lock(self, enabled: bool) -> None:
+        """Lock or Unlock device."""
         if enabled:
             self._mqtt.publish(self.mqtt_in, '{"cmd":5}', qos=0, retain=False)
         else:
             self._mqtt.publish(self.mqtt_in, '{"cmd":6}', qos=0, retain=False)
 
     def restart(self):
+        """Reboot device."""
         self._mqtt.publish(self.mqtt_in, '{"cmd":7}', qos=0, retain=False)
 
-    def setRainDelay(self, rainDelay):
+    def setRainDelay(self, rainDelay) -> None:
+        """Set new rain delay."""
         msg = '{"rd": %s}' % (rainDelay)
         self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
 
-    def enableSchedule(self, enable):
+    def enableSchedule(self, enable: bool) -> None:
+        """Enable or disable schedule."""
         if enable:
             msg = '{"sc": {"m": 1}}'
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
@@ -324,33 +372,42 @@ class WorxCloud:
             msg = '{"sc": {"m": 0}}'
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
 
-    def _fetch(self):
+    def _fetch(self) -> None:
+        """Fetch devices."""
         self._api.get_products()
         products = self._api.data
 
         for attr, val in products[self._dev_id].items():
             setattr(self, str(attr), val)
 
-    def update(self):
+    def update(self) -> None:
+        """Update device states."""
         self.wait = True
 
         self._fetch()
         if self.online:
+            request_time = int(time.time())
             self._mqtt.publish(self.mqtt_in, "{}", qos=0, retain=False)
-            sleep = 0
             while self.wait:
-                time.sleep(0.1)
+                if (request_time + MAX_WAIT) > int(time.time()):
+                    time.sleep(0.5)
+                else:
+                    self.wait = False
+                    raise TimeoutError from None
 
-    def enumerate(self):
+    def enumerate(self) -> int:
+        """Enumerate amount of devices attached to account."""
         self._api.get_products()
         products = self._api.data
         return len(products)
 
-    def sendData(self, data):
+    def sendData(self, data) -> None:
+        """Publish data to the device."""
         if self.online:
             self._mqtt.publish(self.mqtt_in, data, qos=0, retain=False)
 
-    def partyMode(self, enabled):
+    def partyMode(self, enabled: bool) -> None:
+        """Enable or disable Party Mode."""
         if self.online:
             if enabled:
                 msg = '{"sc": {"m": 2, "distm": 0}}'
@@ -359,12 +416,14 @@ class WorxCloud:
                 msg = '{"sc": {"m": 1, "distm": 0}}'
                 self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
 
-    def setZone(self, zone):
+    def setZone(self, zone) -> None:
+        """Set next zone to mow."""
         if self.online:
             msg = '{"mz":' + zone + "}"
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
 
-    def startEdgecut(self):
+    def startEdgecut(self) -> None:
+        """Start edgecut routine."""
         if self.online:
             msg = '{"sc":{"ots":{"bc":1,"wtm":0}}}'
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
