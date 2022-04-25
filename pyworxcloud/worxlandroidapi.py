@@ -127,13 +127,14 @@ class WorxLandroidAPI:
         callData = self._call(callStr)
         return callData
 
-    def _call(self, path: str, payload=None, checktoken: bool =True):
+    def _call(self, path: str, payload=None, checktoken: bool = True):
         """Do the actual call to the device."""
         import json
+
         import requests
 
         # Check if token needs refreshing
-        now=int(time.time()) # Current time in unix timestamp format
+        now = int(time.time())  # Current time in unix timestamp format
         if checktoken and ((self._tokenrefresh + 3000) < now):
             _LOGGER.debug("Refreshing token")
             try:

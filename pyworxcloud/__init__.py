@@ -77,10 +77,10 @@ class WorxCloud:
 
         self._raw = ""
 
-    def initialize(self, username: str, password: str, type: str="worx") -> bool:
+    def initialize(self, username: str, password: str, type: str = "worx") -> bool:
         """Initialize current object."""
-        
-        #Usable types are: worx, kress and landxcape.
+
+        # Usable types are: worx, kress and landxcape.
 
         auth = self._authenticate(username, password, type)
         if auth is False:
@@ -94,7 +94,7 @@ class WorxCloud:
 
         return True
 
-    def connect(self, dev_id: int, verify_ssl: bool=True) -> bool:
+    def connect(self, dev_id: int, verify_ssl: bool = True) -> bool:
         """Connect to cloud services."""
         import paho.mqtt.client as mqtt
 
@@ -230,7 +230,7 @@ class WorxCloud:
                     self.blade_time_current = self.blade_time
                 self.distance = data["dat"]["st"]["d"]
                 self.work_time = data["dat"]["st"]["wt"]
-            
+
             # Get orientation if available.
             if "dmp" in data["dat"]:
                 self.pitch = data["dat"]["dmp"][0]
@@ -287,7 +287,7 @@ class WorxCloud:
                 self.schedule_day_saturday_duration = data["cfg"]["sc"]["d"][6][1]
                 self.schedule_day_saturday_boundary = data["cfg"]["sc"]["d"][6][2]
 
-            # Fetch secondary schedule    
+            # Fetch secondary schedule
             if "dd" in data["cfg"]["sc"]:
                 self.schedule_day_sunday_2_start = data["cfg"]["sc"]["dd"][0][0]
                 self.schedule_day_sunday_2_duration = data["cfg"]["sc"]["dd"][0][1]
