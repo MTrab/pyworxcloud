@@ -34,8 +34,12 @@ class WorxLandroidAPI:
         self.type = None
         self._tokenrefresh = 0
 
-    def set_token(self, token: str) -> None:
+    def set_token(self, token: str, now: int = -1) -> None:
         """Set the token used for communication."""
+        if now == -1:
+            now = int(time.time())
+
+        self._tokenrefresh = now
         self._token = token
 
     def set_token_type(self, token_type: str) -> None:
@@ -77,60 +81,59 @@ class WorxLandroidAPI:
 
         return header_data
 
-    def auth(self, username: str, password: str, cloud: str, type="app") -> str:
+    def auth(self):
         """Authenticate."""
         import json
         import uuid
 
         self.uuid = str(uuid.uuid1())
-        self.cloud = clouds[cloud]
+        self.cloud = clouds[self.type]
         self._api_host = (API_BASE).format(self.cloud["url"])
 
         self._token = self._generate_identify_token(self.cloud["key"])
 
         payload_data = {}
-        payload_data["username"] = username
-        payload_data["password"] = password
+        payload_data["username"] = self.username
+        payload_data["password"] = self.password
         payload_data["grant_type"] = "password"
         payload_data["client_id"] = 1
-        payload_data["type"] = type
+        payload_data["type"] = "app"
         payload_data["client_secret"] = self._token
         payload_data["scope"] = "*"
 
         payload = json.dumps(payload_data)
 
-        callData = self._call("/oauth/token", payload, False)
+        callData = self._call("/oauth/token", payload, checktoken=False)
 
         return callData
 
-    def get_profile(self) -> str:
+    def get_profile(self):
         """Get user profile."""
         callData = self._call("/users/me")
         self._data = callData
         return callData
 
-    def get_cert(self) -> str:
+    def get_cert(self):
         """Get user certificate."""
         callData = self._call("/users/certificate")
         self._data = callData
         return callData
 
-    def get_products(self) -> str:
+    def get_products(self):
         """Get devices associated with this user."""
         callData = self._call("/product-items")
         self._data = callData
         return callData
 
-    def get_status(self, serial) -> str:
+    def get_status(self, serial):
         """Get device status."""
         callStr = "/product-items/{}/status".format(serial)
         callData = self._call(callStr)
         return callData
 
-    def _call(self, path: str, payload=None, checktoken: bool = True):
+    def _call(self, path: str, payload: str = None, checktoken: bool = True):
         """Do the actual call to the device."""
         import json
-
         import requests
 
         # Check if token needs refreshing
@@ -138,10 +141,13 @@ class WorxLandroidAPI:
         if checktoken and ((self._tokenrefresh + 3000) < now):
             _LOGGER.debug("Refreshing token")
             try:
-                auth_data = self.auth(self.username, self.password, self.type)
-                self.set_token(auth_data["access_token"])
+                auth_data = self.auth()
+
+                if 'return_code' in auth_data:
+                    return
+
+                self.set_token(auth_data["access_token"], now)
                 self.set_token_type(auth_data["token_type"])
-                self._tokenrefresh = now
             except:
                 _LOGGER.debug("Error occured when refreshing token")
 
