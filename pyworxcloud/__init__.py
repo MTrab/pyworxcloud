@@ -81,16 +81,17 @@ class WorxCloud:
         """Initialize current object."""
 
         # Usable types are: worx, kress and landxcape.
+        self._api.type = type
+        self._api.username = username
+        self._api.password = password
 
-        auth = self._authenticate(username, password, type)
+        auth = self._authenticate()
         if auth is False:
             self._auth_result = False
             return False
 
         self._auth_result = True
-        self._api.username = username
-        self._api.password = password
-        self._api.type = type
+
 
         return True
 
@@ -130,9 +131,12 @@ class WorxCloud:
         """Return current authentication result."""
         return self._auth_result
 
-    def _authenticate(self, username, password, type):
+    def _authenticate(self):
         """Authenticate the user."""
-        auth_data = self._api.auth(username, password, type)
+        auth_data = self._api.auth()
+
+        # if 'return_code' in auth_data:
+        #     return False
 
         try:
             self._api.set_token(auth_data["access_token"])
@@ -140,6 +144,8 @@ class WorxCloud:
 
             self._api.get_profile()
             profile = self._api.data
+            if profile is None:
+                return False
             self._worx_mqtt_endpoint = profile["mqtt_endpoint"]
 
             self._worx_mqtt_client_id = "android-" + self._api.uuid
