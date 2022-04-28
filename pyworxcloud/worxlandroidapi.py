@@ -134,6 +134,7 @@ class WorxLandroidAPI:
     def _call(self, path: str, payload: str = None, checktoken: bool = True):
         """Do the actual call to the device."""
         import json
+
         import requests
 
         # Check if token needs refreshing
@@ -143,7 +144,7 @@ class WorxLandroidAPI:
             try:
                 auth_data = self.auth()
 
-                if 'return_code' in auth_data:
+                if "return_code" in auth_data:
                     return
 
                 self.set_token(auth_data["access_token"], now)

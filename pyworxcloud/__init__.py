@@ -92,7 +92,6 @@ class WorxCloud:
 
         self._auth_result = True
 
-
         return True
 
     def connect(self, dev_id: int, verify_ssl: bool = True) -> bool:
