@@ -401,7 +401,7 @@ class WorxCloud:
                     time.sleep(0.5)
                 else:
                     self.wait = False
-                    raise TimeoutError from None
+                    raise TimeoutError("Connection timed out") from None
 
     def enumerate(self) -> int:
         """Enumerate amount of devices attached to account."""
