@@ -413,7 +413,7 @@ class WorxCloud:
     def setZone(self, zone) -> None:
         """Set next zone to mow."""
         if self.online:
-            msg = '{"mz":' + zone + "}"
+            msg = '{"lz":' + zone + "}"
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
 
     def startEdgecut(self) -> None:
