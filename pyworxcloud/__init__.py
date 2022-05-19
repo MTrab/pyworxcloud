@@ -388,21 +388,6 @@ class WorxCloud:
         for attr, val in products[self._dev_id].items():
             setattr(self, str(attr), val)
 
-    # def update(self) -> None:
-    #     """Update device states."""
-    #     self.wait = True
-
-    #     self._fetch()
-    #     if self.online:
-    #         request_time = int(time.time())
-    #         self._mqtt.publish(self.mqtt_in, "{}", qos=0, retain=False)
-    #         while self.wait:
-    #             if (request_time + MAX_WAIT) > int(time.time()):
-    #                 time.sleep(0.5)
-    #             else:
-    #                 self.wait = False
-    #                 raise TimeoutError("Connection timed out") from None
-
     def enumerate(self) -> int:
         """Enumerate amount of devices attached to account."""
         self._api.get_products()
@@ -427,7 +412,7 @@ class WorxCloud:
     def setZone(self, zone) -> None:
         """Set next zone to mow."""
         if self.online:
-            msg = '{"mz":' + zone + "}"
+            msg = '{"lz":' + zone + "}"
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
 
     def startEdgecut(self) -> None:
