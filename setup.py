@@ -8,7 +8,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setuptools.setup(
     name="pyworxcloud",
     version="2.0.0",
-    description="Worx Landroid API library",
+    description="Landroid cloud API library",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Morten Trab",
