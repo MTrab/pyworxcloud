@@ -4,10 +4,10 @@ import pyworxcloud
 
 
 def main():
-    worx = pyworxcloud.WorxCloud()
+    worx = pyworxcloud.WorxCloud("your@email", "Password")
 
-    # Initialize connection, using your worx email and password
-    auth = worx.initialize("your@email", "Password")
+    # Initialize connection
+    auth = worx.initialize()
 
     if not auth:
         # If invalid credentials are used, or something happend during
@@ -18,11 +18,8 @@ def main():
     # not verify SSL (False)
     worx.connect(0, False)
 
-    # Force and update request to get latest state from the device
-    worx.update()
-
     # Read latest states received from the device
-    worx.getStatus()
+    worx.update()
 
     # Print all attributes received from the device
     attrs = vars(worx)
@@ -30,9 +27,8 @@ def main():
         print(item, ":", attrs[item])
 
     ### Below are examples on calling actions - uncomment the one you want to test.
-
     # Set rain delay to 60 minutes
-    # worx.setRainDelay(60)
+    # worx.raindelay(60)
 
     # Start mowing routine
     # worx.start()
