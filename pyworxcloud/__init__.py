@@ -331,14 +331,14 @@ class WorxCloud:
         products = self._api.data
         return len(products)
 
-    def send(self, data) -> None:
+    # Service calls starts here
+    def send(self, data: str) -> None:
         """Publish data to the device."""
         if self.online:
             self._mqtt.publish(self.mqtt_in, data, qos=0, retain=False)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    # Service calls starts here
     def update(self) -> None:
         """Retrive current device status."""
         status = self._api.get_status(self.serial_number)
