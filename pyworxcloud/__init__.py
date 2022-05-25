@@ -189,14 +189,6 @@ class WorxCloud:
         if self._callback is not None:
             self._callback()
 
-    def update(self) -> None:
-        """Retrive current device status."""
-        status = self._api.get_status(self.serial_number)
-        status = str(status).replace("'", '"')
-        self._raw = status
-
-        self._decode_data(status)
-
     def _decode_data(self, indata) -> None:
         """Decode incoming JSON data."""
         data = json.loads(indata)
@@ -316,6 +308,45 @@ class WorxCloud:
         """MQTT callback method."""
         client.subscribe(self.mqtt_out)
 
+    def _fetch(self) -> None:
+        """Fetch devices."""
+        self._api.get_products()
+        products = self._api.data
+
+        accessories = None
+        for attr, val in products[self._dev_id].items():
+            if attr == "accessories":
+                accessories = val
+            else:
+                setattr(self, str(attr), val)
+
+        if not accessories is None:
+            self.accessories = []
+            for key in accessories:
+                self.accessories.append(key)
+
+    def enumerate(self) -> int:
+        """Enumerate amount of devices attached to account."""
+        self._api.get_products()
+        products = self._api.data
+        return len(products)
+
+    def send(self, data) -> None:
+        """Publish data to the device."""
+        if self.online:
+            self._mqtt.publish(self.mqtt_in, data, qos=0, retain=False)
+        else:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+    # Service calls starts here
+    def update(self) -> None:
+        """Retrive current device status."""
+        status = self._api.get_status(self.serial_number)
+        status = str(status).replace("'", '"')
+        self._raw = status
+
+        self._decode_data(status)
+
     def start(self) -> None:
         """Start mowing."""
         if self.online:
@@ -361,15 +392,16 @@ class WorxCloud:
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    def raindelay(self, rain_delay) -> None:
+    def raindelay(self, rain_delay: str | int) -> None:
         """Set new rain delay."""
         if self.online:
+            if not isinstance(rain_delay, str): rain_delay = str(rain_delay)
             msg = f'"rd": {rain_delay}'
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    def schedule(self, enable: bool) -> None:
+    def toggle_schedule(self, enable: bool) -> None:
         """Enable or disable schedule."""
         if self.online:
             if enable:
@@ -381,37 +413,7 @@ class WorxCloud:
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    def _fetch(self) -> None:
-        """Fetch devices."""
-        self._api.get_products()
-        products = self._api.data
-
-        accessories = None
-        for attr, val in products[self._dev_id].items():
-            if attr == "accessories":
-                accessories = val
-            else:
-                setattr(self, str(attr), val)
-
-        if not accessories is None:
-            self.accessories = []
-            for key in accessories:
-                self.accessories.append(key)
-
-    def enumerate(self) -> int:
-        """Enumerate amount of devices attached to account."""
-        self._api.get_products()
-        products = self._api.data
-        return len(products)
-
-    def send(self, data) -> None:
-        """Publish data to the device."""
-        if self.online:
-            self._mqtt.publish(self.mqtt_in, data, qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def enable_partymode(self, enabled: bool) -> None:
+    def toggle_partymode(self, enabled: bool) -> None:
         """Enable or disable Party Mode."""
         if self.online and self.partymode_capable:
             if enabled:
@@ -428,8 +430,7 @@ class WorxCloud:
     def ots(self, boundary: bool, runtime: str | int) -> None:
         """Start OTS routine."""
         if self.online and self.ots_capable:
-            if not isinstance(runtime, int):
-                runtime = int(runtime)
+            if not isinstance(runtime, int): runtime = int(runtime)
 
             raw = {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}}
             _LOGGER.debug(json.dumps(raw))
@@ -444,10 +445,9 @@ class WorxCloud:
     def setzone(self, zone: str | int) -> None:
         """Set next zone to mow."""
         if self.online:
-            if not isinstance(zone, int):
-                zone = int(zone)
-            current = self.zone_probability
+            if not isinstance(zone, int): zone = int(zone)
 
+            current = self.zone_probability
             new_zones = current
             while not new_zones[self.mowing_zone] == zone:
                 tmp = []
@@ -460,18 +460,6 @@ class WorxCloud:
             self._mqtt.publish(self.mqtt_in, json.dumps(raw), qos=0, retain=False)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
-
-    # def edgecut(self) -> None:
-    #     """Start edgecut routine."""
-    #     if self.online and self.ots_capable:
-    #         msg = '{"sc":{"ots":{"bc":1,"wtm":0}}}'
-    #         self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
-    #     elif not self.ots_capable:
-    #         raise NoOneTimeScheduleError(
-    #             "This device does not support Edgecut-on-demand"
-    #         )
-    #     elif not self.online:
-    #         raise OfflineError("The device is currently offline, no action was sent.")
 
 
 @contextlib.contextmanager
