@@ -11,3 +11,46 @@ The module are compatible with cloud enabled devices from these vendors:<br/>
 
 This is using and undocumented API, so do not expect everything to work.<br/>
 The module will be enhanced with more functionality as the API gets mapped out - any help will be much appreciated.
+
+### Available calls
+
+Call | Description | Parameters
+---|---|---
+initialize | Initialize the API connection and authenticate the user credentials |
+connect | Connect to a device | dev_id: int, verify_ssl: bool
+set_callback | If set, the module will call this function when data is received from the API | callback
+enumerate | Returns the number of devices associated with the account |
+send | Send custom data to the API | data: str (JSON string!)
+update | Retrieve current status from API |
+start | Start mowing routine |
+pause | Pause mowing |
+home | Stop (and go home) |
+zonetraining | Start zonetraining |
+lock | Toggle device lock |
+restart | Reboot baseboard OS |
+raindelay | Set new rain delay | rain_delay: str or int
+toggle_schedule | Toggle schedule on or off |
+toggle_partymode | Toggle party mode if supported by device |
+ots | Start OTS | boundary: bool, runtime: str or int
+setzone | Set next zone to mow | zone: str or int
+
+### Connection example
+```
+from pyworxcloud import WorxCloud
+cloud = WorxCloud("your@email", "Password")
+
+# Initialize connection
+auth = cloud.initialize()
+
+if not auth:
+    # If invalid credentials are used, or something happend during
+    # authorize, then exit
+    exit(0)
+
+# Connect to device with index 0 (devices are enumerated 0, 1, 2 ...) and do
+# not verify SSL (False)
+cloud.connect(0, False)
+
+# Read latest states received from the device
+cloud.update()
+```
