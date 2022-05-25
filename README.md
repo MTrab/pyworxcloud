@@ -11,3 +11,20 @@ The module are compatible with cloud enabled devices from these vendors:<br/>
 
 This is using and undocumented API, so do not expect everything to work.<br/>
 The module will be enhanced with more functionality as the API gets mapped out - any help will be much appreciated.
+
+### Available service calls
+
+Service | Description | Parameters
+---|---|---
+update | Retrieve current status from API |
+start | Start mowing routine |
+pause | Pause mowing |
+home | Stop (and go home) |
+zonetraining | Start zonetraining |
+lock | Toggle device lock |
+restart | Reboot baseboard OS |
+raindelay | Set new rain delay | rain_delay
+toggle_schedule | Toggle schedule on or off |
+toggle_partymode | Toggle party mode if supported by device |
+ots | Start OTS | boundary: bool, runtime: str | int
+setzone | Set next zone to mow | zone: str | int
