@@ -19,8 +19,5 @@ setuptools.setup(
     project_urls={
         "Bug Tracker": "https://github.com/mtrab/pyworxcloud/issues",
     },
-    install_requires=[
-        'paho-mqtt>=1.6.1',
-        'pyOpenSSL>=22.0.0'
-    ]
+    install_requires=["paho-mqtt>=1.6.1", "pyOpenSSL>=22.0.0"],
 )

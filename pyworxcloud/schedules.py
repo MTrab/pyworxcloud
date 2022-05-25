@@ -1,9 +1,9 @@
 """Defines schedule classes."""
 
 import calendar
+import json
 from collections import namedtuple
 from enum import IntEnum
-import json
 
 
 class ScheduleType(IntEnum):

@@ -1,19 +1,20 @@
 """pyWorxCloud definition."""
 from __future__ import annotations
 
-import json
 import base64
+import contextlib
+import json
 import logging
 import tempfile
-import contextlib
 import time
-import paho.mqtt.client as mqtt
+
 import OpenSSL.crypto
+import paho.mqtt.client as mqtt
 
 from .day_map import DAY_MAP
 from .exceptions import NoOneTimeScheduleError, NoPartymodeError, OfflineError
 from .landroidapi import LandroidAPI
-from .schedules import Schedule, ScheduleType, TYPE_MAP
+from .schedules import TYPE_MAP, Schedule, ScheduleType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -395,7 +396,8 @@ class WorxCloud:
     def raindelay(self, rain_delay: str | int) -> None:
         """Set new rain delay."""
         if self.online:
-            if not isinstance(rain_delay, str): rain_delay = str(rain_delay)
+            if not isinstance(rain_delay, str):
+                rain_delay = str(rain_delay)
             msg = f'"rd": {rain_delay}'
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
         else:
@@ -430,7 +432,8 @@ class WorxCloud:
     def ots(self, boundary: bool, runtime: str | int) -> None:
         """Start OTS routine."""
         if self.online and self.ots_capable:
-            if not isinstance(runtime, int): runtime = int(runtime)
+            if not isinstance(runtime, int):
+                runtime = int(runtime)
 
             raw = {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}}
             _LOGGER.debug(json.dumps(raw))
@@ -445,7 +448,8 @@ class WorxCloud:
     def setzone(self, zone: str | int) -> None:
         """Set next zone to mow."""
         if self.online:
-            if not isinstance(zone, int): zone = int(zone)
+            if not isinstance(zone, int):
+                zone = int(zone)
 
             current = self.zone_probability
             new_zones = current

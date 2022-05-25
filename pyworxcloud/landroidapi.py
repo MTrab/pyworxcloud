@@ -2,12 +2,13 @@
 # pylint: disable=unnecessary-lambda
 from __future__ import annotations
 
-import time
-import re
 import functools
-import operator
 import json
+import operator
+import re
+import time
 import uuid
+
 import requests
 
 from .clouds import CLOUDS
