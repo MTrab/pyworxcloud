@@ -1,5 +1,6 @@
 """pyWorxCloud definition."""
 from __future__ import annotations
+from datetime import datetime, timedelta
 
 import json
 import base64
@@ -283,6 +284,22 @@ class WorxCloud:
                         data["cfg"]["sc"]["d"][day][2]
                     )
 
+                    time_start = datetime.strptime(
+                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["start"],
+                        "%H:%M",
+                    )
+
+                    duration = int(
+                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"]
+                    )
+
+                    duration = duration * (1 + (int(self.schedule_variation) / 100))
+                    end_time = time_start + timedelta(minutes=duration)
+
+                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                        "end"
+                    ] = end_time.time().strftime("%H:%M")
+
             # Fetch secondary schedule
             if "dd" in data["cfg"]["sc"]:
                 sch_type = ScheduleType.SECONDARY
@@ -299,6 +316,22 @@ class WorxCloud:
                     self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["boundary"] = bool(
                         data["cfg"]["sc"]["dd"][day][2]
                     )
+
+                    time_start = datetime.strptime(
+                        data["cfg"]["sc"]["dd"][day][0],
+                        "%H:%M",
+                    )
+
+                    duration = int(
+                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"]
+                    )
+
+                    duration = duration * (1 + (int(self.schedule_variation) / 100))
+                    end_time = time_start + timedelta(minutes=duration)
+
+                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                        "end"
+                    ] = end_time.time().strftime("%H:%M")
 
         self.wait = False
 
@@ -395,7 +428,8 @@ class WorxCloud:
     def raindelay(self, rain_delay: str | int) -> None:
         """Set new rain delay."""
         if self.online:
-            if not isinstance(rain_delay, str): rain_delay = str(rain_delay)
+            if not isinstance(rain_delay, str):
+                rain_delay = str(rain_delay)
             msg = f'"rd": {rain_delay}'
             self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
         else:
@@ -430,7 +464,8 @@ class WorxCloud:
     def ots(self, boundary: bool, runtime: str | int) -> None:
         """Start OTS routine."""
         if self.online and self.ots_capable:
-            if not isinstance(runtime, int): runtime = int(runtime)
+            if not isinstance(runtime, int):
+                runtime = int(runtime)
 
             raw = {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}}
             _LOGGER.debug(json.dumps(raw))
@@ -445,7 +480,8 @@ class WorxCloud:
     def setzone(self, zone: str | int) -> None:
         """Set next zone to mow."""
         if self.online:
-            if not isinstance(zone, int): zone = int(zone)
+            if not isinstance(zone, int):
+                zone = int(zone)
 
             current = self.zone_probability
             new_zones = current

@@ -1,9 +1,7 @@
 """Defines schedule classes."""
 
 import calendar
-from collections import namedtuple
 from enum import IntEnum
-import json
 
 
 class ScheduleType(IntEnum):
@@ -23,6 +21,7 @@ class Weekday:
         """Initiate weekday."""
         self._name = weekday.lower()
         self._start = None
+        self._end = None
         self._duration = None
         self._boundary = False
 
@@ -33,6 +32,7 @@ class Weekday:
             "name": self._name,
             "settings": {
                 "start": self._start,
+                "end": self._end,
                 "duration": self._duration,
                 "boundary": self._boundary,
             },
@@ -48,6 +48,11 @@ class Weekday:
     def start(self) -> str:
         """Return start time."""
         return self._start
+
+    @property
+    def end(self) -> str:
+        """Return end time."""
+        return self._end
 
     @property
     def duration(self) -> int:
