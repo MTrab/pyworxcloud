@@ -1,5 +1,6 @@
 """pyWorxCloud definition."""
 from __future__ import annotations
+from datetime import datetime, timedelta
 
 import base64
 import contextlib
@@ -284,6 +285,22 @@ class WorxCloud:
                         data["cfg"]["sc"]["d"][day][2]
                     )
 
+                    time_start = datetime.strptime(
+                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["start"],
+                        "%H:%M",
+                    )
+
+                    duration = int(
+                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"]
+                    )
+
+                    duration = duration * (1 + (int(self.schedule_variation) / 100))
+                    end_time = time_start + timedelta(minutes=duration)
+
+                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                        "end"
+                    ] = end_time.time().strftime("%H:%M")
+
             # Fetch secondary schedule
             if "dd" in data["cfg"]["sc"]:
                 sch_type = ScheduleType.SECONDARY
@@ -300,6 +317,22 @@ class WorxCloud:
                     self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["boundary"] = bool(
                         data["cfg"]["sc"]["dd"][day][2]
                     )
+
+                    time_start = datetime.strptime(
+                        data["cfg"]["sc"]["dd"][day][0],
+                        "%H:%M",
+                    )
+
+                    duration = int(
+                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"]
+                    )
+
+                    duration = duration * (1 + (int(self.schedule_variation) / 100))
+                    end_time = time_start + timedelta(minutes=duration)
+
+                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                        "end"
+                    ] = end_time.time().strftime("%H:%M")
 
         self.wait = False
 
