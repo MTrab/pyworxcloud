@@ -88,6 +88,7 @@ class WorxCloud:
         self.serial_number = None
         self.status = None
         self.status_description = None
+        self.torque = None
         self.updated = None
         self.work_time = 0
         self.yaw = 0
@@ -255,6 +256,10 @@ class WorxCloud:
             self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
             self.rain_delay = data["cfg"]["rd"]
             self.serial = data["cfg"]["sn"]
+
+            # Fetch wheel torque
+            if "tq" in data["cfg"]:
+                self.torque = data["cfg"]["tq"]
 
             # Fetch zone information
             if "mz" in data["cfg"]:
