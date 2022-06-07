@@ -338,6 +338,14 @@ class WorxCloud:
                         "%H:%M",
                     )
 
+                    if isinstance(
+                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"],
+                        type(None),
+                    ):
+                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                            "duration"
+                        ] = "0"
+
                     duration = int(
                         self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"]
                     )
