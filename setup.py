@@ -7,9 +7,6 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="pyworxcloud",
-    setuptools_git_versioning={
-        "enabled": True,
-    },
     description="Landroid cloud API library",
     long_description=long_description,
     long_description_content_type="text/markdown",
