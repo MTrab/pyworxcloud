@@ -5,10 +5,26 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: test.py",
+            "name": "Single run - Basic",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}\\test.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Single run - With",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}\\test_with.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Async run",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}\\test_async.py",
             "console": "integratedTerminal",
             "justMyCode": true
         }

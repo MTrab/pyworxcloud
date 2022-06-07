@@ -13,7 +13,7 @@ import requests
 
 from .clouds import CLOUDS
 from .const import API_BASE
-from .exceptions import APIException, RequestException, TimeoutException, TokenError
+from .exceptions import APIException, AuthorizationError, RequestException, TimeoutException, TokenError
 
 
 class LandroidAPI:
@@ -154,11 +154,15 @@ class LandroidAPI:
 
             req.raise_for_status()
         except requests.exceptions.HTTPError as err:
-            raise APIException(err) from err
+            code = err.response.status_code
+            if code == 401:
+                raise AuthorizationError()
+            else:
+                raise APIException(err)
         except requests.exceptions.Timeout as err:
-            raise TimeoutException(err) from err
+            raise TimeoutException(err)
         except requests.exceptions.RequestException as err:
-            raise RequestException(err) from err
+            raise RequestException(err)
 
         return req.json()
 

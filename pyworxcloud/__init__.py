@@ -5,6 +5,7 @@ import base64
 import contextlib
 import json
 import logging
+from multiprocessing import AuthenticationError
 import tempfile
 import time
 from datetime import datetime, timedelta
@@ -13,20 +14,27 @@ import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 
 from .day_map import DAY_MAP
-from .exceptions import NoOneTimeScheduleError, NoPartymodeError, OfflineError
+from .exceptions import AuthorizationError, NoOneTimeScheduleError, NoPartymodeError, OfflineError
 from .landroidapi import LandroidAPI
 from .schedules import TYPE_MAP, Schedule, ScheduleType
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class WorxCloud:
-    """Worx by Landroid Cloud connector."""
+class WorxCloud(object):
+    """
+    Worx by Landroid Cloud connector.
+    
+    Used for handling API connection to Worx, Kress and Landxcape devices which are cloud connected.
+
+    This uses a reverse engineered API protocol, so no guarantee that this will keep working.
+    There are no public available API documentation available.
+    """
 
     wait = True
 
-    def __init__(self, username: str, password: str, cloud_type: str = "worx") -> None:
-        """Define WorxCloud object."""
+    def __init__(self, username: str, password: str, cloud_type: str = "worx", index: int |None = None, verify_ssl: bool = True) -> None:
+        """Initialize WorxCloud object and set default attribute values."""
         self._worx_mqtt_client_id = None
         self._worx_mqtt_endpoint = None
 
@@ -40,11 +48,14 @@ class WorxCloud:
 
         self._auth_result = False
         self._callback = None  # Callback used when data arrives from cloud
-        self._dev_id = None
+        self._dev_id = index
         self._mqtt = None
         self._raw = None
         self._save_zones = None
+        self._verify_ssl = verify_ssl
 
+        # Set default attribute values
+        ###############################
         self.accessories = None
         self.battery_charge_cycle = None
         self.battery_charge_cycle_current = None
@@ -96,12 +107,29 @@ class WorxCloud:
         self.zone = []
         self.zone_probability = []
 
-    def initialize(self) -> bool:
-        """Initialize current object."""
+    def __enter__(self):
+        """Default actions using with statement."""
+        if isinstance(self._dev_id, type(None)):
+            self._dev_id = 0
+
+        self.authenticate
+
+        self.connect(self._dev_id, self._verify_ssl)
+        self.update()
+
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Called on end of with statement."""
+        self.disconnect()
+
+    @property
+    def authenticate(self) -> bool:
+        """Authenticate against the API."""
         auth = self._authenticate()
         if auth is False:
             self._auth_result = False
-            return False
+            raise AuthenticationError("Unauthorized")
 
         self._auth_result = True
 
@@ -111,9 +139,17 @@ class WorxCloud:
         """Set callback function to call when data arrives from cloud."""
         self._callback = callback
 
-    def connect(self, dev_id: int, verify_ssl: bool = True) -> bool:
+    def disconnect(self) -> None:
+        """Close API connections."""
+        if hasattr(self._mqtt, "disconnect"):
+            self._mqtt.disconnect()
+
+    def connect(self, index: int | None = None, verify_ssl: bool = True) -> bool:
         """Connect to cloud services."""
-        self._dev_id = dev_id
+        if not isinstance(index,type(None)):
+            if index != self._dev_id:
+                self._dev_id = index
+
         self._get_mac_address()
 
         self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
