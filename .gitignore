@@ -364,4 +364,5 @@ FodyWeavers.xsd
 
 build/
 test.py
+test_async.py
 __pycache__/
