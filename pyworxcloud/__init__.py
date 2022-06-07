@@ -89,6 +89,7 @@ class WorxCloud:
         self.status = None
         self.status_description = None
         self.torque = None
+        self.torque_capable = False
         self.updated = None
         self.work_time = 0
         self.yaw = 0
@@ -259,6 +260,7 @@ class WorxCloud:
 
             # Fetch wheel torque
             if "tq" in data["cfg"]:
+                self.torque_capable = True
                 self.torque = data["cfg"]["tq"]
 
             # Fetch zone information
