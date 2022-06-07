@@ -8,7 +8,7 @@
             "name": "Single run - Basic",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}\\test\\test.py",
+            "program": "${workspaceFolder}\\test.py",
             "console": "integratedTerminal",
             "justMyCode": true
         },
@@ -16,7 +16,7 @@
             "name": "Single run - With",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}\\test\\test_with.py",
+            "program": "${workspaceFolder}\\test_with.py",
             "console": "integratedTerminal",
             "justMyCode": true
         },
@@ -24,7 +24,7 @@
             "name": "Async run",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}\\test\\test_async.py",
+            "program": "${workspaceFolder}\\test_async.py",
             "console": "integratedTerminal",
             "justMyCode": true
         }

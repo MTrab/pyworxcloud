@@ -1,8 +1,7 @@
 import asyncio
-import pyworxcloud
+from pyworxcloud import WorxCloud
 import time
 
-from sys import exit
 from pprint import pprint
 from os import environ
 
@@ -12,28 +11,37 @@ TYPE = "worx"
 
 async def main():
     loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(
-    None, worx_test)
+    await loop.run_in_executor(None, worx_test)
 
 def worx_test():
-    worx = pyworxcloud.WorxCloud()
+    cloud = WorxCloud(EMAIL, PASS, TYPE)
 
-    auth = worx.initialize(EMAIL, PASS)
+    # Initialize connection
+    auth = cloud.authenticate
 
-    if auth:
-        worx.connect(0, False)
-        while True:
-            try:
-                print("Updating Worx")
-                # worx.update()
-                worx.getStatus()
-                print(f" - Update of {worx.name} done")
-            except TimeoutError:
-                print(" - Timed out waiting for response")
-            except:
-                print(" - Ooops - something went wrong!")
+    if not auth:
+        # If invalid credentials are used, or something happend during
+        # authorize, then exit
+        exit(0)
 
-            print("Sleeping 300 seconds")
-            time.sleep(300)
+    # Connect to device with index 0 (devices are enumerated 0, 1, 2 ...) and do
+    # not verify SSL (False)
+    cloud.connect(0, False)
+
+    while True:
+        try:
+            print("Updating Worx")
+            # Read latest states received from the device
+            cloud.update()
+
+            # Print all vars and attributes of the cloud object
+            pprint(vars(cloud))
+        except TimeoutError:
+            print(" - Timed out waiting for response")
+        except:
+            print(" - Ooops - something went wrong!")
+
+        print("Sleeping 300 seconds")
+        time.sleep(300)
 
 asyncio.run(main())
