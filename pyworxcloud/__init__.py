@@ -21,7 +21,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class WorxCloud:
-    """Worx by Landroid Cloud connector."""
+    """
+    Worx by Landroid Cloud connector.
+    
+    Used for handling API connection to Worx, Kress and Landxcape devices which are cloud connected.
+
+    This uses a reverse engineered API protocol, so no guarantee that this will keep working.
+    There are no public available API documentation available.
+    """
 
     wait = True
 
