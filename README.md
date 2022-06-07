@@ -37,10 +37,17 @@ setzone | Set next zone to mow | zone: str or int
 ### Connection example
 ```
 from pyworxcloud import WorxCloud
+from pyworxcloud.exceptions import AuthorizationError
 cloud = WorxCloud("your@email", "Password")
 
 # Initialize connection
-auth = cloud.initialize()
+auth = False
+try:
+    auth = cloud.authorize
+except AuthorizationError as ex:
+    # Authorization failed
+    print(ex)
+    exit(0)
 
 if not auth:
     # If invalid credentials are used, or something happend during
