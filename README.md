@@ -43,7 +43,7 @@ cloud = WorxCloud("your@email", "Password")
 # Initialize connection
 auth = False
 try:
-    auth = cloud.authorize
+    auth = cloud.authenticate
 except AuthorizationError as ex:
     # Authorization failed
     print(ex)
