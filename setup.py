@@ -10,7 +10,6 @@ setuptools.setup(
     setuptools_git_versioning={
         "enabled": True,
     },
-    setup_requires=["setuptools-git-versioning"],
     description="Landroid cloud API library",
     long_description=long_description,
     long_description_content_type="text/markdown",
