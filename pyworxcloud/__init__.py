@@ -497,6 +497,13 @@ class WorxCloud(object):
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
+    def safehome(self):
+        """Stop and go home (with blades off)."""
+        if self.online:
+            self._mqtt.publish(self.mqtt_in, '{"cmd":9}', qos=0, retain=False)
+        else:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
     def raindelay(self, rain_delay: str | int) -> None:
         """Set new rain delay."""
         if self.online:
