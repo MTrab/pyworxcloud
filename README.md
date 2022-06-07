@@ -17,7 +17,7 @@ The module will be enhanced with more functionality as the API gets mapped out -
 Call | Description | Parameters
 ---|---|---
 initialize | Initialize the API connection and authenticate the user credentials |
-connect | Connect to a device | dev_id: int, verify_ssl: bool
+connect | Connect to a device | index: int, verify_ssl: bool
 set_callback | If set, the module will call this function when data is received from the API | callback
 enumerate | Returns the number of devices associated with the account |
 send | Send custom data to the API | data: str (JSON string!)
