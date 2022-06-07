@@ -156,7 +156,6 @@ class LandroidAPI:
         except requests.exceptions.HTTPError as err:
             code = err.response.status_code
             if code == 401:
-                print("Raise auth-error")
                 raise AuthorizationError()
             else:
                 raise APIException(err)
