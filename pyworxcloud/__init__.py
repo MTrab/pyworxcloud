@@ -5,6 +5,7 @@ import base64
 import contextlib
 import json
 import logging
+from multiprocessing import AuthenticationError
 import tempfile
 import time
 from datetime import datetime, timedelta
@@ -33,7 +34,7 @@ class WorxCloud:
     wait = True
 
     def __init__(self, username: str, password: str, cloud_type: str = "worx") -> None:
-        """Define WorxCloud object."""
+        """Initialize WorxCloud object and set default attribute values."""
         self._worx_mqtt_client_id = None
         self._worx_mqtt_endpoint = None
 
@@ -52,6 +53,8 @@ class WorxCloud:
         self._raw = None
         self._save_zones = None
 
+        # Set default attribute values
+        ###############################
         self.accessories = None
         self.battery_charge_cycle = None
         self.battery_charge_cycle_current = None
@@ -103,12 +106,13 @@ class WorxCloud:
         self.zone = []
         self.zone_probability = []
 
-    def initialize(self) -> bool:
-        """Initialize current object."""
+    @property
+    def authenticate(self) -> bool:
+        """Authenticate against the API."""
         auth = self._authenticate()
         if auth is False:
             self._auth_result = False
-            return False
+            raise AuthenticationError("Unauthorized")
 
         self._auth_result = True
 

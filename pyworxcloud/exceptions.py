@@ -27,3 +27,6 @@ class APIException(Exception):
 
 class TimeoutException(Exception):
     """Define a timeout error."""
+
+class AuthorizationError(Exception):
+    """Represents an authorization error."""
