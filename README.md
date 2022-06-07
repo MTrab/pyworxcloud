@@ -37,17 +37,12 @@ setzone | Set next zone to mow | zone: str or int
 ### Connection example
 ```
 from pyworxcloud import WorxCloud
-from pyworxcloud.exceptions import AuthorizationError
-cloud = WorxCloud("your@email", "Password")
+from pprint import pprint
+
+cloud = WorxCloud("your@email", "password", "worx")
 
 # Initialize connection
-auth = False
-try:
-    auth = cloud.authenticate
-except AuthorizationError as ex:
-    # Authorization failed
-    print(ex)
-    exit(0)
+auth = cloud.authenticate
 
 if not auth:
     # If invalid credentials are used, or something happend during
@@ -60,4 +55,17 @@ cloud.connect(0, False)
 
 # Read latest states received from the device
 cloud.update()
+
+# Print all vars and attributes of the cloud object
+pprint(vars(cloud))
 ```
+
+or like this:
+
+```
+from pyworxcloud import WorxCloud
+from pprint import pprint
+
+if __name__ == '__main__':
+    with WorxCloud("your@email","password","worx", 0, False) as cloud:
+        pprint(vars(cloud))
