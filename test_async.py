@@ -1,17 +1,19 @@
 import asyncio
-from pyworxcloud import WorxCloud
 import time
-
-from pprint import pprint
 from os import environ
+from pprint import pprint
+
+from pyworxcloud import WorxCloud
 
 EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
 TYPE = "worx"
 
+
 async def main():
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, worx_test)
+
 
 def worx_test():
     cloud = WorxCloud(EMAIL, PASS, TYPE)
@@ -43,5 +45,6 @@ def worx_test():
 
         print("Sleeping 300 seconds")
         time.sleep(300)
+
 
 asyncio.run(main())

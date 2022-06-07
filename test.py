@@ -1,12 +1,13 @@
-from pyworxcloud import WorxCloud
 from os import environ
 from pprint import pprint
+
+from pyworxcloud import WorxCloud
 
 EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
 TYPE = "worx"
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cloud = WorxCloud(EMAIL, PASS, TYPE)
 
     # Initialize connection

@@ -13,7 +13,13 @@ import requests
 
 from .clouds import CLOUDS
 from .const import API_BASE
-from .exceptions import APIException, AuthorizationError, RequestException, TimeoutException, TokenError
+from .exceptions import (
+    APIException,
+    AuthorizationError,
+    RequestException,
+    TimeoutException,
+    TokenError,
+)
 
 
 class LandroidAPI:

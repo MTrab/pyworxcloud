@@ -5,16 +5,21 @@ import base64
 import contextlib
 import json
 import logging
-from multiprocessing import AuthenticationError
 import tempfile
 import time
 from datetime import datetime, timedelta
+from multiprocessing import AuthenticationError
 
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 
 from .day_map import DAY_MAP
-from .exceptions import AuthorizationError, NoOneTimeScheduleError, NoPartymodeError, OfflineError
+from .exceptions import (
+    AuthorizationError,
+    NoOneTimeScheduleError,
+    NoPartymodeError,
+    OfflineError,
+)
 from .landroidapi import LandroidAPI
 from .schedules import TYPE_MAP, Schedule, ScheduleType
 
@@ -24,7 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 class WorxCloud(object):
     """
     Worx by Landroid Cloud connector.
-    
+
     Used for handling API connection to Worx, Kress and Landxcape devices which are cloud connected.
 
     This uses a reverse engineered API protocol, so no guarantee that this will keep working.
@@ -33,7 +38,14 @@ class WorxCloud(object):
 
     wait = True
 
-    def __init__(self, username: str, password: str, cloud_type: str = "worx", index: int |None = None, verify_ssl: bool = True) -> None:
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        cloud_type: str = "worx",
+        index: int | None = None,
+        verify_ssl: bool = True,
+    ) -> None:
         """Initialize WorxCloud object and set default attribute values."""
         self._worx_mqtt_client_id = None
         self._worx_mqtt_endpoint = None
@@ -118,7 +130,7 @@ class WorxCloud(object):
         self.update()
 
         return self
-    
+
     def __exit__(self, exc_type, exc_value, traceback):
         """Called on end of with statement."""
         self.disconnect()
@@ -146,7 +158,7 @@ class WorxCloud(object):
 
     def connect(self, index: int | None = None, verify_ssl: bool = True) -> bool:
         """Connect to cloud services."""
-        if not isinstance(index,type(None)):
+        if not isinstance(index, type(None)):
             if index != self._dev_id:
                 self._dev_id = index
 
