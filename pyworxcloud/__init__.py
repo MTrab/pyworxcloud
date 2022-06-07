@@ -1,6 +1,5 @@
 """pyWorxCloud definition."""
 from __future__ import annotations
-from datetime import datetime, timedelta
 
 import base64
 import contextlib
@@ -8,6 +7,7 @@ import json
 import logging
 import tempfile
 import time
+from datetime import datetime, timedelta
 
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
@@ -295,8 +295,13 @@ class WorxCloud:
                         "%H:%M",
                     )
 
-                    if isinstance(self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"], type(None)):
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"] = "0"
+                    if isinstance(
+                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"],
+                        type(None),
+                    ):
+                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                            "duration"
+                        ] = "0"
 
                     duration = int(
                         self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"]
