@@ -42,7 +42,7 @@ from pprint import pprint
 cloud = WorxCloud("your@email", "password", "worx")
 
 # Initialize connection
-auth = cloud.authenticate
+auth = cloud.authenticate()
 
 if not auth:
     # If invalid credentials are used, or something happend during

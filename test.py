@@ -11,7 +11,7 @@ if __name__ == "__main__":
     cloud = WorxCloud(EMAIL, PASS, TYPE)
 
     # Initialize connection
-    auth = cloud.authenticate
+    auth = cloud.authenticate()
 
     if not auth:
         # If invalid credentials are used, or something happend during

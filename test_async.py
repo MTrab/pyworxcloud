@@ -19,7 +19,7 @@ def worx_test():
     cloud = WorxCloud(EMAIL, PASS, TYPE)
 
     # Initialize connection
-    auth = cloud.authenticate
+    auth = cloud.authenticate()
 
     if not auth:
         # If invalid credentials are used, or something happend during
