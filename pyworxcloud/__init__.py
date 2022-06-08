@@ -141,7 +141,7 @@ class WorxCloud(object):
         auth = self._authenticate()
         if auth is False:
             self._auth_result = False
-            raise AuthenticationError("Unauthorized")
+            raise AuthorizationError("Unauthorized")
 
         self._auth_result = True
 
