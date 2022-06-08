@@ -124,7 +124,7 @@ class WorxCloud(object):
         if isinstance(self._dev_id, type(None)):
             self._dev_id = 0
 
-        self.authenticate
+        self.authenticate()
 
         self.connect(self._dev_id, self._verify_ssl)
         self.update()
@@ -135,7 +135,6 @@ class WorxCloud(object):
         """Called on end of with statement."""
         self.disconnect()
 
-    @property
     def authenticate(self) -> bool:
         """Authenticate against the API."""
         auth = self._authenticate()
