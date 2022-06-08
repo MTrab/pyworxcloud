@@ -16,7 +16,12 @@ from .const import API_BASE
 from .exceptions import (
     APIException,
     AuthorizationError,
+    ForbiddenError,
+    InternalServerError,
+    NotFoundError,
+    RequestError,
     RequestException,
+    ServiceUnavailableError,
     TimeoutException,
     TokenError,
 )
@@ -161,8 +166,18 @@ class LandroidAPI:
             req.raise_for_status()
         except requests.exceptions.HTTPError as err:
             code = err.response.status_code
-            if code == 401:
+            if code == 400:
+                raise RequestError()
+            elif code == 401:
                 raise AuthorizationError()
+            elif code == 403:
+                raise ForbiddenError()
+            elif code == 404:
+                raise NotFoundError()
+            elif code == 500:
+                raise InternalServerError()
+            elif code == 503:
+                raise ServiceUnavailableError()
             else:
                 raise APIException(err)
         except requests.exceptions.Timeout as err:
