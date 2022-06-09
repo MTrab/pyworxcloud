@@ -1,4 +1,5 @@
 """Defines schedule classes."""
+from __future__ import annotations
 
 import calendar
 from enum import IntEnum
