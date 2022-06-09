@@ -49,7 +49,7 @@ class WorxCloud(object):
         | CloudType.LANDXCAPE
         | CloudType.FERREX
         | str = CloudType.WORX,
-        index: int | None = None,
+        index: int = 0,
         verify_ssl: bool = True,
     ) -> None:
         """Initialize WorxCloud object and set default attribute values."""
@@ -95,7 +95,7 @@ class WorxCloud(object):
         self.blade_time = 0
         self.blade_time_current = 0
         self.blade_work_time_reset = None
-        self.board = None
+        self.board = []
         self.current_zone = 0
         self.distance = 0
         self.error = None
@@ -106,6 +106,7 @@ class WorxCloud(object):
         self.locked = False
         self.mac = None
         self.mac_address = None
+        self.model = "Unknown"
         self.mowing_zone = 0
         self.mqtt_in = None
         self.mqtt_out = None
@@ -115,6 +116,7 @@ class WorxCloud(object):
         self.partymode_capable = False
         self.partymode_enabled = False
         self.pitch = 0
+        self.product = []
         self.rain_delay = None
         self.rain_delay_time_remaining = None
         self.rain_sensor_triggered = None
@@ -177,6 +179,8 @@ class WorxCloud(object):
                 self._dev_id = index
 
         self._get_mac_address()
+        self.product = self._api.get_product_info(self.product_id)
+        self.model = f'{self.product["default_name"]}{self.product["meters"]}'
 
         self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
 
@@ -243,7 +247,7 @@ class WorxCloud(object):
         self.mqtt_out = self.mqtt_topics["command_out"]
         self.mqtt_in = self.mqtt_topics["command_in"]
         self.mac = self.mac_address
-        self.board = self.mqtt_out.split("/")[0]
+        # self.board = self.mqtt_out.split("/")[0]
 
     def _forward_on_message(
         self, client, userdata, message
