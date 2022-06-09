@@ -13,6 +13,8 @@ from multiprocessing import AuthenticationError
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 
+from pyworxcloud.clouds import CloudType
+
 from .day_map import DAY_MAP
 from .exceptions import (
     AuthorizationError,
@@ -42,7 +44,11 @@ class WorxCloud(object):
         self,
         username: str,
         password: str,
-        cloud_type: str = "worx",
+        cloud: CloudType.WORX
+        | CloudType.KRESS
+        | CloudType.LANDXCAPE
+        | CloudType.FERREX
+        | str = CloudType.WORX,
         index: int | None = None,
         verify_ssl: bool = True,
     ) -> None:
@@ -50,13 +56,23 @@ class WorxCloud(object):
         self._worx_mqtt_client_id = None
         self._worx_mqtt_endpoint = None
 
-        self._api = LandroidAPI()
+        if not isinstance(
+            cloud,
+            (
+                type(CloudType.WORX),
+                type(CloudType.KRESS),
+                type(CloudType.LANDXCAPE),
+                type(CloudType.FERREX),
+            ),
+        ):
+            try:
+                cloud = getattr(CloudType, cloud.upper())
+            except AttributeError:
+                raise TypeError(
+                    "Wrong type specified, valid types are: worx, landxcape, kress, ferrex"
+                )
 
-        self._api.password = password
-        self._api.type = (
-            cloud_type  # Usable cloud_types are: worx, kress and landxcape.
-        )
-        self._api.username = username
+        self._api = LandroidAPI(username, password, cloud)
 
         self._auth_result = False
         self._callback = None  # Callback used when data arrives from cloud
@@ -107,7 +123,6 @@ class WorxCloud(object):
         self.schedule_mower_active = False
         self.schedule_variation = None
         self.schedules = {}
-        self.serial = None
         self.serial_number = None
         self.status = None
         self.status_description = None

@@ -1,5 +1,14 @@
 {
+    "python.envFile": "${workspaceFolder}/.env",
+    "files.eol": "\n",
+    "editor.tabSize": 4,
+    "terminal.integrated.shell.linux": "/bin/bash",
+    "python.analysis.autoSearchPaths": false,
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true,
-    "python.envFile": "${workspaceFolder}/.env"
+    "python.formatting.provider": "black",
+    "editor.formatOnPaste": false,
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true,
+    "files.trimTrailingWhitespace": true
 }

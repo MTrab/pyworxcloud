@@ -1,4 +1,5 @@
 """Exceptions definitions."""
+from __future__ import annotations
 
 
 class NoPartymodeError(Exception):
@@ -27,6 +28,7 @@ class TimeoutException(Exception):
 
 class RequestException(Exception):
     """Define a request exception."""
+
 
 # Exception classes for URL requests
 class RequestError(Exception):
