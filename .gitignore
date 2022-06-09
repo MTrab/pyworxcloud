@@ -363,5 +363,5 @@ MigrationBackup/
 FodyWeavers.xsd
 
 build/
-test.py
 __pycache__/
+.env
