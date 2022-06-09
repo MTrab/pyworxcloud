@@ -11,7 +11,7 @@ import uuid
 
 import requests
 
-from .clouds import CLOUDS
+from .clouds import CloudType
 from .const import API_BASE
 from .exceptions import (
     APIException,
@@ -30,18 +30,28 @@ from .exceptions import (
 class LandroidAPI:
     """Worx Cloud API definition."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        cloud: CloudType.WORX
+        | CloudType.KRESS
+        | CloudType.LANDXCAPE
+        | CloudType.FERREX = CloudType.WORX,
+    ) -> None:
         """Initialize new instance of API broker."""
-        self.cloud = CLOUDS["worx"]
+        self.cloud: CloudType = cloud
         self._token_type = "app"
-        self.username = None
-        self.password = None
-        self.type = None
         self._token = None
         self._tokenrefresh = 0
         self.uuid = None
         self._api_host = None
         self._data = None
+
+        self.api_url = cloud.URL
+        self.api_key = cloud.KEY
+        self.username = username
+        self.password = password
 
     def set_token(self, token: str, now: int = -1) -> None:
         """Set the token used for communication."""
@@ -57,7 +67,7 @@ class LandroidAPI:
 
     def _generate_identify_token(self, seed_token: str) -> str:
         """Generate identify token."""
-        text_to_char = [ord(c) for c in self.cloud["url"]]
+        text_to_char = [ord(c) for c in self.api_url]
 
         step_one = re.findall(r".{1,2}", seed_token)
         step_two = list(map((lambda hex: int(hex, 16)), step_one))
@@ -90,10 +100,9 @@ class LandroidAPI:
     def auth(self) -> str:
         """Authenticate."""
         self.uuid = str(uuid.uuid1())
-        self.cloud = CLOUDS[self.type]
-        self._api_host = (API_BASE).format(self.cloud["url"])
+        self._api_host = (API_BASE).format(self.api_url)
 
-        self._token = self._generate_identify_token(self.cloud["key"])
+        self._token = self._generate_identify_token(self.api_key)
 
         payload_data = {}
         payload_data["username"] = self.username
@@ -128,6 +137,18 @@ class LandroidAPI:
         self._data = calldata
         return calldata
 
+    def get_product_info(self, product_id: int) -> str:
+        """Get information on the device from product_id."""
+        calldata = self._call("/products")
+        obj = json.dumps(calldata)
+        return obj
+
+    def get_board(self) -> str:
+        """Get devices associated with this user."""
+        calldata = self._call("/boards")
+        self._data = calldata
+        return calldata
+
     def get_status(self, serial) -> str:
         """Get device status."""
         callstr = f"/product-items/{serial}/status"
@@ -156,11 +177,11 @@ class LandroidAPI:
                     self._api_host + path,
                     data=payload,
                     headers=self._get_headers(),
-                    timeout=10,
+                    timeout=30,
                 )
             else:
                 req = requests.get(
-                    self._api_host + path, headers=self._get_headers(), timeout=10
+                    self._api_host + path, headers=self._get_headers(), timeout=30
                 )
 
             req.raise_for_status()
