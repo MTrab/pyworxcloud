@@ -247,7 +247,7 @@ class WorxCloud(object):
         self.mqtt_out = self.mqtt_topics["command_out"]
         self.mqtt_in = self.mqtt_topics["command_in"]
         self.mac = self.mac_address
-        # self.board = self.mqtt_out.split("/")[0]
+        self.board = self._api.get_board(self.mqtt_out.split("/")[0])
 
     def _forward_on_message(
         self, client, userdata, message

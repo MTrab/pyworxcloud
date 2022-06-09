@@ -145,11 +145,11 @@ class LandroidAPI:
         except:
             return None
 
-    def get_board(self, board_id: int) -> list | None:
+    def get_board(self, board_code: str) -> list | None:
         """Get devices associated with this user."""
         boards = self._call("/boards")
         try:
-            return [x for x in boards if x["id"] == board_id][0]
+            return [x for x in boards if x["code"] == board_code.upper()][0]
         except:
             return None
 
