@@ -137,17 +137,21 @@ class LandroidAPI:
         self._data = calldata
         return calldata
 
-    def get_product_info(self, product_id: int) -> str:
+    def get_product_info(self, product_id: int) -> list | None:
         """Get information on the device from product_id."""
-        calldata = self._call("/products")
-        obj = json.dumps(calldata)
-        return obj
+        products = self._call("/products")
+        try:
+            return [x for x in products if x["id"] == product_id][0]
+        except:
+            return None
 
-    def get_board(self) -> str:
+    def get_board(self, board_id: int) -> list | None:
         """Get devices associated with this user."""
-        calldata = self._call("/boards")
-        self._data = calldata
-        return calldata
+        boards = self._call("/boards")
+        try:
+            return [x for x in boards if x["id"] == board_id][0]
+        except:
+            return None
 
     def get_status(self, serial) -> str:
         """Get device status."""
