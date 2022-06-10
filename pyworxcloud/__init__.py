@@ -104,7 +104,6 @@ class WorxCloud(object):
         self.gps_latitude = None
         self.gps_longitude = None
         self.locked = False
-        self.mac = None
         self.mac_address = None
         self.model = "Unknown"
         self.mowing_zone = 0
@@ -246,7 +245,6 @@ class WorxCloud(object):
         self._fetch()
         self.mqtt_out = self.mqtt_topics["command_out"]
         self.mqtt_in = self.mqtt_topics["command_in"]
-        self.mac = self.mac_address
         self.board = self._api.get_board(self.mqtt_out.split("/")[0])
 
     def _forward_on_message(
