@@ -47,6 +47,10 @@ class NotFoundError(Exception):
     """Represents a not found error (404)."""
 
 
+class TooManyRequestsError(Exception):
+    """Represents a error when request quota have been exceeded (429)."""
+
+
 class InternalServerError(Exception):
     """Represents an internal server error (500)."""
 

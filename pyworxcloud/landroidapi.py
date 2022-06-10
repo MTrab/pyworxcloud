@@ -24,6 +24,7 @@ from .exceptions import (
     ServiceUnavailableError,
     TimeoutException,
     TokenError,
+    TooManyRequestsError,
 )
 
 
@@ -199,6 +200,8 @@ class LandroidAPI:
                 raise ForbiddenError()
             elif code == 404:
                 raise NotFoundError()
+            elif code == 429:
+                raise TooManyRequestsError()
             elif code == 500:
                 raise InternalServerError()
             elif code == 503:
