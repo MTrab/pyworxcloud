@@ -28,7 +28,7 @@ from .exceptions import (
 )
 
 
-class LandroidAPI:
+class LandroidCloudAPI:
     """Landroid Cloud API definition."""
 
     def __init__(
