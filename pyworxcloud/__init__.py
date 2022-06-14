@@ -23,7 +23,7 @@ from .exceptions import (
     OfflineError,
 )
 from .api import LandroidCloudAPI
-from .schedules import TYPE_MAP, Schedule, ScheduleType
+from .schedules import TYPE_TO_STRING, Schedule, ScheduleType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -407,40 +407,44 @@ class WorxCloud(object):
 
                 sch_type = ScheduleType.PRIMARY
                 schedule = Schedule(sch_type).todict
-                self.schedules[TYPE_MAP[sch_type]] = schedule["days"]
+                self.schedules[TYPE_TO_STRING[sch_type]] = schedule["days"]
 
                 for day in range(0, len(data["cfg"]["sc"]["d"])):
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["start"] = data[
-                        "cfg"
-                    ]["sc"]["d"][day][0]
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"] = data[
-                        "cfg"
-                    ]["sc"]["d"][day][1]
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["boundary"] = bool(
-                        data["cfg"]["sc"]["d"][day][2]
-                    )
+                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "start"
+                    ] = data["cfg"]["sc"]["d"][day][0]
+                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "duration"
+                    ] = data["cfg"]["sc"]["d"][day][1]
+                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "boundary"
+                    ] = bool(data["cfg"]["sc"]["d"][day][2])
 
                     time_start = datetime.strptime(
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["start"],
+                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]]["start"],
                         "%H:%M",
                     )
 
                     if isinstance(
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"],
+                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "duration"
+                        ],
                         type(None),
                     ):
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                             "duration"
                         ] = "0"
 
                     duration = int(
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"]
+                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "duration"
+                        ]
                     )
 
                     duration = duration * (1 + (int(self.schedule_variation) / 100))
                     end_time = time_start + timedelta(minutes=duration)
 
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                         "end"
                     ] = end_time.time().strftime("%H:%M")
 
@@ -448,18 +452,18 @@ class WorxCloud(object):
             if "dd" in data["cfg"]["sc"]:
                 sch_type = ScheduleType.SECONDARY
                 schedule = Schedule(sch_type).todict
-                self.schedules[TYPE_MAP[sch_type]] = schedule["days"]
+                self.schedules[TYPE_TO_STRING[sch_type]] = schedule["days"]
 
                 for day in range(0, len(data["cfg"]["sc"]["d"])):
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["start"] = data[
-                        "cfg"
-                    ]["sc"]["dd"][day][0]
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"] = data[
-                        "cfg"
-                    ]["sc"]["dd"][day][1]
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["boundary"] = bool(
-                        data["cfg"]["sc"]["dd"][day][2]
-                    )
+                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "start"
+                    ] = data["cfg"]["sc"]["dd"][day][0]
+                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "duration"
+                    ] = data["cfg"]["sc"]["dd"][day][1]
+                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "boundary"
+                    ] = bool(data["cfg"]["sc"]["dd"][day][2])
 
                     time_start = datetime.strptime(
                         data["cfg"]["sc"]["dd"][day][0],
@@ -467,21 +471,25 @@ class WorxCloud(object):
                     )
 
                     if isinstance(
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"],
+                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "duration"
+                        ],
                         type(None),
                     ):
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                             "duration"
                         ] = "0"
 
                     duration = int(
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"]
+                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "duration"
+                        ]
                     )
 
                     duration = duration * (1 + (int(self.schedule_variation) / 100))
                     end_time = time_start + timedelta(minutes=duration)
 
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                         "end"
                     ] = end_time.time().strftime("%H:%M")
 
