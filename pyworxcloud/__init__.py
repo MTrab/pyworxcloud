@@ -52,7 +52,59 @@ class WorxCloud(object):
         index: int = 0,
         verify_ssl: bool = True,
     ) -> None:
-        """Initialize WorxCloud object and set default attribute values."""
+        """
+        Initialize :class:WorxCloud class and set default attribute values.
+
+        1. option for connecting and printing the current states from the API, using :code:`with`
+
+        .. testcode::
+        from pyworxcloud import WorxCloud
+        from pprint import pprint
+
+        with WorxCloud("your@email","password","worx", 0, False) as cloud:
+            pprint(vars(cloud))
+
+        2. option for connecting and printing the current states from the API, using :code:`connect` and :code:`disconnect`
+
+        .. testcode::
+        from pyworxcloud import WorxCloud
+        from pprint import pprint
+
+        cloud = WorxCloud("your@email", "password", "worx")
+
+        # Initialize connection
+        auth = cloud.authenticate()
+
+        if not auth:
+            # If invalid credentials are used, or something happend during
+            # authorize, then exit
+            exit(0)
+
+        # Connect to device with index 0 (devices are enumerated 0, 1, 2 ...)
+        # and do not verify SSL (False)
+        cloud.connect(0, False)
+
+        # Read latest states received from the device
+        cloud.update()
+
+        # Print all vars and attributes of the cloud object
+        pprint(vars(cloud))
+
+        # Disconnect from the API
+        cloud.disconnect()
+
+        For further information, see the Wiki for documentation: https://github.com/MTrab/pyworxcloud/wiki
+
+        Args:
+            username (str): Email used for logging into the app for your device.
+            password (str): Password for your account.
+            cloud (CloudType.WORX | CloudType.KRESS | CloudType.LANDXCAPE | CloudType.FERREX | str, optional): The CloudType matching your device. Defaults to CloudType.WORX.
+            index (int, optional): Device number if more than one is connected to your account (starting from 0 representing the first added device). Defaults to 0.
+            verify_ssl (bool, optional): Should this module verify the API endpoint SSL certificate? Defaults to True.
+
+        Raise:
+            TypeError: Error raised if invalid CloudType was specified.
+        """
         self._worx_mqtt_client_id = None
         self._worx_mqtt_endpoint = None
 
@@ -163,7 +215,11 @@ class WorxCloud(object):
         return True
 
     def set_callback(self, callback) -> None:
-        """Set callback function to call when data arrives from cloud."""
+        """Set callback which is called when data is received.
+
+        Args:
+            callback (function): Function to be called.
+        """
         self._callback = callback
 
     def disconnect(self) -> None:
@@ -172,7 +228,15 @@ class WorxCloud(object):
             self._mqtt.disconnect()
 
     def connect(self, index: int | None = None, verify_ssl: bool = True) -> bool:
-        """Connect to cloud services."""
+        """Connect to the cloud service endpoint
+
+        Args:
+            index (int | None, optional): Device number to connect to. Defaults to None.
+            verify_ssl (bool, optional): Should we verify SSL certificate. Defaults to True.
+
+        Returns:
+            bool: True if connection was successful, otherwise False.
+        """
         if not isinstance(index, type(None)):
             if index != self._dev_id:
                 self._dev_id = index
@@ -447,14 +511,25 @@ class WorxCloud(object):
                 self.accessories.append(key)
 
     def enumerate(self) -> int:
-        """Enumerate amount of devices attached to account."""
+        """Fetch number of devices connected to the account.
+
+        Returns:
+            int: Represents the number of available devices in the account, starting from 0 as the first devices associated with the account.
+        """
         self._api.get_products()
         products = self._api.data
         return len(products)
 
     # Service calls starts here
     def send(self, data: str) -> None:
-        """Publish data to the device."""
+        """Send raw JSON data to the device.
+
+        Args:
+            data (str): Data to be sent, formatted as a valid JSON object.
+
+        Raises:
+            OfflineError: Raised if the device isn't online.
+        """
         if self.online:
             self._mqtt.publish(self.mqtt_in, data, qos=0, retain=False)
         else:
@@ -469,35 +544,59 @@ class WorxCloud(object):
         self._decode_data(status)
 
     def start(self) -> None:
-        """Start mowing."""
+        """Start mowing task
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
         if self.online:
             self._mqtt.publish(self.mqtt_in, '{"cmd":1}', qos=0, retain=False)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
     def pause(self) -> None:
-        """Pause mowing."""
+        """Pause the mowing task
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
         if self.online:
             self._mqtt.publish(self.mqtt_in, '{"cmd":2}', qos=0, retain=False)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
     def home(self) -> None:
-        """Stop (and go home)."""
+        """Stop the current task and go home.
+        If the knifes was turned on when this is called, it will return home with knifes still turned on.
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
         if self.online:
             self._mqtt.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
     def zonetraining(self) -> None:
-        """Start zonetraining."""
+        """Start the zone training task.
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
         if self.online:
             self._mqtt.publish(self.mqtt_in, '{"cmd":4}', qos=0, retain=False)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
     def lock(self, enabled: bool) -> None:
-        """Lock or Unlock device."""
+        """Set the device locked state.
+
+        Args:
+            enabled (bool): True will lock the device, False will unlock the device.
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
         if self.online:
             if enabled:
                 self._mqtt.publish(self.mqtt_in, '{"cmd":5}', qos=0, retain=False)
@@ -507,21 +606,36 @@ class WorxCloud(object):
             raise OfflineError("The device is currently offline, no action was sent.")
 
     def restart(self):
-        """Reboot device."""
+        """Reboot the device baseboard.
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
         if self.online:
             self._mqtt.publish(self.mqtt_in, '{"cmd":7}', qos=0, retain=False)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
     def safehome(self):
-        """Stop and go home (with blades off)."""
+        """Stop and go home with the blades off
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
         if self.online:
             self._mqtt.publish(self.mqtt_in, '{"cmd":9}', qos=0, retain=False)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
     def raindelay(self, rain_delay: str | int) -> None:
-        """Set new rain delay."""
+        """Set new rain delay.
+
+        Args:
+            rain_delay (str | int): Rain delay in minutes.
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
         if self.online:
             if not isinstance(rain_delay, str):
                 rain_delay = str(rain_delay)
@@ -531,7 +645,14 @@ class WorxCloud(object):
             raise OfflineError("The device is currently offline, no action was sent.")
 
     def toggle_schedule(self, enable: bool) -> None:
-        """Enable or disable schedule."""
+        """Turn on or off the schedule.
+
+        Args:
+            enable (bool): True is enabling the schedule, Fasle is disabling the schedule.
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
         if self.online:
             if enable:
                 msg = '{"sc": {"m": 1}}'
@@ -543,7 +664,15 @@ class WorxCloud(object):
             raise OfflineError("The device is currently offline, no action was sent.")
 
     def toggle_partymode(self, enabled: bool) -> None:
-        """Enable or disable Party Mode."""
+        """Turn on or off the partymode.
+
+        Args:
+            enable (bool): True is enabling partymode, Fasle is disabling partymode.
+
+        Raises:
+            NoPartymodeError: Raised if the device does not support partymode.
+            OfflineError: Raised if the device is offline.
+        """
         if self.online and self.partymode_capable:
             if enabled:
                 msg = '{"sc": {"m": 2, "distm": 0}}'
@@ -557,7 +686,16 @@ class WorxCloud(object):
             raise OfflineError("The device is currently offline, no action was sent.")
 
     def ots(self, boundary: bool, runtime: str | int) -> None:
-        """Start OTS routine."""
+        """Start a One-Time-Schedule task
+
+        Args:
+            boundary (bool): If True the device will start the task cutting the edge.
+            runtime (str | int): Minutes to run the task before returning to dock.
+
+        Raises:
+            NoOneTimeScheduleError: OTS is not supported by the device.
+            OfflineError: Raised when the device is offline.
+        """
         if self.online and self.ots_capable:
             if not isinstance(runtime, int):
                 runtime = int(runtime)
@@ -573,7 +711,14 @@ class WorxCloud(object):
             raise OfflineError("The device is currently offline, no action was sent.")
 
     def setzone(self, zone: str | int) -> None:
-        """Set next zone to mow."""
+        """Set zone to be mowed when next mowing task is started.
+
+        Args:
+            zone (str | int): Zone to mow, valid possibilities are a number from 1 to 4.
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
         if self.online:
             if not isinstance(zone, int):
                 zone = int(zone)
