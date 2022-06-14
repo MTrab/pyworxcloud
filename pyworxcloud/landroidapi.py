@@ -199,7 +199,7 @@ class LandroidAPI:
         except:
             return None
 
-    def get_status(self, serial) -> str:
+    def get_status(self, serial: str) -> str:
         """Get device status
 
         Args:
