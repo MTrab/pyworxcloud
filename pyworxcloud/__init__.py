@@ -22,7 +22,7 @@ from .exceptions import (
     NoPartymodeError,
     OfflineError,
 )
-from .landroidapi import LandroidAPI
+from .api import LandroidCloudAPI
 from .schedules import TYPE_MAP, Schedule, ScheduleType
 
 _LOGGER = logging.getLogger(__name__)
@@ -124,7 +124,7 @@ class WorxCloud(object):
                     "Wrong type specified, valid types are: worx, landxcape, kress, ferrex"
                 )
 
-        self._api = LandroidAPI(username, password, cloud)
+        self._api = LandroidCloudAPI(username, password, cloud)
 
         self._auth_result = False
         self._callback = None  # Callback used when data arrives from cloud
