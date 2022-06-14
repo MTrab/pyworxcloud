@@ -1,4 +1,4 @@
-"""pyWorxCloud states definition."""
+"""Landroid Cloud states definitions."""
 from __future__ import annotations
 
 # Valid states - some are missing as these haven't been identified yet

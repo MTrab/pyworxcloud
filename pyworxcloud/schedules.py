@@ -12,14 +12,18 @@ class ScheduleType(IntEnum):
     SECONDARY = 1
 
 
-TYPE_MAP = {ScheduleType.PRIMARY: "primary", ScheduleType.SECONDARY: "secondary"}
+TYPE_TO_STRING = {ScheduleType.PRIMARY: "primary", ScheduleType.SECONDARY: "secondary"}
 
 
 class Weekday:
-    """Represents a weekday."""
+    """Class representing a weekday."""
 
-    def __init__(self, weekday: str):
-        """Initiate weekday."""
+    def __init__(self, weekday: str) -> None:
+        """Initialize a weekday.
+
+        Args:
+            weekday (str): Name of the weekday.
+        """
         self._name = weekday.lower()
         self._start = None
         self._end = None
@@ -28,7 +32,11 @@ class Weekday:
 
     @property
     def todict(self) -> dict:
-        """Return list object."""
+        """Return the weekday as a dictionary.
+
+        Returns:
+            dict: Dictionary containing the weekday.
+        """
         day = {
             "name": self._name,
             "settings": {
@@ -42,27 +50,27 @@ class Weekday:
 
     @property
     def name(self) -> str:
-        """Return weekday name."""
+        """Returns the weekday name."""
         return self._name
 
     @property
     def start(self) -> str:
-        """Return start time."""
+        """Returns the start time."""
         return self._start
 
     @property
     def end(self) -> str:
-        """Return end time."""
+        """Returns the end time."""
         return self._end
 
     @property
     def duration(self) -> int:
-        """Return duration."""
+        """Returns the duration."""
         return self._duration
 
     @property
     def boundary(self) -> bool:
-        """Do boundary (edge) cut."""
+        """Returns a bool representating if the device should start the day with doing boundary / edge cut."""
         return self._boundary
 
 
@@ -70,7 +78,11 @@ class Schedule:
     """Represents a schedule."""
 
     def __init__(self, schedule_type: ScheduleType):
-        """Initiate a new schedule."""
+        """Initialize an empty schedule.
+
+        Args:
+            schedule_type (ScheduleType): Which ScheduleType to initialize.
+        """
         self.type = schedule_type
         self.weekdays = {}
 
@@ -80,6 +92,10 @@ class Schedule:
 
     @property
     def todict(self) -> dict:
-        """Return list object."""
+        """Return the schedule as a dictionary.
+
+        Returns:
+            dict: Dictionary containing the weekday.
+        """
         val = {"type": self.type, "days": self.weekdays}
         return val
