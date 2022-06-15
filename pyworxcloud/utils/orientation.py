@@ -47,6 +47,3 @@ class Orientation:
     def yaw(self):
         """Return yaw."""
         return self._yaw
-
-    def __repr__(self) -> str:
-        return json.dumps(self.to_dict)

@@ -47,7 +47,7 @@ class Battery:
 
         0: Temperature
         1: Voltage
-        2: State (charge %)
+        2: Charge left as percent
         3: Current charge cycles
         4: Total charge cycles
         5: Reset at charge cycles
@@ -71,13 +71,10 @@ class Battery:
         return {
             "temperature": self._temp,
             "voltage": self._volt,
-            "state": self._perc,
+            "percent": self._perc,
             "current_cycles": self._cycles_current,
             "total_cycles": self._cycles_total,
             "reset_cycles": self._cycles_reset,
             "charging": self._charging,
             "maintenence": self._maint,
         }
-
-    def __repr__(self) -> str:
-        return json.dumps(self.to_dict)
