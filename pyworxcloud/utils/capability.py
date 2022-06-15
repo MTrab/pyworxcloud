@@ -1,6 +1,9 @@
 """Device capabilities."""
 
 
+import json
+
+
 class DeviceCapability:
     """Available device capabilities."""
 
@@ -30,3 +33,6 @@ class Capability:
             return False
         else:
             return True
+
+    def __repr__(self) -> str:
+        return json.dumps(self.to_dict, skipkeys=True)

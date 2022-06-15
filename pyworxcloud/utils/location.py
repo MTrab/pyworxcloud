@@ -38,3 +38,6 @@ class Location:
     def longitude(self):
         """Return longitude."""
         return self._longitude
+
+    def __repr__(self) -> str:
+        return json.dumps(self.to_dict, skipkeys=True)
