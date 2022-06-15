@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 
-from .classes import Location, Orientation
+from .classes import Battery, Blades, Location, Orientation
 from .clouds import CloudType
 from .day_map import DAY_MAP
 from .exceptions import (
@@ -140,20 +140,10 @@ class WorxCloud(object):
         # Set default attribute values
         ###############################
         self.accessories = None
-        self.battery_charge_cycle = None
-        self.battery_charge_cycle_current = None
-        self.battery_charge_cycles_reset = None
-        self.battery_charging = None
-        self.battery_percent = 0
-        self.battery_temperature = 0
-        self.battery_voltage = 0
-        self.blade_time = 0
-        self.blade_time_current = 0
-        self.blade_work_time_reset = None
+        self.battery = Battery()
+        self.blades = Blades()
         self.board = []
-        self.distance = 0
         self.error = None
-        self.error_description = None
         self.firmware = None
         self.gps = Location()
         self.locked = False
@@ -336,33 +326,11 @@ class WorxCloud(object):
 
             # Get battery info if available
             if "bt" in data["dat"]:
-                self.battery_temperature = data["dat"]["bt"]["t"]
-                self.battery_voltage = data["dat"]["bt"]["v"]
-                self.battery_percent = data["dat"]["bt"]["p"]
-                self.battery_charging = data["dat"]["bt"]["c"]
-                self.battery_charge_cycle = data["dat"]["bt"]["nr"]
-                if self.battery_charge_cycles_reset is not None:
-                    self.battery_charge_cycle_current = (
-                        self.battery_charge_cycle - self.battery_charge_cycles_reset
-                    )
-                    if self.battery_charge_cycle_current < 0:
-                        self.battery_charge_cycle_current = 0
-                else:
-                    self.battery_charge_cycle_current = self.battery_charge_cycle
+                self.battery = Battery(data["dat"]["bt"])
 
             # Get blade data if available
             if "st" in data["dat"]:
-                self.blade_time = data["dat"]["st"]["b"]
-                if self.blade_work_time_reset is not None:
-                    self.blade_time_current = (
-                        self.blade_time - self.blade_work_time_reset
-                    )
-                    if self.blade_time_current < 0:
-                        self.blade_time_current = 0
-                else:
-                    self.blade_time_current = self.blade_time
-                self.distance = data["dat"]["st"]["d"]
-                self.work_time = data["dat"]["st"]["wt"]
+                self.blades = Blades(data["dat"]["st"])
 
             # Get orientation if available.
             if "dmp" in data["dat"]:

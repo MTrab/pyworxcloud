@@ -1,5 +1,118 @@
 """Landroid data classes."""
 
+from ctypes import cast
+from enum import IntEnum
+
+
+class BatteryState(IntEnum):
+    """Battery states."""
+
+    UNKNOWN = -1
+    CHARGED = 0
+    CHARGING = 1
+    ERROR_CHARGING = 2
+
+
+class Blades:
+    """Blade information."""
+
+    _total_on: int | None = None  # Total runtime with blades on in minutes
+    _distance: int | None = None  # Total distance in meters
+    _worktime: int | None = None  # Total worktime in minutes
+    _current: int | None = None  # Blade time since last reset
+
+    def __init__(self, data: list = None) -> None:
+        """Initialize blade object."""
+        self._total_on = data["b"]
+        self._distance = data["d"]
+        self._worktime = data["wt"]
+        self._current = data["bl"]
+
+    @property
+    def to_list(self) -> list:
+        """Return object as a list.
+
+        0: Total on
+        1: Distance
+        2: Worktime
+        3: Current on
+        """
+        return [
+            self._total_on,
+            self._distance,
+            self._worktime,
+            self._current,
+        ]
+
+    @property
+    def to_dict(self) -> dict:
+        """Return object as a dict."""
+        return {
+            "total_on": self._total_on,
+            "distance": self._distance,
+            "worktime": self._worktime,
+            "current_on": self._current,
+        }
+
+
+class Battery:
+    """Battery information."""
+
+    _temp: float | None = None
+    _volt: float | None = None
+    _perc: int | None = None
+    _cycles_total: int | None = None
+    _cycles_reset: int | None = None
+    _cycles_current: int | None = None
+    _charging: BatteryState = BatteryState.UNKNOWN
+    _maint: int | None = None
+
+    def __init__(self, data: list = None) -> None:
+        """Initialize a battery object."""
+        self._temp = data["t"]
+        self._volt = data["v"]
+        self._perc = data["p"]
+        self._charging = cast(data["c"], BatteryState)
+        self._cycles = data["nr"]
+        if self._cycles_reset is not None:
+            self._cycles_current = self._cycles_total - self._cycles_reset
+            if self._cycles_current < 0:
+                self._cycles_current = 0
+        else:
+            self._cycles_current = self._cycles_total
+
+    @property
+    def to_list(self) -> list:
+        """Return object as a list.
+
+        0: Temperature
+        1: Voltage
+        2: State (charge %)
+        3: Charge cycles
+        4: Charging state
+        5: Maintenence
+        """
+        return [
+            self._temp,
+            self._volt,
+            self._state,
+            self._cycle,
+            self._charging,
+            self._maint,
+        ]
+
+    @property
+    def to_dict(self) -> dict:
+        """Return object as a dict."""
+        return {
+            "temperature": self._temp,
+            "voltage": self._volt,
+            "state": self._state,
+            "charge_cycles": self._cycle,
+            "charging": self._charging,
+            "maintenence": self._maint,
+        }
+
 
 class Location:
     """GPS location."""
