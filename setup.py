@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import setuptools
+
+if sys.version_info < (3, 10, 0):
+    sys.exit("The pyWorxcloud module requires Python 3.10.0 or later")
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
