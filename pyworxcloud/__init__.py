@@ -156,8 +156,6 @@ class WorxCloud(object):
         self.online = False
         self.orientation = Orientation([0, 0, 0])
         self.capabilities = Capability()
-        self.capability_ots = False
-        self.capability_partymode = False
         self.partymode_enabled = False
         self.product = []
         self.rain_delay = None
@@ -171,7 +169,6 @@ class WorxCloud(object):
         self.status = None
         self.status_description = None
         self.torque = None
-        self.capability_torque = False
         self.updated = None
         self.work_time = 0
         self.zone_current = 0

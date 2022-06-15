@@ -1,9 +1,6 @@
 """Device capabilities."""
 
 
-import json
-
-
 class DeviceCapability:
     """Available device capabilities."""
 
@@ -13,7 +10,7 @@ class DeviceCapability:
     TORQUE = 8
 
 
-class Capability:
+class Capability(int):
     """Class for handling device capabilities."""
 
     _capa: int
@@ -35,4 +32,4 @@ class Capability:
             return True
 
     def __repr__(self) -> str:
-        return json.dumps(self.to_dict, skipkeys=True)
+        return repr(self._capa)
