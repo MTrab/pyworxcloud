@@ -80,7 +80,7 @@ class Battery:
         }
 
     def __repr__(self) -> str:
-        return str(self._perc)
+        return json.dumps(self.to_dict, skipkeys=True)
 
     @property
     def temperature(self) -> int:
