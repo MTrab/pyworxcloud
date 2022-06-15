@@ -24,7 +24,7 @@ from .exceptions import (
 from .api import LandroidCloudAPI
 from .schedules import TYPE_TO_STRING, Schedule, ScheduleType
 
-from utils import Blades, Battery, Capability, DeviceCapability, Location, Orientation
+from .utils import Blades, Battery, Capability, DeviceCapability, Location, Orientation
 
 _LOGGER = logging.getLogger(__name__)
 

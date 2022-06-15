@@ -1,5 +1,6 @@
 """Device capabilities."""
 
+
 class DeviceCapability:
     """Available device capabilities."""
 
@@ -29,6 +30,3 @@ class Capability:
             return False
         else:
             return True
-
-    def __repr__(self) -> int:
-        return self._capa
