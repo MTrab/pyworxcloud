@@ -148,7 +148,6 @@ class WorxCloud(object):
         self.blade_time_current = 0
         self.blade_work_time_reset = None
         self.board = []
-        self.current_zone = 0
         self.distance = 0
         self.error = None
         self.error_description = None
@@ -158,11 +157,11 @@ class WorxCloud(object):
         self.locked = False
         self.mac_address = None
         self.model = "Unknown"
-        self.mowing_zone = 0
         self.mqtt_in = None
         self.mqtt_out = None
         self.mqtt_topics = {}
         self.online = False
+        self.orientation = {"roll": 0, "yaw": 0, "pitch": 0}
         self.ots_capable = False
         self.partymode_capable = False
         self.partymode_enabled = False
@@ -184,8 +183,10 @@ class WorxCloud(object):
         self.updated = None
         self.work_time = 0
         self.yaw = 0
-        self.zone = []
-        self.zone_probability = []
+        self.zone_current = 0
+        self.zone_index = 0
+        self.zone_indicies = []
+        self.zone_start = []
 
     def __enter__(self):
         """Default actions using with statement."""
@@ -326,12 +327,12 @@ class WorxCloud(object):
         data = json.loads(indata)
         if "dat" in data:
             self.firmware = data["dat"]["fw"]
-            self.mowing_zone = data["dat"]["lz"]
             self.rssi = data["dat"]["rsi"]
             self.status = data["dat"]["ls"]
             self.error = data["dat"]["le"]
 
-            self.current_zone = data["dat"]["lz"]
+            self.zone_index = data["dat"]["lz"]
+
             self.locked = bool(data["dat"]["lk"])
 
             # Get battery info if available
@@ -393,8 +394,11 @@ class WorxCloud(object):
 
             # Fetch zone information
             if "mz" in data["cfg"]:
-                self.zone = data["cfg"]["mz"]
-                self.zone_probability = data["cfg"]["mzv"]
+                self.zone_start = data["cfg"]["mz"]
+                self.zone_indicies = data["cfg"]["mzv"]
+
+                # Map current zone to zone index
+                self.zone_current = self.zone_indicies[self.zone_index]
 
             # Fetch main schedule
             if "sc" in data["cfg"]:
