@@ -45,6 +45,3 @@ class Blades:
             "worktime": self._worktime,
             "current_on": self._current,
         }
-
-    def __repr__(self) -> str:
-        return json.dumps(self.to_dict)
