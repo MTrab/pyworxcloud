@@ -5,16 +5,16 @@ import base64
 import contextlib
 import json
 import logging
+import sys
 import tempfile
 import time
 from datetime import datetime, timedelta
-from multiprocessing import AuthenticationError
 
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 
-from pyworxcloud.clouds import CloudType
-
+from .classes import Location, Orientation
+from .clouds import CloudType
 from .day_map import DAY_MAP
 from .exceptions import (
     AuthorizationError,
@@ -26,6 +26,9 @@ from .api import LandroidCloudAPI
 from .schedules import TYPE_TO_STRING, Schedule, ScheduleType
 
 _LOGGER = logging.getLogger(__name__)
+
+if sys.version_info < (3, 10, 0):
+    sys.exit("The pyWorxcloud module requires Python 3.10.0 or later")
 
 
 class WorxCloud(object):
@@ -152,8 +155,7 @@ class WorxCloud(object):
         self.error = None
         self.error_description = None
         self.firmware = None
-        self.gps_latitude = None
-        self.gps_longitude = None
+        self.gps = Location()
         self.locked = False
         self.mac_address = None
         self.model = "Unknown"
@@ -161,16 +163,14 @@ class WorxCloud(object):
         self.mqtt_out = None
         self.mqtt_topics = {}
         self.online = False
-        self.orientation = {"roll": 0, "yaw": 0, "pitch": 0}
+        self.orientation = Orientation([0, 0, 0])
         self.ots_capable = False
         self.partymode_capable = False
         self.partymode_enabled = False
-        self.pitch = 0
         self.product = []
         self.rain_delay = None
         self.rain_delay_time_remaining = None
         self.rain_sensor_triggered = None
-        self.roll = 0
         self.rssi = None
         self.schedule_mower_active = False
         self.schedule_variation = None
@@ -182,7 +182,6 @@ class WorxCloud(object):
         self.torque_capable = False
         self.updated = None
         self.work_time = 0
-        self.yaw = 0
         self.zone_current = 0
         self.zone_index = 0
         self.zone_indicies = []
@@ -367,15 +366,15 @@ class WorxCloud(object):
 
             # Get orientation if available.
             if "dmp" in data["dat"]:
-                self.pitch = data["dat"]["dmp"][0]
-                self.roll = data["dat"]["dmp"][1]
-                self.yaw = data["dat"]["dmp"][2]
+                self.orientation = Orientation(data["dat"]["dmp"])
 
             # Check for extra module availability
             if "modules" in data["dat"]:
                 if "4G" in data["dat"]["modules"]:
-                    self.gps_latitude = data["dat"]["modules"]["4G"]["gps"]["coo"][0]
-                    self.gps_longitude = data["dat"]["modules"]["4G"]["gps"]["coo"][1]
+                    self.gps = Location(
+                        data["dat"]["modules"]["4G"]["gps"]["coo"][0],
+                        data["dat"]["modules"]["4G"]["gps"]["coo"][1],
+                    )
 
             # Get remaining rain delay if available
             if "rain" in data["dat"]:
