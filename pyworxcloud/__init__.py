@@ -13,7 +13,14 @@ from datetime import datetime, timedelta
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 
-from .classes import Battery, Blades, Capability, Location, Orientation
+from .classes import (
+    Battery,
+    Blades,
+    Capability,
+    DeviceCapability,
+    Location,
+    Orientation,
+)
 from .clouds import CloudType
 from .day_map import DAY_MAP
 from .exceptions import (
@@ -357,7 +364,7 @@ class WorxCloud(object):
 
             # Fetch wheel torque
             if "tq" in data["cfg"]:
-                self.torque_capable = True
+                self.capabilities.add(DeviceCapability.TORQUE)
                 self.torque = data["cfg"]["tq"]
 
             # Fetch zone information
@@ -370,10 +377,13 @@ class WorxCloud(object):
 
             # Fetch main schedule
             if "sc" in data["cfg"]:
-                self.ots_capable = bool("ots" in data["cfg"]["sc"])
+                if "ots" in data["cfg"]["sc"]:
+                    self.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                if "distm" in data["cfg"]["sc"]:
+                    self.capabilities.add(DeviceCapability.PARTY_MODE)
+
                 self.schedule_mower_active = bool(str(data["cfg"]["sc"]["m"]) == "1")
                 self.partymode_enabled = bool(str(data["cfg"]["sc"]["m"]) == "2")
-                self.partymode_capable = bool("distm" in data["cfg"]["sc"])
 
                 self.schedule_variation = data["cfg"]["sc"]["p"]
 
@@ -653,14 +663,14 @@ class WorxCloud(object):
             NoPartymodeError: Raised if the device does not support partymode.
             OfflineError: Raised if the device is offline.
         """
-        if self.online and self.partymode_capable:
+        if self.online and self.capabilities.check(DeviceCapability.PARTY_MODE):
             if enabled:
                 msg = '{"sc": {"m": 2, "distm": 0}}'
                 self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
             else:
                 msg = '{"sc": {"m": 1, "distm": 0}}'
                 self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
-        elif not self.partymode_capable:
+        elif not self.capabilities.check(DeviceCapability.PARTY_MODE):
             raise NoPartymodeError("This device does not support Partymode")
         elif not self.online:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -676,14 +686,14 @@ class WorxCloud(object):
             NoOneTimeScheduleError: OTS is not supported by the device.
             OfflineError: Raised when the device is offline.
         """
-        if self.online and self.ots_capable:
+        if self.online and self.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE):
             if not isinstance(runtime, int):
                 runtime = int(runtime)
 
             raw = {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}}
             _LOGGER.debug(json.dumps(raw))
             self._mqtt.publish(self.mqtt_in, json.dumps(raw), qos=0, retain=False)
-        elif not self.ots_capable:
+        elif not self.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE):
             raise NoOneTimeScheduleError(
                 "This device does not support Edgecut-on-demand"
             )
