@@ -1,7 +1,7 @@
 """Landroid data classes."""
 
-from ctypes import cast
 from enum import IntEnum
+import json
 
 
 class BatteryState(IntEnum):
@@ -11,6 +11,40 @@ class BatteryState(IntEnum):
     CHARGED = 0
     CHARGING = 1
     ERROR_CHARGING = 2
+
+
+class DeviceCapability(IntEnum):
+    """Available device capabilities."""
+
+    UNKNOWN = -1
+    EDGE_CUT = 0
+    ONE_TIME_SCHEDULE = 1
+    PARTY_MODE = 2
+    TORQUE = 3
+
+
+class Capability:
+    """Class for handling device capabilities."""
+
+    _capa: list
+
+    def __init__(self) -> None:
+        """Initialize an empty capability list."""
+        self._capa = []
+
+    def add(self, capability: DeviceCapability) -> None:
+        """Add capability to the list."""
+        if not capability in self._capa:
+            self._capa.append(capability)
+
+    def remove(self, capability: DeviceCapability) -> None:
+        """Delete capability from the list."""
+        if capability in self._capa:
+            self._capa.pop(capability)
+
+    def get(self, capability: DeviceCapability) -> bool:
+        """Check if device has capability."""
+        return bool(capability in self._capa)
 
 
 class Blades:
@@ -23,10 +57,13 @@ class Blades:
 
     def __init__(self, data: list = None) -> None:
         """Initialize blade object."""
-        self._total_on = data["b"]
-        self._distance = data["d"]
-        self._worktime = data["wt"]
-        self._current = data["bl"]
+        if not data:
+            return
+
+        self._total_on = data["b"] if "b" in data else None
+        self._distance = data["d"] if "d" in data else None
+        self._worktime = data["wt"] if "wt" in data else None
+        self._current = data["bl"] if "bl" in data else None
 
     @property
     def to_list(self) -> list:
@@ -69,11 +106,14 @@ class Battery:
 
     def __init__(self, data: list = None) -> None:
         """Initialize a battery object."""
-        self._temp = data["t"]
-        self._volt = data["v"]
-        self._perc = data["p"]
-        self._charging = cast(data["c"], BatteryState)
-        self._cycles = data["nr"]
+        if not data:
+            return
+
+        self._temp = data["t"] if "t" in data else None
+        self._volt = data["v"] if "v" in data else None
+        self._perc = data["p"] if "p" in data else None
+        self._charging = data["c"] if "c" in data else None
+        self._cycles = data["nr"] if "nr" in data else None
         if self._cycles_reset is not None:
             self._cycles_current = self._cycles_total - self._cycles_reset
             if self._cycles_current < 0:
@@ -88,15 +128,19 @@ class Battery:
         0: Temperature
         1: Voltage
         2: State (charge %)
-        3: Charge cycles
-        4: Charging state
-        5: Maintenence
+        3: Current charge cycles
+        4: Total charge cycles
+        5: Reset at charge cycles
+        6: Charging state
+        7: Maintenence
         """
         return [
             self._temp,
             self._volt,
-            self._state,
-            self._cycle,
+            self._perc,
+            self._cycles_current,
+            self._cycles_total,
+            self._cycles_reset,
             self._charging,
             self._maint,
         ]
@@ -107,11 +151,16 @@ class Battery:
         return {
             "temperature": self._temp,
             "voltage": self._volt,
-            "state": self._state,
-            "charge_cycles": self._cycle,
+            "state": self._perc,
+            "current_cycles": self._cycles_current,
+            "total_cycles": self._cycles_total,
+            "reset_cycles": self._cycles_reset,
             "charging": self._charging,
             "maintenence": self._maint,
         }
+
+    def __repr__(self) -> str:
+        return json.dumps(self.to_dict)
 
 
 class Location:
@@ -157,11 +206,14 @@ class Orientation:
     _roll = 0
     _yaw = 0
 
-    def __init__(self, orientation: list) -> None:
+    def __init__(self, data: list) -> None:
         """Initialize orientation object."""
-        self._pitch = orientation[0]
-        self._roll = orientation[1]
-        self._yaw = orientation[2]
+        if not data:
+            return
+
+        self._pitch = data[0]
+        self._roll = data[1]
+        self._yaw = data[2]
 
     @property
     def to_list(self) -> list:

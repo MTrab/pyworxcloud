@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 
-from .classes import Battery, Blades, Location, Orientation
+from .classes import Battery, Blades, Capability, Location, Orientation
 from .clouds import CloudType
 from .day_map import DAY_MAP
 from .exceptions import (
@@ -154,8 +154,9 @@ class WorxCloud(object):
         self.mqtt_topics = {}
         self.online = False
         self.orientation = Orientation([0, 0, 0])
-        self.ots_capable = False
-        self.partymode_capable = False
+        self.capabilities = Capability()
+        self.capability_ots = False
+        self.capability_partymode = False
         self.partymode_enabled = False
         self.product = []
         self.rain_delay = None
@@ -169,7 +170,7 @@ class WorxCloud(object):
         self.status = None
         self.status_description = None
         self.torque = None
-        self.torque_capable = False
+        self.capability_torque = False
         self.updated = None
         self.work_time = 0
         self.zone_current = 0
