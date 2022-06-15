@@ -13,41 +13,38 @@ class BatteryState(IntEnum):
     ERROR_CHARGING = 2
 
 
-class DeviceCapability(IntEnum):
+class DeviceCapability:
     """Available device capabilities."""
 
-    UNKNOWN = -1
-    EDGE_CUT = 0
-    ONE_TIME_SCHEDULE = 1
-    PARTY_MODE = 2
-    TORQUE = 3
+    EDGE_CUT = 1
+    ONE_TIME_SCHEDULE = 2
+    PARTY_MODE = 4
+    TORQUE = 8
 
 
 class Capability:
     """Class for handling device capabilities."""
 
-    _capa: list
+    _capa: int
 
     def __init__(self) -> None:
         """Initialize an empty capability list."""
-        self._capa = []
+        self._capa = 0
 
     def add(self, capability: DeviceCapability) -> None:
         """Add capability to the list."""
-        if not capability in self._capa:
-            self._capa.append(capability)
+        if capability & self._capa == 0:
+            self._capa = self._capa | capability
 
-    def remove(self, capability: DeviceCapability) -> None:
-        """Delete capability from the list."""
-        if capability in self._capa:
-            self._capa.pop(capability)
-
-    def get(self, capability: DeviceCapability) -> bool:
+    def check(self, capability: DeviceCapability) -> bool:
         """Check if device has capability."""
-        return bool(capability in self._capa)
+        if capability & self._capa == 0:
+            return False
+        else:
+            return True
 
-    def __repr__(self) -> str:
-        return json.dumps(self._capa)
+    def __repr__(self) -> int:
+        return self._capa
 
 
 class Blades:
