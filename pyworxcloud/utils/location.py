@@ -1,43 +1,20 @@
 """Location information."""
 
 
-import json
-
-
-class Location:
+class Location(dict):
     """GPS location."""
 
-    _lat: float | None = None
-    _lon: float | None = None
+    # latitude: float | None = None
+    # longitude: float | None = None
 
     def __init__(self, latitude: float | None = None, longitude: float | None = None):
         """Initialize location object."""
-        self._lat = latitude
-        self._lon = longitude
+        super(Location, self).__init__()
 
-    @property
-    def to_list(self) -> list:
-        """Return object as a list.
-
-        0: Latitude
-        1: Longitude
-        """
-        return [self._lat, self._lon]
-
-    @property
-    def to_dict(self) -> dict:
-        """Return object as a dict."""
-        return {"latitude": self._lat, "longitude": self._lon}
-
-    @property
-    def latitude(self):
-        """Return latitude."""
-        return self._lat
-
-    @property
-    def longitude(self):
-        """Return longitude."""
-        return self._longitude
+        if not latitude or not longitude:
+            return
+        self.latitude = latitude
+        self.longitude = longitude
 
     def __repr__(self) -> str:
-        return json.dumps(self.to_dict, skipkeys=True)
+        return repr(self.__dict__)
