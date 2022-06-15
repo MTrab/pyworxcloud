@@ -13,14 +13,6 @@ from datetime import datetime, timedelta
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 
-from .classes import (
-    Battery,
-    Blades,
-    Capability,
-    DeviceCapability,
-    Location,
-    Orientation,
-)
 from .clouds import CloudType
 from .day_map import DAY_MAP
 from .exceptions import (
@@ -31,6 +23,23 @@ from .exceptions import (
 )
 from .api import LandroidCloudAPI
 from .schedules import TYPE_TO_STRING, Schedule, ScheduleType
+
+from .utils.battery import (
+    Battery,
+)
+from .utils.blades import (
+    Blades,
+)
+from .utils.capability import (
+    Capability,
+    DeviceCapability,
+)
+from .utils.location import (
+    Location,
+)
+from .utils.orientation import (
+    Orientation,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
