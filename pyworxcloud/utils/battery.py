@@ -78,3 +78,52 @@ class Battery:
             "charging": self._charging,
             "maintenence": self._maint,
         }
+
+    def __repr__(self) -> str:
+        return str(self._perc)
+
+    @property
+    def temperature(self) -> int:
+        """Return battery temperature."""
+        return self._temp
+
+    @property
+    def voltage(self) -> int:
+        """Return battery voltage."""
+        return self._volt
+
+    @property
+    def percent(self) -> int:
+        """Return battery charge state in percent."""
+        return self._perc
+
+    @property
+    def cycles(self) -> int:
+        """Contains charge cycle information."""
+
+        @property
+        def current() -> int:
+            """Return current cycles."""
+            return self._cycles_current
+
+        @property
+        def total() -> int:
+            """Return total cycles."""
+            return self._cycles_total
+
+        @property
+        def reset_at() -> int:
+            """Return cycles for last reset."""
+            return self._cycles_reset
+
+        return {"current": current(), "total": total(), "reset_at": reset_at()}
+
+    @property
+    def charging(self) -> BatteryState:
+        """Return current cycles."""
+        return self._charging
+
+    @property
+    def maintenence(self) -> int:
+        """Return current cycles."""
+        return self._maint
