@@ -46,6 +46,9 @@ class Capability:
         """Check if device has capability."""
         return bool(capability in self._capa)
 
+    def __repr__(self) -> str:
+        return json.dumps(self._capa)
+
 
 class Blades:
     """Blade information."""
@@ -90,6 +93,9 @@ class Blades:
             "worktime": self._worktime,
             "current_on": self._current,
         }
+
+    def __repr__(self) -> str:
+        return json.dumps(self.to_dict)
 
 
 class Battery:
@@ -198,6 +204,9 @@ class Location:
         """Return longitude."""
         return self._longitude
 
+    def __repr__(self) -> str:
+        return json.dumps(self.to_dict)
+
 
 class Orientation:
     """Device orientation class."""
@@ -244,3 +253,6 @@ class Orientation:
     def yaw(self):
         """Return yaw."""
         return self._yaw
+
+    def __repr__(self) -> str:
+        return json.dumps(self.to_dict)
