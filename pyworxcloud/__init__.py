@@ -24,7 +24,6 @@ from .exceptions import (
     OfflineError,
 )
 from .api import LandroidCloudAPI
-from .states import ERROR_TO_DESCRIPTION, STATE_TO_DESCRIPTION
 
 from .utils import (
     Blades,
