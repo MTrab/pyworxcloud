@@ -45,3 +45,23 @@ class Zone(DictBase):
     def index(self, value: int) -> None:
         """Set current index property."""
         self.__index = value
+
+    @property
+    def indicies(self) -> int:
+        """Get indicies."""
+        return self.__indicies
+
+    @indicies.setter
+    def indicies(self, value: list) -> None:
+        """Set indicies property."""
+        self.__indicies = value
+
+    @property
+    def starting_point(self) -> int:
+        """Get starting points."""
+        return self.__start
+
+    @starting_point.setter
+    def starting_point(self, value: int) -> None:
+        """Set starting points."""
+        self.__start = value
