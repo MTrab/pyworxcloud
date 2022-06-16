@@ -181,7 +181,7 @@ class WorxCloud(object):
         self.serial_number = None
         self.status = States()
         # self.status = -1
-        self.status_description = None
+        # self.status_description = None
         self.torque = None
         self.updated = None
         self.work_time = 0
@@ -509,8 +509,8 @@ class WorxCloud(object):
                     self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                         "end"
                     ] = end_time.time().strftime("%H:%M")
-        self.status_description = STATE_TO_DESCRIPTION[self.status]
-        self.error_description = ERROR_TO_DESCRIPTION[self.error]
+        # self.status_description = STATE_TO_DESCRIPTION[self.status]
+        # self.error_description = ERROR_TO_DESCRIPTION[self.error]
 
     def _on_connect(
         self, client, userdata, flags, rc
