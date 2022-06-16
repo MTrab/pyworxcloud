@@ -35,6 +35,8 @@ from .utils import (
     Orientation,
     Schedule,
     ScheduleType,
+    States,
+    StateType,
     Statistic,
     Zone,
 )
@@ -157,7 +159,8 @@ class WorxCloud(object):
         self.accessories = None
         self.battery = Battery()
         self.blades = Blades()
-        self.error = -1
+        self.error = States(StateType.ERROR)
+        # self.error = -1
         self.gps = Location()
         self.locked = False
         self.mqtt_in = None
@@ -176,7 +179,8 @@ class WorxCloud(object):
         self.schedule_variation = None
         self.schedules: dict[str, Any] = {}
         self.serial_number = None
-        self.status = -1
+        self.status = States()
+        # self.status = -1
         self.status_description = None
         self.torque = None
         self.updated = None
@@ -353,8 +357,10 @@ class WorxCloud(object):
         if "dat" in data:
             self.firmware = data["dat"]["fw"]
             self.rssi = data["dat"]["rsi"]
-            self.status = data["dat"]["ls"]
-            self.error = data["dat"]["le"]
+            # self.status = data["dat"]["ls"]
+            self.status.update(data["dat"]["ls"])
+            # self.error = data["dat"]["le"]
+            self.error.update(data["dat"]["le"])
 
             self.zone.index = data["dat"]["lz"]
 
