@@ -3,6 +3,7 @@ from __future__ import annotations
 
 # Valid states - some are missing as these haven't been identified yet
 STATE_TO_DESCRIPTION = {
+    -1: "unknown",
     0: "idle",
     1: "home",
     2: "start sequence",
@@ -25,6 +26,7 @@ STATE_TO_DESCRIPTION = {
 
 # Valid error states
 ERROR_TO_DESCRIPTION = {
+    -1: "unknown",
     0: "no error",
     1: "trapped",
     2: "lifted",

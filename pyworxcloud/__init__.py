@@ -154,7 +154,7 @@ class WorxCloud(object):
         self.accessories = None
         self.battery = Battery()
         self.blades = Blades()
-        self.error = None
+        self.error = -1
         self.gps = Location()
         self.locked = False
         self.mqtt_in = None
@@ -173,7 +173,7 @@ class WorxCloud(object):
         self.schedule_variation = None
         self.schedules = {}
         self.serial_number = None
-        self.status = None
+        self.status = -1
         self.status_description = None
         self.torque = None
         self.updated = None
