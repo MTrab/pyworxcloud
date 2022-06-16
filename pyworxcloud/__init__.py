@@ -24,7 +24,15 @@ from .exceptions import (
 from .api import LandroidCloudAPI
 from .schedules import TYPE_TO_STRING, Schedule, ScheduleType
 
-from .utils import Blades, Battery, Capability, DeviceCapability, Location, Orientation
+from .utils import (
+    Blades,
+    Battery,
+    Capability,
+    DeviceCapability,
+    Location,
+    Orientation,
+    Statistic,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -234,6 +242,18 @@ class WorxCloud(object):
         self.product = self._api.get_product_info(self.product_id)
         self.model = f'{self.product["default_name"]}{self.product["meters"]}'
 
+        # Get blades statistics
+        self.blades = Blades(self)
+        del self.blade_work_time
+        del self.blade_work_time_reset
+        del self.blade_work_time_reset_at
+
+        # Get battery information
+        self.battery = Battery(cycle_info=self)
+        del self.battery_charge_cycles
+        del self.battery_charge_cycles_reset
+        del self.battery_charge_cycles_reset_at
+
         self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
 
         self._mqtt.on_message = self._forward_on_message
@@ -325,11 +345,14 @@ class WorxCloud(object):
 
             # Get battery info if available
             if "bt" in data["dat"]:
-                self.battery = Battery(data["dat"]["bt"])
+                if len(self.battery) == 0:
+                    self.battery = Battery(data["dat"]["bt"])
+                else:
+                    self.battery.set_data(data["dat"]["bt"])
 
-            # Get blade data if available
+            # Get device statistics if available
             if "st" in data["dat"]:
-                self.blades = Blades(data["dat"]["st"])
+                self.statistics = Statistic(data["dat"]["st"])
 
             # Get orientation if available.
             if "dmp" in data["dat"]:

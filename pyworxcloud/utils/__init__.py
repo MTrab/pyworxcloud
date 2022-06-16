@@ -16,6 +16,9 @@ from .location import (
 from .orientation import (
     Orientation,
 )
+from .statistics import (
+    Statistic,
+)
 
 __all__ = [
     "Battery",
@@ -24,4 +27,5 @@ __all__ = [
     "DeviceCapability",
     "Location",
     "Orientation",
+    "Statistic",
 ]

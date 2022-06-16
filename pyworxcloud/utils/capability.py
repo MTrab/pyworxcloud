@@ -1,5 +1,7 @@
 """Device capabilities."""
 
+from .landroid_base import IntBase
+
 
 class DeviceCapability:
     """Available device capabilities."""
@@ -10,26 +12,21 @@ class DeviceCapability:
     TORQUE = 8
 
 
-class Capability(int):
+class Capability(IntBase):
     """Class for handling device capabilities."""
-
-    _capa: int
 
     def __init__(self) -> None:
         """Initialize an empty capability list."""
-        self._capa = 0
+        self.__int__ = 0
 
     def add(self, capability: DeviceCapability) -> None:
         """Add capability to the list."""
-        if capability & self._capa == 0:
-            self._capa = self._capa | capability
+        if capability & self.__int__ == 0:
+            self.__int__ = self.__int__ | capability
 
     def check(self, capability: DeviceCapability) -> bool:
         """Check if device has capability."""
-        if capability & self._capa == 0:
+        if capability & self.__int__ == 0:
             return False
         else:
             return True
-
-    def __repr__(self) -> str:
-        return repr(self._capa)
