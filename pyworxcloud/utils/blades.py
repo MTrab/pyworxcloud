@@ -1,42 +1,42 @@
 """Blade information."""
 
 
-from .landroid_base import DictBase
+from collections import UserDict
 
 
-class Blades(DictBase):
+class Blades(UserDict):
     """Blade information."""
 
     def __init__(
         self,
-        data=None,
+        indata=None,
     ) -> None:
         """Initialize blade object."""
         super(Blades, self).__init__()
-        if not data:
+        if not indata:
             return
 
-        if hasattr(data, "blade_work_time"):
+        if hasattr(indata, "blade_work_time"):
             # Total time with blades on in minutes
-            self.total_on = int(data.blade_work_time)
+            self.data["total_on"] = int(indata.blade_work_time)
         else:
-            self.total_on = None
+            self.data["total_on"] = None
 
-        if hasattr(data, "blade_work_time_reset"):
+        if hasattr(indata, "blade_work_time_reset"):
             # Blade time reset at minutes
-            self.reset_at = int(data.blade_work_time_reset)
+            self.data["reset_at"] = int(indata.blade_work_time_reset)
         else:
-            self.reset_at = None
+            self.data["reset_at"] = None
 
-        if hasattr(data, "blade_work_time_reset_at"):
+        if hasattr(indata, "blade_work_time_reset_at"):
             # Blade time reset time and date
-            self.reset_time = data.blade_work_time_reset_at
+            self.data["reset_time"] = indata.blade_work_time_reset_at
         else:
-            self.reset_time = None
+            self.data["reset_time"] = None
 
-        # Calculate blade data since reset, if possible
-        if self.reset_at and self.total_on:
+        # Calculate blade indata since reset, if possible
+        if self.data["reset_at"] and self.data["total_on"]:
             # Blade time since last reset
-            self.current_on = int(self.total_on - self.reset_at)
+            self.data["current_on"] = int(self.data["total_on"] - self.data["reset_at"])
         else:
-            self.current_on = self.total_on
+            self.data["current_on"] = self.data["total_on"]

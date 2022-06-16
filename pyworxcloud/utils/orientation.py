@@ -1,9 +1,9 @@
 """Device orientation."""
 
-from .landroid_base import DictBase
+from collections import UserDict
 
 
-class Orientation(DictBase):
+class Orientation(UserDict):
     """Device orientation class."""
 
     def __init__(self, data: list) -> None:
@@ -12,6 +12,6 @@ class Orientation(DictBase):
         if not data:
             return
 
-        self.pitch = data[0]
-        self.roll = data[1]
-        self.yaw = data[2]
+        self.data["pitch"] = data[0]
+        self.data["roll"] = data[1]
+        self.data["yaw"] = data[2]
