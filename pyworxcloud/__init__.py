@@ -24,7 +24,6 @@ from .exceptions import (
     OfflineError,
 )
 from .api import LandroidCloudAPI
-from .utils.schedules import TYPE_TO_STRING, Schedule, ScheduleType
 from .states import ERROR_TO_DESCRIPTION, STATE_TO_DESCRIPTION
 
 from .utils import (
@@ -34,9 +33,12 @@ from .utils import (
     DeviceCapability,
     Location,
     Orientation,
+    Schedule,
+    ScheduleType,
     Statistic,
     Zone,
 )
+from .utils.schedules import TYPE_TO_STRING
 
 _LOGGER = logging.getLogger(__name__)
 
