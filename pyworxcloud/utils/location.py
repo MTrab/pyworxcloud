@@ -1,11 +1,9 @@
 """Location information."""
+from .landroid_base import DictBase
 
 
-class Location(dict):
+class Location(DictBase):
     """GPS location."""
-
-    # latitude: float | None = None
-    # longitude: float | None = None
 
     def __init__(self, latitude: float | None = None, longitude: float | None = None):
         """Initialize location object."""
@@ -13,8 +11,6 @@ class Location(dict):
 
         if not latitude or not longitude:
             return
+
         self.latitude = latitude
         self.longitude = longitude
-
-    def __repr__(self) -> str:
-        return repr(self.__dict__)

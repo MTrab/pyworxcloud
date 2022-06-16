@@ -2,95 +2,101 @@
 from enum import IntEnum
 from typing import Any
 
+from .landroid_base import DictBase
+
 
 class BatteryState(IntEnum):
     """Battery states."""
 
     UNKNOWN = -1
-    CHARGED = 0
+    NOT_CHARGING = 0
     CHARGING = 1
     ERROR_CHARGING = 2
 
 
-class Battery(dict):
-    """Battery information."""
+CHARGE_MAP = {
+    BatteryState.UNKNOWN: "unknown",
+    BatteryState.NOT_CHARGING: False,
+    BatteryState.CHARGING: True,
+    BatteryState.ERROR_CHARGING: "error",
+}
 
-    temperature: float | None = None
-    voltage: float | None = None
-    state: int | None = None
-    cycles: dict[str, Any]
-    _cycles_total: int | None = None
-    _cycles_reset: int | None = None
-    _cycles_current: int | None = None
-    charging: BatteryState = BatteryState.UNKNOWN
-    maintenence: int | None = None
+
+class Battery(DictBase):
+    """Battery information."""
 
     _dict: dict[str, Any]
 
-    def __init__(self, data: list = None) -> None:
+    def __init__(self, data: list = None, cycle_info=None) -> None:
         """Initialize a battery object."""
         super(Battery, self).__init__()
-        self.cycles = {}
-        if not data:
+
+        if not data and not cycle_info:
             return
 
-        self.temperature = data["t"] if "t" in data else None
-        self.voltage = data["v"] if "v" in data else None
-        self.state = data["p"] if "p" in data else None
-        self.charging = data["c"] if "c" in data else None
-        self.cycles.update({"total": data["nr"] if "nr" in data else None})
-        if self._cycles_reset is not None:
-            self._cycles_current = self._cycles_total - self._cycles_reset
-            if self._cycles_current < 0:
-                self._cycles_current = 0
-        else:
+        if not hasattr(self, "cycles"):
+            self.cycles = {
+                "total": 0,
+                "current": 0,
+                "reset_at": None,
+                "reset_time": None,
+            }
+
+        if data:
+            self.set_data(data)
+            self._update_cycles()
+
+        if cycle_info:
+            self._set_cycles(cycle_info)
+
+    def set_data(self, data: list):
+        """Update data on existing dataset."""
+        if "t" in data:
+            self.temperature = data["t"]
+        if "v" in data:
+            self.voltage = data["v"]
+        if "p" in data:
+            self.percent = data["p"]
+        if "c" in data:
+            self.charging = CHARGE_MAP[data["c"]]
+        if "nr" in data:
+            self.cycles.update({"total": data["nr"]})
+
+    def _update_cycles(self) -> None:
+        """Update cycles info."""
+        if self.cycles["total"] == 0:
+            return
+        elif (
+            isinstance(self.cycles["reset_at"], type(None)) and self.cycles["total"] > 0
+        ):
             self.cycles.update({"current": self.cycles["total"]})
+        else:
+            self.cycles.update(
+                {"current": int(self.cycles["total"] - self.cycles["reset_at"])}
+            )
 
-    def __repr__(self) -> str:
-        return repr(self.__dict__)
+    def _set_cycles(self, data) -> None:
+        """Set battery cycles information."""
+        if self.cycles["total"] == 0:
+            self.cycles.update({"total": data.battery_charge_cycles})
 
-    # @property
-    # def temperature(self) -> int:
-    #     """Return battery temperature."""
-    #     return self._temp
-
-    # @property
-    # def voltage(self) -> int:
-    #     """Return battery voltage."""
-    #     return self._volt
-
-    # @property
-    # def percent(self) -> int:
-    #     """Return battery charge state in percent."""
-    #     return self._perc
-
-    # @property
-    # def cycles(self) -> int:
-    #     """Contains charge cycle information."""
-
-    #     @property
-    #     def current() -> int:
-    #         """Return current cycles."""
-    #         return self._cycles_current
-
-    #     @property
-    #     def total() -> int:
-    #         """Return total cycles."""
-    #         return self._cycles_total
-
-    #     @property
-    #     def reset_at() -> int:
-    #         """Return cycles for last reset."""
-    #         return self._cycles_reset
-
-    #     return {"current": current(), "total": total(), "reset_at": reset_at()}
-
-    # @property
-    # def charging(self) -> BatteryState:
-    #     """Return current cycles."""
-    #     return self._charging
-
-    # @property
-    # def maintenence(self) -> int:
-    #     """Return current cycles."""
-    #     return self._maint
+        if data.battery_charge_cycles_reset is not None:
+            if self.cycles["total"] == 0:
+                self.cycles.update(
+                    {
+                        "current": int(
+                            self.cycles["total"] - data.battery_charge_cycles_reset
+                        )
+                    }
+                )
+                if self.cycles["current"] < 0:
+                    self.cycles.update({"current": 0})
+            self.cycles.update(
+                {
+                    "reset_at": int(data.battery_charge_cycles_reset),
+                    "reset_time": data.battery_charge_cycles_reset_at,
+                }
+            )
+        else:
+            if self.cycles["total"] > 0:
+                self.cycles.update({"current": self.cycles["total"]})
