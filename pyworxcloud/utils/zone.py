@@ -1,6 +1,7 @@
 """Zone representation."""
 
 from collections import UserDict
+import json
 
 
 class Zone(UserDict):
@@ -14,6 +15,9 @@ class Zone(UserDict):
         self.data["index"] = None
         self.data["indicies"] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.data["starting_point"] = [0, 0, 0, 0]
+
+    def __repr__(self) -> str:
+        return json.dumps(self.data)
 
     @property
     def current(self) -> int:
