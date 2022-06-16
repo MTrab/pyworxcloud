@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 from datetime import datetime, timedelta
+from typing import Any
 
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
@@ -171,7 +172,7 @@ class WorxCloud(object):
         self.rssi = None
         self.schedule_mower_active = False
         self.schedule_variation = None
-        self.schedules = {}
+        self.schedules: dict[str, Any] = {}
         self.serial_number = None
         self.status = -1
         self.status_description = None
@@ -363,7 +364,7 @@ class WorxCloud(object):
                     self.battery = Battery(data["dat"]["bt"])
                 else:
                     self.battery.set_data(data["dat"]["bt"])
-
+            print(self.battery)
             # Get device statistics if available
             if "st" in data["dat"]:
                 self.statistics = Statistic(data["dat"]["st"])
@@ -396,7 +397,7 @@ class WorxCloud(object):
 
             # Fetch zone information
             if "mz" in data["cfg"]:
-                self.zone.starting_point =data["cfg"]["mz"]
+                self.zone.starting_point = data["cfg"]["mz"]
                 self.zone.indicies = data["cfg"]["mzv"]
 
                 # Map current zone to zone index
@@ -415,7 +416,7 @@ class WorxCloud(object):
                 self.schedule_variation = data["cfg"]["sc"]["p"]
 
                 sch_type = ScheduleType.PRIMARY
-                schedule = Schedule(sch_type).todict
+                schedule: dict = Schedule(sch_type)
                 self.schedules[TYPE_TO_STRING[sch_type]] = schedule["days"]
 
                 for day in range(0, len(data["cfg"]["sc"]["d"])):
@@ -460,7 +461,7 @@ class WorxCloud(object):
             # Fetch secondary schedule
             if "dd" in data["cfg"]["sc"]:
                 sch_type = ScheduleType.SECONDARY
-                schedule = Schedule(sch_type).todict
+                schedule = Schedule(sch_type)
                 self.schedules[TYPE_TO_STRING[sch_type]] = schedule["days"]
 
                 for day in range(0, len(data["cfg"]["sc"]["d"])):

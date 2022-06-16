@@ -1,7 +1,5 @@
 """Device capabilities."""
 
-from .landroid_base import IntBase
-
 
 class DeviceCapability:
     """Available device capabilities."""
@@ -12,11 +10,12 @@ class DeviceCapability:
     TORQUE = 8
 
 
-class Capability(IntBase):
+class Capability(int):
     """Class for handling device capabilities."""
 
     def __init__(self) -> None:
         """Initialize an empty capability list."""
+        super(Capability, self).__init__()
         self.__int__ = 0
 
     def add(self, capability: DeviceCapability) -> None:

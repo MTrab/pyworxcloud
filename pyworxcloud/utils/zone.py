@@ -1,67 +1,56 @@
 """Zone representation."""
 
+from collections import UserDict
 
-from .landroid_base import DictBase
 
-
-class Zone(DictBase):
+class Zone(UserDict):
     """Class for handling zone data."""
 
     def __init__(self):
         """Initialize zone object."""
         super(Zone, self).__init__()
-        self.__current: int | None = None
-        self.__index: int | None = None
-        self.__indicies: list = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        self.__start: list = [0, 0, 0, 0]
 
-    @property
-    def __dict__(self):
-        """Custom dict creation."""
-        out = {
-            "current": self.__current,
-            "index": self.__index,
-            "indicies": self.__indicies,
-            "starting_point": self.__start,
-        }
-        return out
+        self.data["current"] = None
+        self.data["index"] = None
+        self.data["indicies"] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.data["starting_point"] = [0, 0, 0, 0]
 
     @property
     def current(self) -> int:
         """Get current zone."""
-        return self.__current
+        return self.data["current"]
 
     @current.setter
     def current(self, value: int) -> None:
         """Set current zone property."""
-        self.__current = value
+        self.data["current"] = value
 
     @property
     def index(self) -> int:
         """Get current index."""
-        return self.__index
+        return self.data["index"]
 
     @index.setter
     def index(self, value: int) -> None:
         """Set current index property."""
-        self.__index = value
+        self.data["index"] = value
 
     @property
     def indicies(self) -> int:
         """Get indicies."""
-        return self.__indicies
+        return self.data["indicies"]
 
     @indicies.setter
     def indicies(self, value: list) -> None:
         """Set indicies property."""
-        self.__indicies = value
+        self.data["indicies"] = value
 
     @property
     def starting_point(self) -> int:
         """Get starting points."""
-        return self.__start
+        return self.data["starting_point"]
 
     @starting_point.setter
     def starting_point(self, value: int) -> None:
         """Set starting points."""
-        self.__start = value
+        self.data["starting_point"] = value
