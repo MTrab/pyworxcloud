@@ -1,6 +1,7 @@
 """Battery information."""
-from collections import UserDict
 from enum import IntEnum
+
+from .landroid_class import LDict
 
 
 class BatteryState(IntEnum):
@@ -20,18 +21,18 @@ CHARGE_MAP = {
 }
 
 
-class Battery(UserDict):
+class Battery(LDict):
     """Battery information."""
 
     def __init__(self, indata: list = None, cycle_info=None) -> None:
         """Initialize a battery object."""
-        super(Battery, self).__init__()
+        super().__init__()
 
         if not indata and not cycle_info:
             return
 
-        if not "cycles" in self.data:
-            self.data["cycles"] = {
+        if not "cycles" in self:
+            self["cycles"] = {
                 "total": 0,
                 "current": 0,
                 "reset_at": None,
@@ -48,57 +49,52 @@ class Battery(UserDict):
     def set_data(self, indata: list):
         """Update data on existing dataset."""
         if "t" in indata:
-            self.data["temperature"] = indata["t"]
+            self["temperature"] = indata["t"]
         if "v" in indata:
-            self.data["voltage"] = indata["v"]
+            self["voltage"] = indata["v"]
         if "p" in indata:
-            self.data["percent"] = indata["p"]
+            self["percent"] = indata["p"]
         if "c" in indata:
-            self.data["charging"] = CHARGE_MAP[indata["c"]]
+            self["charging"] = CHARGE_MAP[indata["c"]]
         if "nr" in indata:
-            self.data["cycles"].update({"total": indata["nr"]})
+            self["cycles"].update({"total": indata["nr"]})
 
     def _update_cycles(self) -> None:
         """Update cycles info."""
-        if self.data["cycles"]["total"] == 0:
+        if self["cycles"]["total"] == 0:
             return
         elif (
-            isinstance(self.data["cycles"]["reset_at"], type(None))
-            and self.data["cycles"]["total"] > 0
+            isinstance(self["cycles"]["reset_at"], type(None))
+            and self["cycles"]["total"] > 0
         ):
-            self.data["cycles"].update({"current": self.data["cycles"]["total"]})
+            self["cycles"].update({"current": self["cycles"]["total"]})
         else:
-            self.data["cycles"].update(
-                {
-                    "current": int(
-                        self.data["cycles"]["total"] - self.data["cycles"]["reset_at"]
-                    )
-                }
+            self["cycles"].update(
+                {"current": int(self["cycles"]["total"] - self["cycles"]["reset_at"])}
             )
 
     def _set_cycles(self, indata) -> None:
         """Set battery cycles information."""
-        if self.data["cycles"]["total"] == 0:
-            self.data["cycles"].update({"total": indata.battery_charge_cycles})
+        if self["cycles"]["total"] == 0:
+            self["cycles"].update({"total": indata.battery_charge_cycles})
 
         if indata.battery_charge_cycles_reset is not None:
-            if self.data["cycles"]["total"] == 0:
-                self.data["cycles"].update(
+            if self["cycles"]["total"] == 0:
+                self["cycles"].update(
                     {
                         "current": int(
-                            self.data["cycles"]["total"]
-                            - indata.battery_charge_cycles_reset
+                            self["cycles"]["total"] - indata.battery_charge_cycles_reset
                         )
                     }
                 )
-                if self.data["cycles"]["current"] < 0:
-                    self.data["cycles"].update({"current": 0})
-            self.data["cycles"].update(
+                if self["cycles"]["current"] < 0:
+                    self["cycles"].update({"current": 0})
+            self["cycles"].update(
                 {
                     "reset_at": int(indata.battery_charge_cycles_reset),
                     "reset_time": indata.battery_charge_cycles_reset_at,
                 }
             )
         else:
-            if self.data["cycles"]["total"] > 0:
-                self.data["cycles"].update({"current": self.data["cycles"]["total"]})
+            if self["cycles"]["total"] > 0:
+                self["cycles"].update({"current": self["cycles"]["total"]})

@@ -24,7 +24,7 @@ from .exceptions import (
     OfflineError,
 )
 from .api import LandroidCloudAPI
-from .schedules import TYPE_TO_STRING, Schedule, ScheduleType
+from .utils.schedules import TYPE_TO_STRING, Schedule, ScheduleType
 from .states import ERROR_TO_DESCRIPTION, STATE_TO_DESCRIPTION
 
 from .utils import (
@@ -364,7 +364,6 @@ class WorxCloud(object):
                     self.battery = Battery(data["dat"]["bt"])
                 else:
                     self.battery.set_data(data["dat"]["bt"])
-            print(self.battery)
             # Get device statistics if available
             if "st" in data["dat"]:
                 self.statistics = Statistic(data["dat"]["st"])
