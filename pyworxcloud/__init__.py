@@ -14,6 +14,7 @@ import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 
 from .clouds import CloudType
+from .const import UNWANTED_ATTRIBS
 from .day_map import DAY_MAP
 from .exceptions import (
     AuthorizationError,
@@ -23,6 +24,7 @@ from .exceptions import (
 )
 from .api import LandroidCloudAPI
 from .schedules import TYPE_TO_STRING, Schedule, ScheduleType
+from .states import ERROR_TO_DESCRIPTION, STATE_TO_DESCRIPTION
 
 from .utils import (
     Blades,
@@ -32,6 +34,7 @@ from .utils import (
     Location,
     Orientation,
     Statistic,
+    Zone,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -151,13 +154,9 @@ class WorxCloud(object):
         self.accessories = None
         self.battery = Battery()
         self.blades = Blades()
-        self.board = []
         self.error = None
-        self.firmware = None
         self.gps = Location()
         self.locked = False
-        self.mac_address = None
-        self.model = "Unknown"
         self.mqtt_in = None
         self.mqtt_out = None
         self.mqtt_topics = {}
@@ -179,6 +178,7 @@ class WorxCloud(object):
         self.torque = None
         self.updated = None
         self.work_time = 0
+        self.zone = Zone()
         self.zone_current = 0
         self.zone_index = 0
         self.zone_indicies = []
@@ -239,20 +239,34 @@ class WorxCloud(object):
                 self._dev_id = index
 
         self._get_mac_address()
-        self.product = self._api.get_product_info(self.product_id)
-        self.model = f'{self.product["default_name"]}{self.product["meters"]}'
+        self.product = {
+            "mac_address": self.mac_address,
+            "serial_number": self.serial_number,
+            "setup_location": self.setup_location,
+            "device": self._api.get_product_info(self.product_id),
+            "created_at": self.created_at,
+            "warranty": {
+                "expires": self.warranty_expires_at,
+                "registered": self.warranty_registered,
+            },
+        }
+
+        self.product.update(
+            {"board": self._api.get_board(self.product["device"]["board_id"])}
+        )
+        self.product.update(
+            {
+                "model": f'{self.product["device"]["default_name"]}{self.product["device"]["meters"]}'
+            }
+        )
+        # self.product = self._api.get_product_info(self.product_id)
+        # self.model = f'{self.product["default_name"]}{self.product["meters"]}'
 
         # Get blades statistics
         self.blades = Blades(self)
-        del self.blade_work_time
-        del self.blade_work_time_reset
-        del self.blade_work_time_reset_at
 
         # Get battery information
         self.battery = Battery(cycle_info=self)
-        del self.battery_charge_cycles
-        del self.battery_charge_cycles_reset
-        del self.battery_charge_cycles_reset_at
 
         self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
 
@@ -278,6 +292,11 @@ class WorxCloud(object):
         mqp = self._mqtt.publish(self.mqtt_in, "{}", qos=0, retain=False)
         while not mqp.is_published:
             time.sleep(0.1)
+
+        # Remove unwanted attribs
+        for attr in UNWANTED_ATTRIBS:
+            if hasattr(self, attr):
+                delattr(self, attr)
 
         return True
 
@@ -318,7 +337,6 @@ class WorxCloud(object):
         self._fetch()
         self.mqtt_out = self.mqtt_topics["command_out"]
         self.mqtt_in = self.mqtt_topics["command_in"]
-        self.board = self._api.get_board(self.mqtt_out.split("/")[0])
 
     def _forward_on_message(
         self, client, userdata, message
@@ -339,7 +357,7 @@ class WorxCloud(object):
             self.status = data["dat"]["ls"]
             self.error = data["dat"]["le"]
 
-            self.zone_index = data["dat"]["lz"]
+            self.zone.index = data["dat"]["lz"]
 
             self.locked = bool(data["dat"]["lk"])
 
@@ -374,7 +392,6 @@ class WorxCloud(object):
         if "cfg" in data:
             self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
             self.rain_delay = data["cfg"]["rd"]
-            self.serial = data["cfg"]["sn"]
 
             # Fetch wheel torque
             if "tq" in data["cfg"]:
@@ -488,8 +505,8 @@ class WorxCloud(object):
                     self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                         "end"
                     ] = end_time.time().strftime("%H:%M")
-
-        self.wait = False
+        self.status_description = STATE_TO_DESCRIPTION[self.status]
+        self.error_description = ERROR_TO_DESCRIPTION[self.error]
 
     def _on_connect(
         self, client, userdata, flags, rc
@@ -541,7 +558,7 @@ class WorxCloud(object):
 
     def update(self) -> None:
         """Retrive current device status."""
-        status = self._api.get_status(self.serial_number)
+        status = self._api.get_status(self.product["serial_number"])
         status = str(status).replace("'", '"')
         self._raw = status
 

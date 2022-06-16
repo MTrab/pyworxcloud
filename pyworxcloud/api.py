@@ -7,6 +7,7 @@ import json
 import operator
 import re
 import time
+from typing import Any
 import uuid
 
 import requests
@@ -169,7 +170,7 @@ class LandroidCloudAPI:
         self._data = calldata
         return calldata
 
-    def get_product_info(self, product_id: int) -> list | None:
+    def get_product_info(self, product_id: int) -> dict[str, Any] | None:
         """Get product info and features for a given device model.
 
         Args:
@@ -184,7 +185,7 @@ class LandroidCloudAPI:
         except:
             return None
 
-    def get_board(self, board_code: str) -> list | None:
+    def get_board(self, board_id: int) -> list | None:
         """Get board info and features for a given baseboard.
 
         Args:
@@ -195,7 +196,7 @@ class LandroidCloudAPI:
         """
         boards = self._call("/boards")
         try:
-            return [x for x in boards if x["code"] == board_code.upper()][0]
+            return [x for x in boards if x["id"] == board_id][0]
         except:
             return None
 
