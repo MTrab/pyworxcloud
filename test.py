@@ -25,6 +25,6 @@ if __name__ == "__main__":
     # Read latest states received from the device
     cloud.update()
 
-    cloud.safehome()
+    # cloud.safehome()
     # Print all vars and attributes of the cloud object
     pprint(vars(cloud))
