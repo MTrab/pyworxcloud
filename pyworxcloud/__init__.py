@@ -179,10 +179,6 @@ class WorxCloud(object):
         self.updated = None
         self.work_time = 0
         self.zone = Zone()
-        self.zone_current = 0
-        self.zone_index = 0
-        self.zone_indicies = []
-        self.zone_start = []
 
     def __enter__(self):
         """Default actions using with statement."""
@@ -400,11 +396,11 @@ class WorxCloud(object):
 
             # Fetch zone information
             if "mz" in data["cfg"]:
-                self.zone_start = data["cfg"]["mz"]
-                self.zone_indicies = data["cfg"]["mzv"]
+                self.zone.starting_point =data["cfg"]["mz"]
+                self.zone.indicies = data["cfg"]["mzv"]
 
                 # Map current zone to zone index
-                self.zone_current = self.zone_indicies[self.zone_index]
+                self.zone.current = self.zone.indicies[self.zone.index]
 
             # Fetch main schedule
             if "sc" in data["cfg"]:
