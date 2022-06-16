@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import calendar
-from collections import UserDict
 from enum import IntEnum
+
+from .landroid_class import LDict
 
 
 class ScheduleType(IntEnum):
@@ -16,7 +17,7 @@ class ScheduleType(IntEnum):
 TYPE_TO_STRING = {ScheduleType.PRIMARY: "primary", ScheduleType.SECONDARY: "secondary"}
 
 
-class WeekdaySettings(UserDict):
+class WeekdaySettings(LDict):
     """Class representing a weekday setting."""
 
     def __init__(
@@ -27,14 +28,14 @@ class WeekdaySettings(UserDict):
         boundary: bool = False,
     ):
         """Initialize the settings."""
-        super(WeekdaySettings, self).__init__()
-        self.data["start"] = start
-        self.data["end"] = end
-        self.data["duration"] = duration
-        self.data["boundary"] = boundary
+        super().__init__()
+        self["start"] = start
+        self["end"] = end
+        self["duration"] = duration
+        self["boundary"] = boundary
 
 
-class Schedule(UserDict):
+class Schedule(LDict):
     """Represents a schedule."""
 
     def __init__(self, schedule_type: ScheduleType):
@@ -43,10 +44,10 @@ class Schedule(UserDict):
         Args:
             schedule_type (ScheduleType): Which ScheduleType to initialize.
         """
-        super(Schedule, self).__init__()
+        super().__init__()
 
-        self.data["type"] = schedule_type
-        self.data["days"] = {}
+        self["type"] = schedule_type
+        self["days"] = {}
 
         for day in list(calendar.day_name):
-            self.data["days"].update({day.lower(): WeekdaySettings()})
+            self["days"].update({day.lower(): WeekdaySettings()})

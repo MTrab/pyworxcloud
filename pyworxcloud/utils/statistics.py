@@ -1,32 +1,32 @@
 """Landroid Cloud statistics class."""
 
-from collections import UserDict
+from .landroid_class import LDict
 
 
-class Statistic(UserDict):
+class Statistic(LDict):
     """Statistics."""
 
     def __init__(self, data: list = None):
         """Initialize a statistics class."""
-        super(Statistic, self).__init__()
+        super().__init__()
 
         if not data:
             return
 
         if "b" in data:
             # Total runtime with blades on in minutes
-            self.data["worktime_blades_on"] = data["b"]
+            self["worktime_blades_on"] = data["b"]
         else:
-            self.data["worktime_blades_on"] = None
+            self["worktime_blades_on"] = None
 
         if "d" in data:
             # Total distance in meters
-            self.data["distance"] = data["d"]
+            self["distance"] = data["d"]
         else:
-            self.data["distance"] = None
+            self["distance"] = None
 
         if "wt" in data:
             # Total worktime in minutes
-            self.data["worktime_total"] = data["wt"]
+            self["worktime_total"] = data["wt"]
         else:
-            self.data["worktime_total"] = None
+            self["worktime_total"] = None

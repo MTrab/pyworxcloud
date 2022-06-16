@@ -1,17 +1,17 @@
 """Device orientation."""
 
-from collections import UserDict
+from .landroid_class import LDict
 
 
-class Orientation(UserDict):
+class Orientation(LDict):
     """Device orientation class."""
 
     def __init__(self, data: list) -> None:
         """Initialize orientation object."""
-        super(Orientation, self).__init__()
+        super().__init__()
         if not data:
             return
 
-        self.data["pitch"] = data[0]
-        self.data["roll"] = data[1]
-        self.data["yaw"] = data[2]
+        self["pitch"] = data[0]
+        self["roll"] = data[1]
+        self["yaw"] = data[2]

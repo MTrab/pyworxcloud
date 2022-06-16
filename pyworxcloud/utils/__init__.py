@@ -16,6 +16,10 @@ from .location import (
 from .orientation import (
     Orientation,
 )
+from .schedules import (
+    Schedule,
+    ScheduleType,
+)
 from .statistics import (
     Statistic,
 )
@@ -30,6 +34,8 @@ __all__ = [
     "DeviceCapability",
     "Location",
     "Orientation",
+    "Schedule",
+    "ScheduleType",
     "Statistic",
     "Zone",
 ]

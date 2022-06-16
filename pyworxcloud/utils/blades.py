@@ -1,10 +1,9 @@
 """Blade information."""
 
+from .landroid_class import LDict
 
-from collections import UserDict
 
-
-class Blades(UserDict):
+class Blades(LDict):
     """Blade information."""
 
     def __init__(
@@ -12,31 +11,31 @@ class Blades(UserDict):
         indata=None,
     ) -> None:
         """Initialize blade object."""
-        super(Blades, self).__init__()
+        super().__init__()
         if not indata:
             return
 
         if hasattr(indata, "blade_work_time"):
             # Total time with blades on in minutes
-            self.data["total_on"] = int(indata.blade_work_time)
+            self["total_on"] = int(indata.blade_work_time)
         else:
-            self.data["total_on"] = None
+            self["total_on"] = None
 
         if hasattr(indata, "blade_work_time_reset"):
             # Blade time reset at minutes
-            self.data["reset_at"] = int(indata.blade_work_time_reset)
+            self["reset_at"] = int(indata.blade_work_time_reset)
         else:
-            self.data["reset_at"] = None
+            self["reset_at"] = None
 
         if hasattr(indata, "blade_work_time_reset_at"):
             # Blade time reset time and date
-            self.data["reset_time"] = indata.blade_work_time_reset_at
+            self["reset_time"] = indata.blade_work_time_reset_at
         else:
-            self.data["reset_time"] = None
+            self["reset_time"] = None
 
         # Calculate blade indata since reset, if possible
-        if self.data["reset_at"] and self.data["total_on"]:
+        if self["reset_at"] and self["total_on"]:
             # Blade time since last reset
-            self.data["current_on"] = int(self.data["total_on"] - self.data["reset_at"])
+            self["current_on"] = int(self["total_on"] - self["reset_at"])
         else:
-            self.data["current_on"] = self.data["total_on"]
+            self["current_on"] = self["total_on"]
