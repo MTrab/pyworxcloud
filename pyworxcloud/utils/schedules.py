@@ -26,7 +26,7 @@ class WeekdaySettings(LDict):
         end: str = "00:00",
         duration: int = 0,
         boundary: bool = False,
-    ):
+    ) -> None:
         """Initialize the settings."""
         super().__init__()
         self["start"] = start
@@ -38,14 +38,18 @@ class WeekdaySettings(LDict):
 class Schedule(LDict):
     """Represents a schedule."""
 
-    def __init__(self, schedule_type: ScheduleType):
-        """Initialize an empty schedule.
+    def __init__(
+        self, schedule_type: ScheduleType, variation: int = 0, active: bool = True
+    ) -> None:
+        """Initialize an empty primary or secondary schedule.
 
         Args:
             schedule_type (ScheduleType): Which ScheduleType to initialize.
         """
         super().__init__()
 
+        self["time_extension"] = variation
+        self["active"] = active
         self["type"] = schedule_type
         self["days"] = {}
 

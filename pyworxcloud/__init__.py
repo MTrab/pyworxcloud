@@ -174,9 +174,7 @@ class WorxCloud(object):
         self.rain_delay_time_remaining = None
         self.rain_sensor_triggered = None
         self.rssi = None
-        self.schedule_mower_active = False
-        self.schedule_variation = None
-        self.schedules: dict[str, Any] = {}
+        self.schedules: dict[str, Any] = {"time_extension": 0, "active": True}
         self.serial_number = None
         self.status = States()
         # self.status = -1
@@ -356,9 +354,7 @@ class WorxCloud(object):
         if "dat" in data:
             self.firmware = data["dat"]["fw"]
             self.rssi = data["dat"]["rsi"]
-            # self.status = data["dat"]["ls"]
             self.status.update(data["dat"]["ls"])
-            # self.error = data["dat"]["le"]
             self.error.update(data["dat"]["le"])
 
             self.zone.index = data["dat"]["lz"]
@@ -416,10 +412,10 @@ class WorxCloud(object):
                 if "distm" in data["cfg"]["sc"]:
                     self.capabilities.add(DeviceCapability.PARTY_MODE)
 
-                self.schedule_mower_active = bool(str(data["cfg"]["sc"]["m"]) == "1")
                 self.partymode_enabled = bool(str(data["cfg"]["sc"]["m"]) == "2")
 
-                self.schedule_variation = data["cfg"]["sc"]["p"]
+                self.schedules["active"] = bool(str(data["cfg"]["sc"]["m"]) == "1")
+                self.schedules["time_extension"] = data["cfg"]["sc"]["p"]
 
                 sch_type = ScheduleType.PRIMARY
                 schedule: dict = Schedule(sch_type)
@@ -457,7 +453,9 @@ class WorxCloud(object):
                         ]
                     )
 
-                    duration = duration * (1 + (int(self.schedule_variation) / 100))
+                    duration = duration * (
+                        1 + (int(self.schedules["time_extension"]) / 100)
+                    )
                     end_time = time_start + timedelta(minutes=duration)
 
                     self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
@@ -502,7 +500,9 @@ class WorxCloud(object):
                         ]
                     )
 
-                    duration = duration * (1 + (int(self.schedule_variation) / 100))
+                    duration = duration * (
+                        1 + (int(self.schedules["time_extension"]) / 100)
+                    )
                     end_time = time_start + timedelta(minutes=duration)
 
                     self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
