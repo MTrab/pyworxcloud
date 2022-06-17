@@ -14,6 +14,8 @@ from typing import Any
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 
+from pyworxcloud.helpers.time_format import convert_to_time
+
 from .clouds import CloudType
 from .const import UNWANTED_ATTRIBS
 from .day_map import DAY_MAP
@@ -25,6 +27,7 @@ from .exceptions import (
 )
 from .api import LandroidCloudAPI
 
+from .helpers import string_to_time
 from .utils import (
     Blades,
     Battery,
@@ -398,7 +401,11 @@ class WorxCloud(object):
                 self.rain_sensor_triggered = bool(str(data["dat"]["rain"]["s"]) == "1")
 
         if "cfg" in data:
-            self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
+            self.updated = string_to_time(
+                data["cfg"]["tm"] + " " + data["cfg"]["dt"],
+                self.time_zone,
+                "%H:%M:%S %d/%m/%Y",
+            )
             self.rain_delay = data["cfg"]["rd"]
 
             # Fetch wheel torque
@@ -517,8 +524,9 @@ class WorxCloud(object):
                     self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                         "end"
                     ] = end_time.time().strftime("%H:%M")
-        # self.status_description = STATE_TO_DESCRIPTION[self.status]
-        # self.error_description = ERROR_TO_DESCRIPTION[self.error]
+
+        # self = convert_to_time(self, self.time_zone)
+        convert_to_time(self.__dict__, self.time_zone)
 
     def _on_connect(
         self, client, userdata, flags, rc
