@@ -24,8 +24,10 @@ if __name__ == "__main__":
     cloud.connect(0, False)
 
     # Read latest states received from the device
-    cloud.update()
+    # cloud.update()
 
     # cloud.safehome()
     # Print all vars and attributes of the cloud object
     pprint(vars(cloud))
+
+    cloud.disconnect()

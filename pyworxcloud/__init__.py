@@ -29,8 +29,11 @@ from .utils import (
     Blades,
     Battery,
     Capability,
+    Command,
     DeviceCapability,
     Location,
+    MQTT,
+    MQTTHandler,
     Orientation,
     Schedule,
     ScheduleType,
@@ -125,7 +128,6 @@ class WorxCloud(object):
             TypeError: Error raised if invalid CloudType was specified.
         """
         self._worx_mqtt_client_id = None
-        self._worx_mqtt_endpoint = None
 
         if not isinstance(
             cloud,
@@ -148,7 +150,6 @@ class WorxCloud(object):
         self._auth_result = False
         self._callback = None  # Callback used when data arrives from cloud
         self._dev_id = index
-        self._mqtt = None
         self._raw = None
         self._save_zones = None
         self._verify_ssl = verify_ssl
@@ -159,12 +160,9 @@ class WorxCloud(object):
         self.battery = Battery()
         self.blades = Blades()
         self.error = States(StateType.ERROR)
-        # self.error = -1
         self.gps = Location()
         self.locked = False
-        self.mqtt_in = None
-        self.mqtt_out = None
-        self.mqtt_topics = {}
+        self.mqtt = MQTT()
         self.online = False
         self.orientation = Orientation([0, 0, 0])
         self.capabilities = Capability()
@@ -177,10 +175,8 @@ class WorxCloud(object):
         self.schedules: dict[str, Any] = {"time_extension": 0, "active": True}
         self.serial_number = None
         self.status = States()
-        # self.status = -1
-        # self.status_description = None
         self.torque = None
-        self.updated = None
+        self.updated = "never"
         self.work_time = 0
         self.zone = Zone()
 
@@ -221,8 +217,8 @@ class WorxCloud(object):
 
     def disconnect(self) -> None:
         """Close API connections."""
-        if hasattr(self._mqtt, "disconnect"):
-            self._mqtt.disconnect()
+        if self.mqtt.is_connected:
+            self.mqtt.disconnect()
 
     def connect(self, index: int | None = None, verify_ssl: bool = True) -> bool:
         """Connect to the cloud service endpoint
@@ -249,6 +245,7 @@ class WorxCloud(object):
                 "expires": self.warranty_expires_at,
                 "registered": self.warranty_registered,
             },
+            "sim": self.sim,
         }
 
         self.product.update(
@@ -259,8 +256,6 @@ class WorxCloud(object):
                 "model": f'{self.product["device"]["default_name"]}{self.product["device"]["meters"]}'
             }
         )
-        # self.product = self._api.get_product_info(self.product_id)
-        # self.model = f'{self.product["default_name"]}{self.product["meters"]}'
 
         # Get blades statistics
         self.blades = Blades(self)
@@ -268,31 +263,45 @@ class WorxCloud(object):
         # Get battery information
         self.battery = Battery(cycle_info=self)
 
-        self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
+        # setup MQTT handler
+        self.mqtt.client = MQTTHandler(self.mqtt["endpoint"], protocol=mqtt.MQTTv311)
 
-        self._mqtt.on_message = self._forward_on_message
-        self._mqtt.on_connect = self._on_connect
+        self.mqtt.on_message = self._forward_on_message
+        self.mqtt.on_connect = self._on_connect
 
         try:
             with self._get_cert() as cert:
-                self._mqtt.tls_set(certfile=cert)
+                self.mqtt.tls_set(certfile=cert)
         except ValueError:
             pass
 
         if not verify_ssl:
-            self._mqtt.tls_insecure_set(True)
+            self.mqtt.tls_insecure_set(True)
 
-        conn_res = self._mqtt.connect(
-            self._worx_mqtt_endpoint, port=8883, keepalive=600
+        conn_res = self.mqtt.client.connect(
+            self.mqtt["endpoint"], port=8883, keepalive=600
         )
         if conn_res:
             return False
 
-        self._mqtt.loop_start()
-        mqp = self._mqtt.publish(self.mqtt_in, "{}", qos=0, retain=False)
+        self.mqtt.client.loop_start()
+        mqp = self.mqtt.send()
         while not mqp.is_published:
             time.sleep(0.1)
 
+        self.mqtt["messages"]["raw"].update(
+            {
+                "in": self.raw_messages_in,
+                "out": self.raw_messages_out,
+            }
+        )
+        self.mqtt["messages"]["filtered"].update(
+            {
+                "in": self.messages_in,
+                "out": self.messages_out,
+            }
+        )
+        self.mqtt["registered"] = self.mqtt_registered
         # Remove unwanted attribs
         for attr in UNWANTED_ATTRIBS:
             if hasattr(self, attr):
@@ -317,8 +326,7 @@ class WorxCloud(object):
             profile = self._api.data
             if profile is None:
                 return False
-            self._worx_mqtt_endpoint = profile["mqtt_endpoint"]
-
+            self.mqtt.update({"endpoint": profile["mqtt_endpoint"]})
             self._worx_mqtt_client_id = "android-" + self._api.uuid
         except:  # pylint: disable=bare-except
             return False
@@ -335,12 +343,13 @@ class WorxCloud(object):
     def _get_mac_address(self):
         """Get device MAC address for identification."""
         self._fetch()
-        self.mqtt_out = self.mqtt_topics["command_out"]
-        self.mqtt_in = self.mqtt_topics["command_in"]
+        self.mqtt.topics = {"out": self.mqtt_topics["command_out"]}
+        self.mqtt.topics = {"in": self.mqtt_topics["command_in"]}
+        del self.mqtt_topics
 
     def _forward_on_message(
-        self, client, userdata, message
-    ):  # pylint: disable=unused-argument
+        self, client, userdata, message  # pylint: disable=unused-argument
+    ):
         """MQTT callback method definition."""
         json_message = message.payload.decode("utf-8")
         self._decode_data(json_message)
@@ -515,7 +524,7 @@ class WorxCloud(object):
         self, client, userdata, flags, rc
     ):  # pylint: disable=unused-argument,invalid-name
         """MQTT callback method."""
-        client.subscribe(self.mqtt_out)
+        client.subscribe(self.mqtt.topics["out"])
 
     def _fetch(self) -> None:
         """Fetch devices."""
@@ -555,7 +564,7 @@ class WorxCloud(object):
             OfflineError: Raised if the device isn't online.
         """
         if self.online:
-            self._mqtt.publish(self.mqtt_in, data, qos=0, retain=False)
+            self.mqtt.send(data)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -574,7 +583,7 @@ class WorxCloud(object):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":1}', qos=0, retain=False)
+            self.mqtt.send(Command.START)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -585,7 +594,7 @@ class WorxCloud(object):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":2}', qos=0, retain=False)
+            self.mqtt.send(Command.PAUSE)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -597,7 +606,7 @@ class WorxCloud(object):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
+            self.mqtt.send(Command.HOME)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -608,7 +617,7 @@ class WorxCloud(object):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":4}', qos=0, retain=False)
+            self.mqtt.send(Command.ZONETRAINING)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -623,9 +632,9 @@ class WorxCloud(object):
         """
         if self.online:
             if enabled:
-                self._mqtt.publish(self.mqtt_in, '{"cmd":5}', qos=0, retain=False)
+                self.mqtt.send(Command.LOCK)
             else:
-                self._mqtt.publish(self.mqtt_in, '{"cmd":6}', qos=0, retain=False)
+                self.mqtt.send(Command.UNLOCK)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -636,7 +645,7 @@ class WorxCloud(object):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":7}', qos=0, retain=False)
+            self.mqtt.send(Command.RESTART)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -647,7 +656,7 @@ class WorxCloud(object):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":9}', qos=0, retain=False)
+            self.mqtt.send(Command.SAFEHOME)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -664,7 +673,7 @@ class WorxCloud(object):
             if not isinstance(rain_delay, str):
                 rain_delay = str(rain_delay)
             msg = f'"rd": {rain_delay}'
-            self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+            self.mqtt.send(msg)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -680,10 +689,10 @@ class WorxCloud(object):
         if self.online:
             if enable:
                 msg = '{"sc": {"m": 1}}'
-                self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
             else:
                 msg = '{"sc": {"m": 0}}'
-                self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+
+            self.mqtt.send(msg)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -700,10 +709,10 @@ class WorxCloud(object):
         if self.online and self.capabilities.check(DeviceCapability.PARTY_MODE):
             if enabled:
                 msg = '{"sc": {"m": 2, "distm": 0}}'
-                self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
             else:
                 msg = '{"sc": {"m": 1, "distm": 0}}'
-                self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
+
+            self.mqtt.send(msg)
         elif not self.capabilities.check(DeviceCapability.PARTY_MODE):
             raise NoPartymodeError("This device does not support Partymode")
         elif not self.online:
@@ -725,8 +734,7 @@ class WorxCloud(object):
                 runtime = int(runtime)
 
             raw = {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}}
-            _LOGGER.debug(json.dumps(raw))
-            self._mqtt.publish(self.mqtt_in, json.dumps(raw), qos=0, retain=False)
+            self.mqtt.send(json.dumps(raw))
         elif not self.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE):
             raise NoOneTimeScheduleError(
                 "This device does not support Edgecut-on-demand"
@@ -757,7 +765,7 @@ class WorxCloud(object):
                 new_zones = tmp
 
             raw = {"mzv": new_zones}
-            self._mqtt.publish(self.mqtt_in, json.dumps(raw), qos=0, retain=False)
+            self.mqtt.send(json.dumps(raw))
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
