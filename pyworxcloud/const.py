@@ -26,4 +26,13 @@ UNWANTED_ATTRIBS = [
     "warranty_registered",
     "updated_at",
     "test",
+    "sim",
+    "messages_in",
+    "messages_out",
+    "raw_messages_in",
+    "raw_messages_out",
+    "mqtt_registered",
+    "mqtt_endpoint",
+    "features",
+    "accessories",
 ]

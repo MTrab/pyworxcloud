@@ -13,6 +13,11 @@ from .capability import (
 from .location import (
     Location,
 )
+from .mqtt import (
+    Command,
+    MQTT,
+    MQTTHandler,
+)
 from .orientation import (
     Orientation,
 )
@@ -35,8 +40,11 @@ __all__ = [
     "Battery",
     "Blades",
     "Capability",
+    "Command",
     "DeviceCapability",
     "Location",
+    "MQTT",
+    "MQTTHandler",
     "Orientation",
     "Schedule",
     "ScheduleType",
