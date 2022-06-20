@@ -8,7 +8,12 @@ EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
 TYPE = "worx"
 
+
 if __name__ == "__main__":
+    # Clear the screen for better visibility when debugging
+    print("\033c", end="")
+
+    # Initialize the class
     cloud = WorxCloud(EMAIL, PASS, TYPE)
 
     # Initialize connection

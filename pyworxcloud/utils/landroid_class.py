@@ -7,7 +7,7 @@ class LDict(dict):
     def __init__(self, default=None):
         """Init dict."""
         super().__init__(self)
-        self.default = default
+        # self.default = default
 
     # def __delitem__(self, key):
     #     if not isinstance(key, (type(None), list)):
