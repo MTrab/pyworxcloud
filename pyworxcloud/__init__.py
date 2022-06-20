@@ -5,6 +5,7 @@ import base64
 import contextlib
 import json
 import logging
+import pprint
 import sys
 import tempfile
 import time
@@ -13,8 +14,6 @@ from typing import Any
 
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
-
-from pyworxcloud.helpers.time_format import convert_to_time
 
 from .clouds import CloudType
 from .const import UNWANTED_ATTRIBS
@@ -27,7 +26,7 @@ from .exceptions import (
 )
 from .api import LandroidCloudAPI
 
-from .helpers import string_to_time
+from .helpers import convert_to_time, convert_to_time_recursive, string_to_time
 from .utils import (
     Blades,
     Battery,
@@ -53,7 +52,7 @@ if sys.version_info < (3, 10, 0):
     sys.exit("The pyWorxcloud module requires Python 3.10.0 or later")
 
 
-class WorxCloud(object):
+class WorxCloud(dict):
     """
     Worx by Landroid Cloud connector.
 
@@ -62,8 +61,6 @@ class WorxCloud(object):
     This uses a reverse engineered API protocol, so no guarantee that this will keep working.
     There are no public available API documentation available.
     """
-
-    wait = True
 
     def __init__(
         self,
@@ -310,6 +307,8 @@ class WorxCloud(object):
             if hasattr(self, attr):
                 delattr(self, attr)
 
+        # print("Converting times from connect")
+        # convert_to_time(self, self.time_zone)
         return True
 
     @property
@@ -401,11 +400,7 @@ class WorxCloud(object):
                 self.rain_sensor_triggered = bool(str(data["dat"]["rain"]["s"]) == "1")
 
         if "cfg" in data:
-            self.updated = string_to_time(
-                data["cfg"]["tm"] + " " + data["cfg"]["dt"],
-                self.time_zone,
-                "%H:%M:%S %d/%m/%Y",
-            )
+            self.updated = data["cfg"]["dt"] + " " + data["cfg"]["tm"]
             self.rain_delay = data["cfg"]["rd"]
 
             # Fetch wheel torque
@@ -525,8 +520,12 @@ class WorxCloud(object):
                         "end"
                     ] = end_time.time().strftime("%H:%M")
 
-        # self = convert_to_time(self, self.time_zone)
-        convert_to_time(self.__dict__, self.time_zone)
+        print("Converting times from decode_data")
+
+        print(convert_to_time_recursive(self, self.time_zone))
+        # upd_set = convert_to_time(self, self.time_zone)
+        # print(upd_set)
+        # self.__dict__.update()
 
     def _on_connect(
         self, client, userdata, flags, rc
