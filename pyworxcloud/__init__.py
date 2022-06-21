@@ -272,7 +272,7 @@ class WorxCloud(dict):
         )
 
         # Get blades statistics
-        self.blades = Blades(self)
+        self.blades = Blades(data=self)
 
         # Get battery information
         self.battery = Battery(cycle_info=self)
