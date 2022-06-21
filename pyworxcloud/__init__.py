@@ -33,7 +33,7 @@ from .utils import (
     Command,
     DeviceCapability,
     Location,
-    MQTT,
+    MQTTData,
     MQTTHandler,
     Orientation,
     Schedule,
@@ -161,7 +161,7 @@ class WorxCloud(dict):
         self.error = States(StateType.ERROR)
         self.gps = Location()
         self.locked = False
-        self.mqtt = MQTT()
+        self.mqtt = MQTTData()
         self.online = False
         self.orientation = Orientation([0, 0, 0])
         self.capabilities = Capability()
@@ -285,12 +285,12 @@ class WorxCloud(dict):
 
         try:
             with self._get_cert() as cert:
-                self.mqtt.tls_set(certfile=cert)
+                self.mqtt.client.tls_set(certfile=cert)
         except ValueError:
             pass
 
         if not verify_ssl:
-            self.mqtt.tls_insecure_set(True)
+            self.mqtt.client.tls_insecure_set(True)
 
         conn_res = self.mqtt.client.connect(
             self.mqtt["endpoint"], port=8883, keepalive=600
@@ -359,17 +359,21 @@ class WorxCloud(dict):
     def _get_mac_address(self):
         """Get device MAC address for identification."""
         self._fetch()
-        self.mqtt.topics = {"out": self.mqtt_topics["command_out"]}
-        self.mqtt.topics = {"in": self.mqtt_topics["command_in"]}
+        self.mqtt.topics.update(
+            {
+                "out": self.mqtt_topics["command_out"],
+                "in": self.mqtt_topics["command_in"],
+            },
+        )
         del self.mqtt_topics
 
     def _forward_on_message(
         self, client, userdata, message  # pylint: disable=unused-argument
     ):
         """MQTT callback method definition."""
+        print("Got new message")
         json_message = message.payload.decode("utf-8")
         self._decode_data(json_message)
-
         if self._callback is not None:
             self._callback()
 

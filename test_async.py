@@ -30,21 +30,26 @@ def worx_test():
     # not verify SSL (False)
     cloud.connect(0, False)
 
+    lastupdate = None
+    cloud.update()
     while True:
-        try:
-            print("Updating Worx")
-            # Read latest states received from the device
-            cloud.update()
-
-            # Print all vars and attributes of the cloud object
+        if cloud.updated != lastupdate:
+            lastupdate = cloud.updated
             pprint(vars(cloud))
-        except TimeoutError:
-            print(" - Timed out waiting for response")
-        except:
-            print(" - Ooops - something went wrong!")
+        # try:
+        #     print("Updating Worx")
+        #     # Read latest states received from the device
+        #     cloud.update()
 
-        print("Sleeping 300 seconds")
-        time.sleep(300)
+        #     # Print all vars and attributes of the cloud object
+        #     pprint(vars(cloud))
+        # except TimeoutError:
+        #     print(" - Timed out waiting for response")
+        # except:
+        #     print(" - Ooops - something went wrong!")
+
+        # print("Sleeping 300 seconds")
+        # time.sleep(300)
 
 
 asyncio.run(main())
