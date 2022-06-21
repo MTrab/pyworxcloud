@@ -9,112 +9,85 @@ from ..utils import (
     __all__ as all_utils,
 )
 
+DATE_FORMATS = [
+    "%Y-%m-%d %H:%M:%S",
+    "%d-%m-%Y %H:%M:%S",
+    "%Y/%m/%d %H:%M:%S",
+    "%d/%m/%Y %H:%M:%S",
+]
+
 
 @staticmethod
-def string_to_time(
-    dt_string: str, tz: str = "UTC", format: str = "%Y-%m-%d %H:%M:%S"
-) -> datetime:
+def string_to_time(dt_string: str, tz: str = "UTC") -> datetime:
     """Convert string to datetime object.
+    Trying all known date/time formats as defined in DATE_FORMATS constant.
 
     Args:
         dt_string (str): String containing the date/time
         tz (str): Timezone for the string. default = "UTC"
-        format (str): String format. default = "%Y-%m-%d %H:%M:%S"
 
     Returns:
         datetime: datatime object
     """
     timezone = pytz.timezone(tz)
-    dt_object = datetime.strptime(dt_string, format).astimezone(timezone)
+    for format in DATE_FORMATS:
+        try:
+            dt_object = datetime.strptime(dt_string, format).astimezone(timezone)
+            break
+        except ValueError:
+            pass
 
     return dt_object
 
 
+@staticmethod
 def convert_to_time(
     data: Any,
     tz: str = "UTC",
     expression: str | None = None,
-) -> dict | None:
+    parent: str | None = None,
+    subkey: str | None = None,
+    callback: Any | None = None,
+) -> None:
     """Find and convert all strings resembling timestamps."""
-    expression = expression or r"\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}"
+    expression = (
+        expression or r"\d{2,4}[-\/]\d{1,2}[-\/]\d{1,4} \d{1,2}:\d{1,2}:\d{1,2}"
+    )
     if hasattr(data, "__dict__"):
-        recur = data.__dict__
+        data = data.__dict__
+
+    if isinstance(subkey, type(None)):
+        parent = subkey
     else:
-        recur = data
+        if isinstance(parent, type(None)):
+            parent = subkey
+        else:
+            parent += f";;{subkey}"
 
-    retval = {}
-
-    for key in recur:
+    for key in data:
         if key.startswith("_"):
             continue
 
-        result = None
-        results = None
-
-        if not key in recur:
+        if not key in data:
             continue
 
-        value = recur[key]
+        hits = []
+        value = data[key]
 
         if isinstance(value, tuple(all_utils)) or isinstance(value, dict):
-            result = convert_to_time(value, tz, expression)
-            if result:
-                print(f"{key} returned {result}")
-                retval.update({key: result})
-        elif isinstance(value, str):
-            results = re.findall(expression, value)
-        else:
-            continue
-
-        if not results or not result:
-            retval.update({key: value})
-            continue
-
-        retval.update({key: string_to_time(results[0])})
-
-    if len(retval) > 0:
-        # print(retval)
-        return retval
-    else:
-        return None
-
-
-def convert_to_time_recursive(
-    data: Any,
-    tz: str = "UTC",
-    expression: str | None = None,
-    computed: dict = {},
-) -> dict | None:
-    """Find and convert all strings resembling timestamps."""
-    expression = expression or r"\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}"
-    recur = data
-    if hasattr(data, "__dict__"):
-        if len(recur.__dict__) > 0:
-            recur = data.__dict__
-
-    child = {}
-    for attr in recur:
-        if attr.startswith("_"):
-            continue
-
-        if not attr in recur:
-            if not hasattr(recur, attr):
-                continue
-
-            value = getattr(recur, attr)
-        else:
-            value = recur[attr]
-
-        # if isinstance(value, type(None)):
-        #     continue
-
-        if isinstance(value, tuple(all_utils)) or isinstance(value, dict):
-            child.update(
-                {attr: convert_to_time_recursive(value, tz, expression, computed)}
+            convert_to_time(
+                data=value,
+                tz=tz,
+                expression=expression,
+                parent=parent,
+                subkey=key,
+                callback=callback,
             )
+        elif isinstance(value, str):
+            hits = re.findall(expression, value)
         else:
-            child.update({attr: value})
+            continue
 
-    computed.update(child)
-    print(computed)
-    return computed
+        if len(hits) == 1:
+            newtime = string_to_time(hits[0])
+            callback(parent, key, newtime)
