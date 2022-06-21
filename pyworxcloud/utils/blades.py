@@ -15,7 +15,6 @@ class Blades(LDict):
         from ..helpers import string_to_time
 
         if isinstance(data, type(None)):
-            print(type(data))
             return
 
         if hasattr(data, "blade_work_time"):
@@ -32,7 +31,11 @@ class Blades(LDict):
 
         if hasattr(data, "blade_work_time_reset_at"):
             # Blade time reset time and date
-            self["reset_time"] = string_to_time(data.blade_work_time_reset_at)
+            self["reset_time"] = (
+                string_to_time(data.blade_work_time_reset_at)
+                if not isinstance(data.blade_work_time_reset_at, type(None))
+                else None
+            )
         else:
             self["reset_time"] = None
 
