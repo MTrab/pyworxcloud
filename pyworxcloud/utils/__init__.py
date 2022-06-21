@@ -15,8 +15,8 @@ from .location import (
 )
 from .mqtt import (
     Command,
+    MQTT,
     MQTTData,
-    MQTTHandler,
 )
 from .orientation import (
     Orientation,
@@ -43,8 +43,8 @@ __all__ = [
     Command,
     DeviceCapability,
     Location,
+    MQTT,
     MQTTData,
-    MQTTHandler,
     Orientation,
     Schedule,
     ScheduleType,

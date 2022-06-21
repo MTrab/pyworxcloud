@@ -33,8 +33,8 @@ from .utils import (
     Command,
     DeviceCapability,
     Location,
+    MQTT,
     MQTTData,
-    MQTTHandler,
     Orientation,
     Schedule,
     ScheduleType,
@@ -161,7 +161,8 @@ class WorxCloud(dict):
         self.error = States(StateType.ERROR)
         self.gps = Location()
         self.locked = False
-        self.mqtt = MQTTData()
+        self.mqtt = MQTT()
+        self.mqttdata = MQTTData()
         self.online = False
         self.orientation = Orientation([0, 0, 0])
         self.capabilities = Capability()
@@ -278,44 +279,48 @@ class WorxCloud(dict):
         self.battery = Battery(cycle_info=self)
 
         # setup MQTT handler
-        self.mqtt.client = MQTTHandler(self.mqtt["endpoint"], protocol=mqtt.MQTTv311)
+        self.mqtt = MQTT(
+            self._worx_mqtt_client_id,
+            protocol=mqtt.MQTTv311,
+            topics=self.mqttdata.topics,
+        )
 
-        self.mqtt.client.on_message = self._forward_on_message
-        self.mqtt.client.on_connect = self._on_connect
+        self.mqtt.on_message = self._forward_on_message
+        self.mqtt.on_connect = self._on_connect
 
         try:
             with self._get_cert() as cert:
-                self.mqtt.client.tls_set(certfile=cert)
+                self.mqtt.tls_set(certfile=cert)
         except ValueError:
             pass
 
         if not verify_ssl:
-            self.mqtt.client.tls_insecure_set(True)
+            self.mqtt.tls_insecure_set(True)
 
-        conn_res = self.mqtt.client.connect(
-            self.mqtt["endpoint"], port=8883, keepalive=600
+        conn_res = self.mqtt.connect(
+            self.mqttdata["endpoint"], port=8883, keepalive=600
         )
         if conn_res:
             return False
 
-        self.mqtt.client.loop_start()
+        self.mqtt.loop_start()
         mqp = self.mqtt.send()
         while not mqp.is_published:
             time.sleep(0.1)
 
-        self.mqtt["messages"]["raw"].update(
+        self.mqttdata["messages"]["raw"].update(
             {
                 "in": self.raw_messages_in,
                 "out": self.raw_messages_out,
             }
         )
-        self.mqtt["messages"]["filtered"].update(
+        self.mqttdata["messages"]["filtered"].update(
             {
                 "in": self.messages_in,
                 "out": self.messages_out,
             }
         )
-        self.mqtt["registered"] = self.mqtt_registered
+        self.mqttdata["registered"] = self.mqtt_registered
         # Remove unwanted attribs
         for attr in UNWANTED_ATTRIBS:
             if hasattr(self, attr):
@@ -342,7 +347,7 @@ class WorxCloud(dict):
             profile = self._api.data
             if profile is None:
                 return False
-            self.mqtt.update({"endpoint": profile["mqtt_endpoint"]})
+            self.mqttdata.update({"endpoint": profile["mqtt_endpoint"]})
             self._worx_mqtt_client_id = "android-" + self._api.uuid
         except:  # pylint: disable=bare-except
             return False
@@ -359,7 +364,7 @@ class WorxCloud(dict):
     def _get_mac_address(self):
         """Get device MAC address for identification."""
         self._fetch()
-        self.mqtt.topics.update(
+        self.mqttdata.topics.update(
             {
                 "out": self.mqtt_topics["command_out"],
                 "in": self.mqtt_topics["command_in"],
@@ -544,7 +549,7 @@ class WorxCloud(dict):
         self, client, userdata, flags, rc
     ):  # pylint: disable=unused-argument,invalid-name
         """MQTT callback method."""
-        client.subscribe(self.mqtt.topics["out"])
+        client.subscribe(self.mqttdata.topics["out"])
 
     def _fetch(self) -> None:
         """Fetch devices."""

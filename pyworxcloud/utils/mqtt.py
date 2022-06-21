@@ -67,7 +67,7 @@ class MQTTHandler(mqtt.Client):
         client_id="",
         clean_session=None,
         userdata=None,
-        protocol=...,
+        protocol=mqtt.MQTTv311,
         transport="tcp",
         reconnect_on_failure=True,
     ) -> None:
@@ -105,15 +105,62 @@ class MQTTHandler(mqtt.Client):
         return self.send(f'{{"cmd": {action}}}')
 
 
-class MQTTData(MQTTHandler, LDict):
+class MQTTData(LDict):
     """Class for handling MQTT information."""
 
-    # __slots__ = "endpoint", "topics"
+    __topics: MQTTTopics = MQTTTopics()
 
     def __init__(self):
         """Init MQTT info class."""
         super().__init__()
-
         self["messages"] = MQTTMessages()
         self["endpoint"] = None
         self["registered"] = None
+
+    @property
+    def topics(self) -> dict:
+        """Return topics dict."""
+        return self.__topics
+
+    @topics.setter
+    def topics(self, value: dict) -> None:
+        """Set topics values."""
+        for k, v in value.items() if isinstance(value, Mapping) else value:
+            self.__topics.update({k: v})
+
+
+class MQTT(mqtt.Client, LDict):
+    """Full MQTT handler class."""
+
+    def __init__(
+        self,
+        client_id="",
+        clean_session=None,
+        userdata=None,
+        protocol=mqtt.MQTTv311,
+        transport="tcp",
+        reconnect_on_failure=True,
+        topics: dict = {},
+    ):
+        super().__init__(
+            client_id,
+            clean_session,
+            userdata,
+            protocol,
+            transport,
+            reconnect_on_failure,
+        )
+        self.topics = topics
+
+    def send(
+        self,
+        data: str = "{}",
+        qos: int = 0,
+        retain: bool = False,
+    ) -> MQTTMessageInfo:
+        """Send Landroid cloud message to API endpoint."""
+        return self.publish(self.topics["in"], data, qos, retain)
+
+    def command(self, action: Command) -> MQTTMessageInfo:
+        """Send command to device."""
+        return self.send(f'{{"cmd": {action}}}')
