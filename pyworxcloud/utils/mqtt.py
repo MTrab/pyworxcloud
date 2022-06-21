@@ -3,6 +3,7 @@
 import json
 from typing import Any, Mapping, overload
 import paho.mqtt.client as mqtt
+from paho.mqtt.client import MQTTMessageInfo
 
 from .landroid_class import LDict
 
@@ -90,14 +91,20 @@ class MQTTHandler(mqtt.Client):
         for k, v in value.items() if isinstance(value, Mapping) else value:
             self.__topics.update({k: v})
 
-    @overload
-    def send(self, command: Command) -> Any:
-        """Send a command to the device."""
-        return self.send(json.dumps({"cmd": command}))
-
-    def send(self, data: str = "{}", qos: int = 0, retain: bool = False) -> Any:
+    def send(
+        self,
+        data: str = "{}",
+        qos: int = 0,
+        retain: bool = False,
+    ) -> MQTTMessageInfo:
         """Send Landroid cloud message to API endpoint."""
+        print("Sending MQTT data ", data)
         return self.publish(self.topics["in"], data, qos, retain)
+
+    def command(self, action: Command) -> MQTTMessageInfo:
+        """Send command to device."""
+        print(type(action))
+        return self.send(f'{{"cmd": {action}}}')
 
 
 class MQTT(MQTTHandler, LDict):

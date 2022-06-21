@@ -280,8 +280,8 @@ class WorxCloud(dict):
         # setup MQTT handler
         self.mqtt.client = MQTTHandler(self.mqtt["endpoint"], protocol=mqtt.MQTTv311)
 
-        self.mqtt.on_message = self._forward_on_message
-        self.mqtt.on_connect = self._on_connect
+        self.mqtt.client.on_message = self._forward_on_message
+        self.mqtt.client.on_connect = self._on_connect
 
         try:
             with self._get_cert() as cert:
@@ -599,7 +599,7 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self.mqtt.send(Command.START)
+            self.mqtt.command(Command.START)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -610,7 +610,7 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self.mqtt.send(Command.PAUSE)
+            self.mqtt.command(Command.PAUSE)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -622,7 +622,7 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self.mqtt.send(Command.HOME)
+            self.mqtt.command(Command.HOME)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -633,7 +633,7 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self.mqtt.send(Command.ZONETRAINING)
+            self.mqtt.command(Command.ZONETRAINING)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -648,9 +648,9 @@ class WorxCloud(dict):
         """
         if self.online:
             if enabled:
-                self.mqtt.send(Command.LOCK)
+                self.mqtt.command(Command.LOCK)
             else:
-                self.mqtt.send(Command.UNLOCK)
+                self.mqtt.command(Command.UNLOCK)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -661,7 +661,7 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self.mqtt.send(Command.RESTART)
+            self.mqtt.command(Command.RESTART)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -672,7 +672,7 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            self.mqtt.send(Command.SAFEHOME)
+            self.mqtt.command(Command.SAFEHOME)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
