@@ -5,7 +5,6 @@ import base64
 import contextlib
 import json
 import logging
-import pprint
 import sys
 import tempfile
 import time
@@ -26,7 +25,7 @@ from .exceptions import (
 )
 from .api import LandroidCloudAPI
 
-from .helpers import convert_to_time, convert_to_time_recursive, string_to_time
+from .helpers import convert_to_time
 from .utils import (
     Blades,
     Battery,
@@ -207,6 +206,21 @@ class WorxCloud(dict):
 
         return True
 
+    def update_attribute(self, attr: str | None, key: str, value: Any) -> None:
+        """Used as callback to update value."""
+        chattr = self
+        if not isinstance(attr, type(None)):
+            for level in attr.split(";;"):
+                if hasattr(chattr, level):
+                    chattr = getattr(chattr, level)
+                else:
+                    chattr = chattr[level]
+
+        if hasattr(chattr, key):
+            setattr(chattr, key, value)
+        elif isinstance(chattr, dict):
+            chattr.update({key: value})
+
     def set_callback(self, callback) -> None:
         """Set callback which is called when data is received.
 
@@ -307,8 +321,8 @@ class WorxCloud(dict):
             if hasattr(self, attr):
                 delattr(self, attr)
 
-        # print("Converting times from connect")
-        # convert_to_time(self, self.time_zone)
+        convert_to_time(self, self.time_zone, callback=self.update_attribute)
+
         return True
 
     @property
@@ -520,12 +534,7 @@ class WorxCloud(dict):
                         "end"
                     ] = end_time.time().strftime("%H:%M")
 
-        print("Converting times from decode_data")
-
-        print(convert_to_time_recursive(self, self.time_zone))
-        # upd_set = convert_to_time(self, self.time_zone)
-        # print(upd_set)
-        # self.__dict__.update()
+        convert_to_time(self, self.time_zone, callback=self.update_attribute)
 
     def _on_connect(
         self, client, userdata, flags, rc
