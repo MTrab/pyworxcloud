@@ -611,12 +611,13 @@ class WorxCloud(dict):
         rc,  # pylint: disable=unused-argument,invalid-name
     ):
         """MQTT callback method."""
-        if self.mqtt.connected:
-            logger = self._log.getChild("mqtt.disconnected")
-            logger.debug(
-                "MQTT connection for %s was lost! (%s)", self.name, error_string(rc)
-            )
-        self.mqtt.connected = False
+        if rc > 0:
+            if self.mqtt.connected:
+                logger = self._log.getChild("mqtt.disconnected")
+                logger.debug(
+                    "MQTT connection for %s was lost! (%s)", self.name, error_string(rc)
+                )
+            self.mqtt.connected = False
 
     def _fetch(self) -> None:
         """Fetch devices."""
