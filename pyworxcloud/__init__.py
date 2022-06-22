@@ -150,7 +150,7 @@ class WorxCloud(dict):
         self._auth_result = False
         self._callback = None  # Callback used when data arrives from cloud
         self._dev_id = index
-        self._log = get_logger('pyworxcloud')
+        self._log = get_logger("pyworxcloud")
         self._raw = None
         self._save_zones = None
         self._verify_ssl = verify_ssl
@@ -556,7 +556,7 @@ class WorxCloud(dict):
     ):
         """Callback on message published."""
         logger = self._log.getChild("mqtt_published")
-        logger.debug("MQTT message published to %s: %s", self.name, message)
+        logger.debug("MQTT message published to %s: %s", self.name, client)
 
     def _on_connect(
         self, client, userdata, flags, rc
