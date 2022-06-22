@@ -36,7 +36,6 @@ from .utils import (
     Location,
     MQTT,
     MQTTData,
-    MQTTTest,
     Orientation,
     Rainsensor,
     Schedule,
@@ -318,25 +317,6 @@ class WorxCloud(dict):
         self.mqtt.connect(self.mqttdata["endpoint"], port=8883, keepalive=600)
 
         self.mqtt.loop_start()
-        if not self.mqtt.connected:
-            self._log.debug("Waiting for MQTT connection ...")
-            timeout = time.time() + 60 * 2  # 2 minutes timeout for connection.
-            while not self.mqtt.connected:
-                if time.time() > timeout:
-                    self._log.debug(
-                        "MQTT connection could not be established for %s!", self.name
-                    )
-                    self.disconnect()
-                    raise TimeoutException(
-                        f"Timeout connecting to the MQTT endpoint for {self.name}."
-                    )
-                pass
-            self._log.debug("MQTT connection established - continuing.")
-
-        mqp = self.mqtt.send()
-        mqp.wait_for_publish(10)
-        # while not mqp.is_published:
-        #     time.sleep(0.1)
 
         self.mqttdata["messages"]["raw"].update(
             {
@@ -601,6 +581,9 @@ class WorxCloud(dict):
             "MQTT connected for %s, subscribing to topic '%s'", self.name, topic
         )
         self.mqtt.connected = True
+
+        mqp = self.mqtt.send()
+        mqp.wait_for_publish(10)
 
         client.subscribe(topic)
 
