@@ -46,8 +46,6 @@ from .utils import (
 )
 from .utils.schedules import TYPE_TO_STRING
 
-_LOGGER = logging.getLogger(__name__)
-
 if sys.version_info < (3, 10, 0):
     sys.exit("The pyWorxcloud module requires Python 3.10.0 or later")
 
@@ -150,6 +148,7 @@ class WorxCloud(dict):
         self._auth_result = False
         self._callback = None  # Callback used when data arrives from cloud
         self._dev_id = index
+        self._log = logging.getLogger(__name__)
         self._raw = None
         self._save_zones = None
         self._verify_ssl = verify_ssl
@@ -287,6 +286,7 @@ class WorxCloud(dict):
 
         self.mqtt.on_message = self._forward_on_message
         self.mqtt.on_connect = self._on_connect
+        self.mqtt.on_publish = self._on_published_message
 
         try:
             with self._get_cert() as cert:
@@ -544,6 +544,13 @@ class WorxCloud(dict):
                     ] = end_time.time().strftime("%H:%M")
 
         convert_to_time(self, self.time_zone, callback=self.update_attribute)
+
+    def _on_published_message(
+        self, client, userdata, message  # pylint: disable=unused-argument
+    ):
+        """Callback on message published."""
+        logger = self._log.getChild("mqtt_published")
+        logger.debug(message)
 
     def _on_connect(
         self, client, userdata, flags, rc
