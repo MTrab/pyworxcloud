@@ -33,7 +33,7 @@ def worx_test():
     lastupdate = None
     cloud.update()
     # cloud.start()
-    while True:
+    while 1:
         if cloud.updated != lastupdate:
             lastupdate = cloud.updated
             pprint(vars(cloud))
