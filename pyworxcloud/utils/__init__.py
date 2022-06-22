@@ -17,6 +17,7 @@ from .mqtt import (
     Command,
     MQTT,
     MQTTData,
+    MQTTTest,
 )
 from .orientation import (
     Orientation,
@@ -48,6 +49,7 @@ __all__ = [
     Location,
     MQTT,
     MQTTData,
+    MQTTTest,
     Orientation,
     Rainsensor,
     Schedule,
