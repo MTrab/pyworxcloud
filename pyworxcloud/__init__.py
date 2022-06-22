@@ -25,7 +25,7 @@ from .exceptions import (
 )
 from .api import LandroidCloudAPI
 
-from .helpers import convert_to_time
+from .helpers import convert_to_time, get_logger
 from .utils import (
     Blades,
     Battery,
@@ -45,8 +45,6 @@ from .utils import (
     Zone,
 )
 from .utils.schedules import TYPE_TO_STRING
-
-LOGGER = logging.getLogger("pyworxcloud")
 
 if sys.version_info < (3, 10, 0):
     sys.exit("The pyWorxcloud module requires Python 3.10.0 or later")
@@ -147,10 +145,12 @@ class WorxCloud(dict):
 
         self._api = LandroidCloudAPI(username, password, cloud)
 
+        self._username = username
+        self._cloud = cloud
         self._auth_result = False
         self._callback = None  # Callback used when data arrives from cloud
         self._dev_id = index
-        self._log = LOGGER
+        self._log = get_logger('pyworxcloud')
         self._raw = None
         self._save_zones = None
         self._verify_ssl = verify_ssl
@@ -198,16 +198,16 @@ class WorxCloud(dict):
 
     def authenticate(self) -> bool:
         """Authenticate against the API."""
-        self._log.debug("Authenticating .....")
+        self._log.debug("Authenticating %s", self._username)
 
         auth = self._authenticate()
         if auth is False:
             self._auth_result = False
-            self._log.debug("Authentication failed!")
+            self._log.debug("Authentication for %s failed!", self._username)
             raise AuthorizationError("Unauthorized")
 
         self._auth_result = True
-        self._log.debug("Authentication successful")
+        self._log.debug("Authentication for %s successful", self._username)
 
         return True
 
@@ -556,7 +556,7 @@ class WorxCloud(dict):
     ):
         """Callback on message published."""
         logger = self._log.getChild("mqtt_published")
-        logger.debug("MQTT message published: %s", message)
+        logger.debug("MQTT message published to %s: %s", self.name, message)
 
     def _on_connect(
         self, client, userdata, flags, rc
