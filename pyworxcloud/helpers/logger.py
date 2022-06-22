@@ -16,10 +16,10 @@ def get_logger(name: str) -> logging.Logger:
     consoleHandler = logging.StreamHandler()
     consoleHandler.setFormatter(logFormatter)
 
-    if not len(logger.handlers):
+    if not len(logger.root.handlers):
         logger.setLevel(logging.DEBUG)
         logger.addHandler(consoleHandler)
 
-    print(logger.handlers)
+    print(logger.root.handlers)
 
     return logger
