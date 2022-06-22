@@ -36,6 +36,7 @@ from .utils import (
     MQTT,
     MQTTData,
     Orientation,
+    Rainsensor,
     Schedule,
     ScheduleType,
     States,
@@ -168,9 +169,7 @@ class WorxCloud(dict):
         self.capabilities = Capability()
         self.partymode_enabled = False
         self.product = []
-        self.rain_delay = None
-        self.rain_delay_time_remaining = None
-        self.rain_sensor_triggered = None
+        self.rainsensor = Rainsensor()
         self.rssi = None
         self.schedules: dict[str, Any] = {"time_extension": 0, "active": True}
         self.serial_number = None
@@ -261,6 +260,7 @@ class WorxCloud(dict):
                 "registered": self.warranty_registered,
             },
             "sim": self.sim,
+            "registered_at": self.registered_at,
         }
 
         self.product.update(
@@ -419,12 +419,12 @@ class WorxCloud(dict):
 
             # Get remaining rain delay if available
             if "rain" in data["dat"]:
-                self.rain_delay_time_remaining = data["dat"]["rain"]["cnt"]
-                self.rain_sensor_triggered = bool(str(data["dat"]["rain"]["s"]) == "1")
+                self.rainsensor.triggered = bool(str(data["dat"]["rain"]["s"]) == "1")
+                self.rainsensor.remaining = int(data["dat"]["rain"]["cnt"])
 
         if "cfg" in data:
             self.updated = data["cfg"]["dt"] + " " + data["cfg"]["tm"]
-            self.rain_delay = data["cfg"]["rd"]
+            self.rainsensor.delay = int(data["cfg"]["rd"])
 
             # Fetch wheel torque
             if "tq" in data["cfg"]:

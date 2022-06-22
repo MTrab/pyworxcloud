@@ -21,6 +21,9 @@ from .mqtt import (
 from .orientation import (
     Orientation,
 )
+from .rainsensor import (
+    Rainsensor,
+)
 from .schedules import (
     Schedule,
     ScheduleType,
@@ -46,6 +49,7 @@ __all__ = [
     MQTT,
     MQTTData,
     Orientation,
+    Rainsensor,
     Schedule,
     ScheduleType,
     States,
