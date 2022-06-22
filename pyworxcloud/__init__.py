@@ -4,7 +4,6 @@ from __future__ import annotations
 import base64
 import contextlib
 import json
-import logging
 import sys
 import tempfile
 import time
@@ -13,6 +12,7 @@ from typing import Any
 
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
+from paho.mqtt.client import error_string
 
 from .clouds import CloudType
 from .const import UNWANTED_ATTRIBS
@@ -22,6 +22,7 @@ from .exceptions import (
     NoOneTimeScheduleError,
     NoPartymodeError,
     OfflineError,
+    TimeoutException,
 )
 from .api import LandroidCloudAPI
 
@@ -35,6 +36,7 @@ from .utils import (
     Location,
     MQTT,
     MQTTData,
+    MQTTTest,
     Orientation,
     Rainsensor,
     Schedule,
@@ -236,7 +238,7 @@ class WorxCloud(dict):
 
     def disconnect(self) -> None:
         """Close API connections."""
-        if self.mqtt.is_connected:
+        if self.mqtt.connected:
             self.mqtt.disconnect()
 
     def connect(self, index: int | None = None, verify_ssl: bool = True) -> bool:
@@ -288,11 +290,15 @@ class WorxCloud(dict):
             self._worx_mqtt_client_id,
             protocol=mqtt.MQTTv311,
             topics=self.mqttdata.topics,
+            name=self.name,
         )
 
         self.mqtt.on_message = self._forward_on_message
         self.mqtt.on_connect = self._on_connect
+        self.mqtt.on_disconnect = self._on_disconnect
         self.mqtt.on_publish = self._on_published_message
+        mqttlog = self._log.getChild("PahoMQTT")
+        self.mqtt.enable_logger(mqttlog)
 
         try:
             with self._get_cert() as cert:
@@ -303,16 +309,28 @@ class WorxCloud(dict):
         if not verify_ssl:
             self.mqtt.tls_insecure_set(True)
 
-        conn_res = self.mqtt.connect(
-            self.mqttdata["endpoint"], port=8883, keepalive=600
-        )
-        if conn_res:
-            return False
+        self.mqtt.connect(self.mqttdata["endpoint"], port=8883, keepalive=600)
 
         self.mqtt.loop_start()
+        if not self.mqtt.connected:
+            self._log.debug("Waiting for MQTT connection ...")
+            timeout = time.time() + 60 * 2  # 2 minutes timeout for connection.
+            while not self.mqtt.connected:
+                if time.time() > timeout:
+                    self._log.debug(
+                        "MQTT connection could not be established for %s!", self.name
+                    )
+                    self.disconnect()
+                    raise TimeoutException(
+                        f"Timeout connecting to the MQTT endpoint for {self.name}."
+                    )
+                pass
+            self._log.debug("MQTT connection established - continuing.")
+
         mqp = self.mqtt.send()
-        while not mqp.is_published:
-            time.sleep(0.1)
+        mqp.wait_for_publish(10)
+        # while not mqp.is_published:
+        #     time.sleep(0.1)
 
         self.mqttdata["messages"]["raw"].update(
             {
@@ -382,7 +400,8 @@ class WorxCloud(dict):
         self, client, userdata, message  # pylint: disable=unused-argument
     ):
         """MQTT callback method definition."""
-        print("Got new message")
+        logger = self._log.getChild("mqtt.message_received")
+        logger.debug("Received MQTT message for %s - processing data", self.name)
         json_message = message.payload.decode("utf-8")
         self._decode_data(json_message)
         if self._callback is not None:
@@ -390,6 +409,9 @@ class WorxCloud(dict):
 
     def _decode_data(self, indata) -> None:
         """Decode incoming JSON data."""
+        logger = self._log.getChild("decode_data")
+        logger.debug("Data decoding started")
+
         data = json.loads(indata)
         if "dat" in data:
             self.firmware = data["dat"]["fw"]
@@ -550,19 +572,45 @@ class WorxCloud(dict):
                     ] = end_time.time().strftime("%H:%M")
 
         convert_to_time(self, self.time_zone, callback=self.update_attribute)
+        logger.debug("Data was decoded")
 
     def _on_published_message(
         self, client, userdata, message  # pylint: disable=unused-argument
     ):
         """Callback on message published."""
-        logger = self._log.getChild("mqtt_published")
+        logger = self._log.getChild("mqtt.published")
         logger.debug("MQTT message published to %s", self.name)
 
     def _on_connect(
-        self, client, userdata, flags, rc
-    ):  # pylint: disable=unused-argument,invalid-name
+        self,
+        client,
+        userdata,
+        flags,
+        rc,  # pylint: disable=unused-argument,invalid-name
+    ):
         """MQTT callback method."""
-        client.subscribe(self.mqttdata.topics["out"])
+        topic = self.mqttdata.topics["out"]
+        logger = self._log.getChild("mqtt.connected")
+        logger.debug(
+            "MQTT connected for %s, subscribing to topic '%s'", self.name, topic
+        )
+        self.mqtt.connected = True
+
+        client.subscribe(topic)
+
+    def _on_disconnect(
+        self,
+        client,
+        userdata,
+        rc,  # pylint: disable=unused-argument,invalid-name
+    ):
+        """MQTT callback method."""
+        self.mqtt.connected = False
+
+        logger = self._log.getChild("mqtt.disconnected")
+        logger.debug(
+            "MQTT connection for %s was lost! (%s)", self.name, error_string(rc)
+        )
 
     def _fetch(self) -> None:
         """Fetch devices."""
@@ -589,6 +637,9 @@ class WorxCloud(dict):
         """
         self._api.get_products()
         products = self._api.data
+        self._log.debug(
+            "Enumeration found %s devices on account %s", len(products), self._username
+        )
         return len(products)
 
     # Service calls starts here
@@ -602,6 +653,7 @@ class WorxCloud(dict):
             OfflineError: Raised if the device isn't online.
         """
         if self.online:
+            self._log.debug("Sending %s to %s", data, self.name)
             self.mqtt.send(data)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -621,6 +673,8 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
+            logger = self._log.getChild("command")
+            logger.debug("Sending START command to %s", self.name)
             self.mqtt.command(Command.START)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -632,6 +686,8 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
+            logger = self._log.getChild("command")
+            logger.debug("Sending PAUSE command to %s", self.name)
             self.mqtt.command(Command.PAUSE)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -644,6 +700,8 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
+            logger = self._log.getChild("command")
+            logger.debug("Sending HOME command to %s", self.name)
             self.mqtt.command(Command.HOME)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -655,6 +713,8 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
+            logger = self._log.getChild("command")
+            logger.debug("Sending ZONETRAINING command to %s", self.name)
             self.mqtt.command(Command.ZONETRAINING)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -670,8 +730,12 @@ class WorxCloud(dict):
         """
         if self.online:
             if enabled:
+                logger = self._log.getChild("command")
+                logger.debug("Sending LOCK command to %s", self.name)
                 self.mqtt.command(Command.LOCK)
             else:
+                logger = self._log.getChild("command")
+                logger.debug("Sending UNLOCK command to %s", self.name)
                 self.mqtt.command(Command.UNLOCK)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -683,6 +747,8 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
+            logger = self._log.getChild("command")
+            logger.debug("Sending RESTART command to %s", self.name)
             self.mqtt.command(Command.RESTART)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -694,6 +760,8 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         if self.online:
+            logger = self._log.getChild("command")
+            logger.debug("Sending SAFEHOME command to %s", self.name)
             self.mqtt.command(Command.SAFEHOME)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
