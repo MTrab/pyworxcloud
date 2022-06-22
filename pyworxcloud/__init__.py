@@ -556,7 +556,7 @@ class WorxCloud(dict):
     ):
         """Callback on message published."""
         logger = self._log.getChild("mqtt_published")
-        logger.debug("MQTT message published to %s: %s", self.name, client)
+        logger.debug("MQTT message published to %s", self.name)
 
     def _on_connect(
         self, client, userdata, flags, rc
