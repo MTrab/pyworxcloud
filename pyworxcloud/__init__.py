@@ -241,7 +241,12 @@ class WorxCloud(dict):
         if self.mqtt.connected:
             self.mqtt.disconnect()
 
-    def connect(self, index: int | None = None, verify_ssl: bool = True) -> bool:
+    def connect(
+        self,
+        index: int | None = None,
+        verify_ssl: bool = True,
+        pahologger: bool = False,
+    ) -> bool:
         """Connect to the cloud service endpoint
 
         Args:
@@ -297,8 +302,9 @@ class WorxCloud(dict):
         self.mqtt.on_connect = self._on_connect
         self.mqtt.on_disconnect = self._on_disconnect
         self.mqtt.on_publish = self._on_published_message
-        mqttlog = self._log.getChild("PahoMQTT")
-        self.mqtt.enable_logger(mqttlog)
+        if pahologger:
+            mqttlog = self._log.getChild("PahoMQTT")
+            self.mqtt.enable_logger(mqttlog)
 
         try:
             with self._get_cert() as cert:
@@ -605,12 +611,12 @@ class WorxCloud(dict):
         rc,  # pylint: disable=unused-argument,invalid-name
     ):
         """MQTT callback method."""
+        if self.mqtt.connected:
+            logger = self._log.getChild("mqtt.disconnected")
+            logger.debug(
+                "MQTT connection for %s was lost! (%s)", self.name, error_string(rc)
+            )
         self.mqtt.connected = False
-
-        logger = self._log.getChild("mqtt.disconnected")
-        logger.debug(
-            "MQTT connection for %s was lost! (%s)", self.name, error_string(rc)
-        )
 
     def _fetch(self) -> None:
         """Fetch devices."""
