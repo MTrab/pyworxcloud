@@ -46,6 +46,8 @@ from .utils import (
 )
 from .utils.schedules import TYPE_TO_STRING
 
+LOGGER = logging.getLogger("pyworxcloud")
+
 if sys.version_info < (3, 10, 0):
     sys.exit("The pyWorxcloud module requires Python 3.10.0 or later")
 
@@ -148,7 +150,7 @@ class WorxCloud(dict):
         self._auth_result = False
         self._callback = None  # Callback used when data arrives from cloud
         self._dev_id = index
-        self._log = logging.getLogger(__name__)
+        self._log = LOGGER
         self._raw = None
         self._save_zones = None
         self._verify_ssl = verify_ssl
@@ -196,12 +198,16 @@ class WorxCloud(dict):
 
     def authenticate(self) -> bool:
         """Authenticate against the API."""
+        self._log.debug("Authenticating .....")
+
         auth = self._authenticate()
         if auth is False:
             self._auth_result = False
+            self._log.debug("Authentication failed!")
             raise AuthorizationError("Unauthorized")
 
         self._auth_result = True
+        self._log.debug("Authentication successful")
 
         return True
 
@@ -550,7 +556,7 @@ class WorxCloud(dict):
     ):
         """Callback on message published."""
         logger = self._log.getChild("mqtt_published")
-        logger.debug(message)
+        logger.debug("MQTT message published: %s", message)
 
     def _on_connect(
         self, client, userdata, flags, rc

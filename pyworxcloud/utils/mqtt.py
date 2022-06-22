@@ -107,10 +107,7 @@ class MQTT(mqtt.Client, LDict):
         retain: bool = False,
     ) -> MQTTMessageInfo:
         """Send Landroid cloud message to API endpoint."""
-        print(f"Publishing {data} to {self.topics['in']}")
-        result = self.publish(self.topics["in"], data, qos, retain)
-        # print(result)
-        return result
+        return self.publish(self.topics["in"], data, qos, retain)
 
     def command(self, action: Command) -> MQTTMessageInfo:
         """Send command to device."""
