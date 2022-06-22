@@ -32,10 +32,11 @@ def worx_test():
 
     lastupdate = None
     cloud.update()
+    cloud.start()
     while True:
         if cloud.updated != lastupdate:
             lastupdate = cloud.updated
-            pprint(vars(cloud))
+            # pprint(vars(cloud))
         # try:
         #     print("Updating Worx")
         #     # Read latest states received from the device

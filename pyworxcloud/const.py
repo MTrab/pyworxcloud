@@ -35,4 +35,6 @@ UNWANTED_ATTRIBS = [
     "mqtt_endpoint",
     "features",
     "accessories",
+    "registered_at",
+    "firmware",
 ]

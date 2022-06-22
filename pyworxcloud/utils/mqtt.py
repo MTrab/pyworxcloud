@@ -1,11 +1,12 @@
 """MQTT information class."""
-
-import json
-from typing import Any, Mapping, overload
+import logging
+from typing import Mapping
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
 
 from .landroid_class import LDict
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class MQTTMsgType(LDict):
@@ -50,59 +51,6 @@ class Command:
     RESTART = 7
     PAUSE_OVER_WIRE = 8
     SAFEHOME = 9
-
-
-class MQTTHandler(mqtt.Client):
-    """MQTT communications handler."""
-
-    __topics: MQTTTopics = MQTTTopics()
-
-    @overload
-    def __init__(self):
-        # self.client = None
-        self.__topics = MQTTTopics()
-
-    def __init__(
-        self,
-        client_id="",
-        clean_session=None,
-        userdata=None,
-        protocol=mqtt.MQTTv311,
-        transport="tcp",
-        reconnect_on_failure=True,
-    ) -> None:
-        self.client = super().__init__(
-            client_id,
-            clean_session,
-            userdata,
-            protocol,
-            transport,
-            reconnect_on_failure,
-        )
-
-    @property
-    def topics(self) -> dict:
-        """Return topics dict."""
-        return self.__topics
-
-    @topics.setter
-    def topics(self, value: dict) -> None:
-        """Set topics values."""
-        for k, v in value.items() if isinstance(value, Mapping) else value:
-            self.__topics.update({k: v})
-
-    def send(
-        self,
-        data: str = "{}",
-        qos: int = 0,
-        retain: bool = False,
-    ) -> MQTTMessageInfo:
-        """Send Landroid cloud message to API endpoint."""
-        return self.publish(self.topics["in"], data, qos, retain)
-
-    def command(self, action: Command) -> MQTTMessageInfo:
-        """Send command to device."""
-        return self.send(f'{{"cmd": {action}}}')
 
 
 class MQTTData(LDict):
@@ -159,7 +107,10 @@ class MQTT(mqtt.Client, LDict):
         retain: bool = False,
     ) -> MQTTMessageInfo:
         """Send Landroid cloud message to API endpoint."""
-        return self.publish(self.topics["in"], data, qos, retain)
+        print(f"Publishing {data} to {self.topics['in']}")
+        result = self.publish(self.topics["in"], data, qos, retain)
+        # print(result)
+        return result
 
     def command(self, action: Command) -> MQTTMessageInfo:
         """Send command to device."""
