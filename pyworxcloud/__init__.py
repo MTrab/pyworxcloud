@@ -19,6 +19,7 @@ from .const import UNWANTED_ATTRIBS
 from .day_map import DAY_MAP
 from .exceptions import (
     AuthorizationError,
+    MQTTException,
     NoOneTimeScheduleError,
     NoPartymodeError,
     OfflineError,
@@ -314,9 +315,8 @@ class WorxCloud(dict):
         if not verify_ssl:
             self.mqtt.tls_insecure_set(True)
 
-        self.mqtt.connect(self.mqttdata["endpoint"], port=8883, keepalive=600)
-
         self.mqtt.loop_start()
+        self.mqtt.connect(self.mqttdata["endpoint"], port=8883, keepalive=600)
 
         self.mqttdata["messages"]["raw"].update(
             {
@@ -575,17 +575,36 @@ class WorxCloud(dict):
         rc,  # pylint: disable=unused-argument,invalid-name
     ):
         """MQTT callback method."""
-        topic = self.mqttdata.topics["out"]
         logger = self._log.getChild("mqtt.connected")
-        logger.debug(
-            "MQTT connected for %s, subscribing to topic '%s'", self.name, topic
-        )
-        self.mqtt.connected = True
+        if rc == 0:
+            topic = self.mqttdata.topics["out"]
+            logger.debug(
+                "MQTT connected for %s, subscribing to topic '%s'", self.name, topic
+            )
+            self.mqtt.connected = True
 
-        mqp = self.mqtt.send()
-        mqp.wait_for_publish(10)
+            mqp = self.mqtt.send()
+            mqp.wait_for_publish(10)
 
-        client.subscribe(topic)
+            client.subscribe(topic)
+        elif rc == 1:
+            self.mqtt.connected = False
+            raise MQTTException("Connection refused - Incorrect protocol version")
+        elif rc == 1:
+            self.mqtt.connected = False
+            raise MQTTException("Connection refused - Invalid client identifier")
+        elif rc == 1:
+            self.mqtt.connected = False
+            raise MQTTException("Connection refused - Server unavailable")
+        elif rc == 1:
+            self.mqtt.connected = False
+            raise MQTTException("Connection refused - Bad username or password")
+        elif rc == 1:
+            self.mqtt.connected = False
+            raise MQTTException("Connection refused - Not authorized")
+        else:
+            self.mqtt.connected = False
+            raise MQTTException(f"Unknown connection RCID: {rc}")
 
     def _on_disconnect(
         self,
