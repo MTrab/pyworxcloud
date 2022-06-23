@@ -602,14 +602,9 @@ class WorxCloud(dict):
             client.subscribe(topic)
 
             if isinstance(self._mqtt_data, type(None)):
+                logger.debug("MQTT chached data not found - requesting")
                 mqp = self.mqtt.send()
                 mqp.wait_for_publish(10)
-
-                if not isinstance(self._callback, type(None)) and not isinstance(
-                    self._mqtt_data, type(None)
-                ):
-                    self._callback()
-
         else:
             self.mqtt.connected = False
             if self._callback is not None:
