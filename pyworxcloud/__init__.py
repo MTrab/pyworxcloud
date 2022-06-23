@@ -12,7 +12,7 @@ from typing import Any
 
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
-from paho.mqtt.client import error_string
+from paho.mqtt.client import error_string, connack_string
 
 from .clouds import CloudType
 from .const import UNWANTED_ATTRIBS
@@ -23,7 +23,6 @@ from .exceptions import (
     NoOneTimeScheduleError,
     NoPartymodeError,
     OfflineError,
-    TimeoutException,
 )
 from .api import LandroidCloudAPI
 
@@ -302,9 +301,13 @@ class WorxCloud(dict):
         self.mqtt.on_connect = self._on_connect
         self.mqtt.on_disconnect = self._on_disconnect
         self.mqtt.on_publish = self._on_published_message
+        self.mqtt.on_connect_fail = self._on_connect_fail
+
         if pahologger:
             mqttlog = self._log.getChild("PahoMQTT")
+            self.mqtt.on_log = self._on_log
             self.mqtt.enable_logger(mqttlog)
+            self.mqttdata.logger = True
 
         try:
             with self._get_cert() as cert:
@@ -561,11 +564,22 @@ class WorxCloud(dict):
         logger.debug("Data was decoded")
 
     def _on_published_message(
-        self, client, userdata, message  # pylint: disable=unused-argument
+        self, client, userdata, mid  # pylint: disable=unused-argument
     ):
         """Callback on message published."""
         logger = self._log.getChild("mqtt.published")
         logger.debug("MQTT message published to %s", self.name)
+
+    def _on_log(self, client, userdata, level, buf):
+        """Capture MQTT log messages."""
+        logger = self._log.getChild("mqtt.log")
+        logger.debug("MQTT log message for %s:%s", self.name, buf)
+
+    def _on_connect_fail(self, client, userdata):
+        """Called on connection failure."""
+        logger = self._log.getChild("mqtt.log")
+        logger.debug("MQTT connection for %s failed!", self.name)
+        self.mqtt.connected = False
 
     def _on_connect(
         self,
@@ -582,29 +596,13 @@ class WorxCloud(dict):
                 "MQTT connected for %s, subscribing to topic '%s'", self.name, topic
             )
             self.mqtt.connected = True
-
+            client.subscribe(topic)
             mqp = self.mqtt.send()
             mqp.wait_for_publish(10)
 
-            client.subscribe(topic)
-        elif rc == 1:
-            self.mqtt.connected = False
-            raise MQTTException("Connection refused - Incorrect protocol version")
-        elif rc == 1:
-            self.mqtt.connected = False
-            raise MQTTException("Connection refused - Invalid client identifier")
-        elif rc == 1:
-            self.mqtt.connected = False
-            raise MQTTException("Connection refused - Server unavailable")
-        elif rc == 1:
-            self.mqtt.connected = False
-            raise MQTTException("Connection refused - Bad username or password")
-        elif rc == 1:
-            self.mqtt.connected = False
-            raise MQTTException("Connection refused - Not authorized")
         else:
             self.mqtt.connected = False
-            raise MQTTException(f"Unknown connection RCID: {rc}")
+            raise MQTTException(connack_string(rc))
 
     def _on_disconnect(
         self,

@@ -57,6 +57,7 @@ class MQTTData(LDict):
     """Class for handling MQTT information."""
 
     __topics: MQTTTopics = MQTTTopics()
+    __logger_enabled: bool = False
 
     def __init__(self):
         """Init MQTT info class."""
@@ -64,6 +65,16 @@ class MQTTData(LDict):
         self["messages"] = MQTTMessages()
         self["endpoint"] = None
         self["registered"] = None
+
+    @property
+    def logger(self) -> bool:
+        """Return if logger is enabled or not."""
+        return self.__logger_enabled
+
+    @logger.setter
+    def logger(self, value: bool) -> None:
+        """Set logger state."""
+        self.__logger = value
 
     @property
     def topics(self) -> dict:
