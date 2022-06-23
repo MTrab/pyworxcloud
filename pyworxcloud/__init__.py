@@ -625,9 +625,10 @@ class WorxCloud(dict):
                 logger.debug(
                     "MQTT connection for %s was lost! (%s)", self.name, error_string(rc)
                 )
+                if self._callback is not None:
+                    self._callback(self.product["serial_number"], "on_disconnect")
+                    
             self.mqtt.connected = False
-            if self._callback is not None:
-                self._callback(self.product["serial_number"], "on_disconnect")
 
     def _fetch(self) -> None:
         """Fetch devices."""
