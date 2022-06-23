@@ -605,7 +605,9 @@ class WorxCloud(dict):
                 mqp = self.mqtt.send()
                 mqp.wait_for_publish(10)
 
-                if self._callback is not None:
+                if not isinstance(self._callback, type(None)) and not isinstance(
+                    self._mqtt_data, type(None)
+                ):
                     self._callback()
 
         else:
