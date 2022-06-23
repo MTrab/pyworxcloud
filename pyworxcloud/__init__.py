@@ -605,8 +605,8 @@ class WorxCloud(dict):
                 mqp = self.mqtt.send()
                 mqp.wait_for_publish(10)
 
-            if self._callback is not None:
-                self._callback()
+                if self._callback is not None:
+                    self._callback()
 
         else:
             self.mqtt.connected = False
