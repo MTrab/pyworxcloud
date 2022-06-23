@@ -395,7 +395,7 @@ class WorxCloud(dict):
         self._mqtt_data = message.payload.decode("utf-8")
         self._decode_data(self._mqtt_data)
         if self._callback is not None:
-            self._callback(self.product["serial_number"])
+            self._callback(self.product["serial_number"], "forward_on_message")
 
     def _decode_data(self, indata) -> None:
         """Decode incoming JSON data."""
@@ -582,7 +582,7 @@ class WorxCloud(dict):
         logger.debug("MQTT connection for %s failed!", self.name)
         self.mqtt.connected = False
         if self._callback is not None:
-            self._callback(self.product["serial_number"])
+            self._callback(self.product["serial_number"], "on_connect_fail")
 
     def _on_connect(
         self,
@@ -608,7 +608,7 @@ class WorxCloud(dict):
         else:
             self.mqtt.connected = False
             if self._callback is not None:
-                self._callback(self.product["serial_number"])
+                self._callback(self.product["serial_number"], "on_connect")
 
             raise MQTTException(connack_string(rc))
 
@@ -627,7 +627,7 @@ class WorxCloud(dict):
                 )
             self.mqtt.connected = False
             if self._callback is not None:
-                self._callback(self.product["serial_number"])
+                self._callback(self.product["serial_number"], "on_disconnect")
 
     def _fetch(self) -> None:
         """Fetch devices."""
