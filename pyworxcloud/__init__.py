@@ -310,18 +310,15 @@ class WorxCloud(dict):
             self.mqtt.enable_logger(mqttlog)
             self.mqttdata.logger = True
 
-        try:
-            with self._get_cert() as cert:
-                self.mqtt.tls_set(certfile=cert)
-        except ValueError:
-            pass
+        with self._get_cert() as cert:
+            self.mqtt.tls_set(certfile=cert)
 
         if not verify_ssl:
             self.mqtt.tls_insecure_set(True)
 
-        self.mqtt.loop_start()
-        self.mqtt.connect(self.mqttdata["endpoint"], port=8883, keepalive=600)
+        self.mqtt.connect(self.mqttdata["endpoint"], port=8883)
 
+        self.mqtt.loop_start()
         self.mqttdata["messages"]["raw"].update(
             {
                 "in": self.raw_messages_in,
@@ -387,7 +384,11 @@ class WorxCloud(dict):
         del self.mqtt_topics
 
     def _forward_on_message(
-        self, client, userdata, message  # pylint: disable=unused-argument
+        self,
+        client,
+        userdata,
+        message,
+        properties=None,  # pylint: disable=unused-argument
     ):
         """MQTT callback method definition."""
         logger = self._log.getChild("mqtt.message_received")
@@ -570,14 +571,14 @@ class WorxCloud(dict):
     ):
         """Callback on message published."""
         logger = self._log.getChild("mqtt.published")
-        logger.debug("MQTT message published to %s", self.name)
+        logger.debug("MQTT message published to %s, mid %s", self.name,mid)
 
     def _on_log(self, client, userdata, level, buf):
         """Capture MQTT log messages."""
         logger = self._log.getChild("mqtt.log")
         logger.debug("MQTT log message for %s: %s", self.name, buf)
 
-    def _on_connect_fail(self, client, userdata):
+    def _on_connect_fail(self, client, userdata, properties=None):
         """Called on connection failure."""
         logger = self._log.getChild("mqtt.log")
         logger.debug("MQTT connection for %s failed!", self.name)
@@ -587,13 +588,15 @@ class WorxCloud(dict):
 
     def _on_connect(
         self,
-        client,
+        client: mqtt.Client,
         userdata,
         flags,
-        rc,  # pylint: disable=unused-argument,invalid-name
+        rc,
+        properties=None,  # pylint: disable=unused-argument,invalid-name
     ):
         """MQTT callback method."""
         logger = self._log.getChild("mqtt.connected")
+        logger.debug(connack_string(rc))
         if rc == 0:
             topic = self.mqttdata.topics["out"]
             logger.debug(
@@ -601,6 +604,9 @@ class WorxCloud(dict):
             )
             self.mqtt.connected = True
             client.subscribe(topic)
+            if client.on_subscribe:
+                while not client.suback_flag:
+                    client.loop()
 
             if isinstance(self._mqtt_data, type(None)):
                 logger.debug("MQTT chached data not found - requesting")
@@ -617,19 +623,29 @@ class WorxCloud(dict):
         self,
         client,
         userdata,
-        rc,  # pylint: disable=unused-argument,invalid-name
+        rc,
+        properties=None,  # pylint: disable=unused-argument,invalid-name
     ):
         """MQTT callback method."""
         if rc > 0:
+            logger = self._log.getChild("mqtt.disconnected")
             if self.mqtt.connected:
-                logger = self._log.getChild("mqtt.disconnected")
                 logger.debug(
                     "MQTT connection for %s was lost! (%s)", self.name, error_string(rc)
                 )
                 if self._callback is not None:
                     self._callback(self.product["serial_number"], "on_disconnect")
 
+            logger.debug(
+                "MQTT disconnect RC %s (%s) - unsubscribing '%s' and disconnecting all",
+                rc,
+                error_string(rc),
+                self.mqttdata.topics["out"],
+            )
+
             self.mqtt.connected = False
+            self.mqtt.unsubscribe(self.mqttdata.topics["out"])
+            # self.mqtt.loop_stop(True)
 
     def _fetch(self) -> None:
         """Fetch base API information."""

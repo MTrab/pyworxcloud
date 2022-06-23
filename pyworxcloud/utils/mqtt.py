@@ -132,7 +132,8 @@ class MQTT(mqtt.Client, LDict):
         retain: bool = False,
     ) -> MQTTMessageInfo:
         """Send Landroid cloud message to API endpoint."""
-        _LOGGER.debug("Sending %s to %s", data, self.name)
+        topic = self.topics["in"]
+        _LOGGER.debug("Sending %s to %s on %s", data, self.name,topic)
         if not self.connected:
             _LOGGER.error(
                 "MQTT server was not connected, can't send message to %s", self.name
@@ -140,7 +141,8 @@ class MQTT(mqtt.Client, LDict):
             return None
 
         try:
-            status = self.publish(self.topics["in"], data, qos, retain)
+            status = self.publish(topic, data, qos, retain)
+            _LOGGER.debug("Awaiting message to be published to %s", self.name)
             status.wait_for_publish(10)
         except ValueError:
             _LOGGER.error(
@@ -155,4 +157,6 @@ class MQTT(mqtt.Client, LDict):
 
     def command(self, action: Command) -> MQTTMessageInfo:
         """Send command to device."""
-        return self.send(f'"cmd": {action}')
+        cmd = '"cmd":{}'.format(action)
+        cmd = "{" + cmd + "}"
+        return self.send(cmd)
