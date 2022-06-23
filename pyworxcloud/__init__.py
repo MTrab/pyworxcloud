@@ -580,6 +580,8 @@ class WorxCloud(dict):
         logger = self._log.getChild("mqtt.log")
         logger.debug("MQTT connection for %s failed!", self.name)
         self.mqtt.connected = False
+        if self._callback is not None:
+            self._callback()
 
     def _on_connect(
         self,
@@ -600,8 +602,14 @@ class WorxCloud(dict):
             mqp = self.mqtt.send()
             mqp.wait_for_publish(10)
 
+            if self._callback is not None:
+                self._callback()
+
         else:
             self.mqtt.connected = False
+            if self._callback is not None:
+                self._callback()
+
             raise MQTTException(connack_string(rc))
 
     def _on_disconnect(
@@ -618,6 +626,8 @@ class WorxCloud(dict):
                     "MQTT connection for %s was lost! (%s)", self.name, error_string(rc)
                 )
             self.mqtt.connected = False
+            if self._callback is not None:
+                self._callback()
 
     def _fetch(self) -> None:
         """Fetch devices."""
