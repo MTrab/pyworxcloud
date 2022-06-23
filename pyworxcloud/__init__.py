@@ -392,6 +392,7 @@ class WorxCloud(dict):
         """MQTT callback method definition."""
         logger = self._log.getChild("mqtt.message_received")
         logger.debug("Received MQTT message for %s - processing data", self.name)
+        self._fetch()
         self._mqtt_data = message.payload.decode("utf-8")
         self._decode_data(self._mqtt_data)
         if self._callback is not None:
@@ -627,11 +628,11 @@ class WorxCloud(dict):
                 )
                 if self._callback is not None:
                     self._callback(self.product["serial_number"], "on_disconnect")
-                    
+
             self.mqtt.connected = False
 
     def _fetch(self) -> None:
-        """Fetch devices."""
+        """Fetch base API information."""
         self._api.get_products()
         products = self._api.data
 
