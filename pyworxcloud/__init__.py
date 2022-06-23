@@ -153,6 +153,7 @@ class WorxCloud(dict):
         self._dev_id = index
         self._log = get_logger("pyworxcloud")
         self._raw = None
+        self._mqtt_data = None
         self._save_zones = None
         self._verify_ssl = verify_ssl
 
@@ -391,15 +392,15 @@ class WorxCloud(dict):
         """MQTT callback method definition."""
         logger = self._log.getChild("mqtt.message_received")
         logger.debug("Received MQTT message for %s - processing data", self.name)
-        json_message = message.payload.decode("utf-8")
-        self._decode_data(json_message)
+        self._mqtt_data = message.payload.decode("utf-8")
+        self._decode_data(self._mqtt_data)
         if self._callback is not None:
             self._callback()
 
     def _decode_data(self, indata) -> None:
         """Decode incoming JSON data."""
         logger = self._log.getChild("decode_data")
-        logger.debug("Data decoding started")
+        logger.debug("Data decoding for %s started", self.name)
 
         data = json.loads(indata)
         if "dat" in data:
@@ -561,7 +562,7 @@ class WorxCloud(dict):
                     ] = end_time.time().strftime("%H:%M")
 
         convert_to_time(self, self.time_zone, callback=self.update_attribute)
-        logger.debug("Data was decoded")
+        logger.debug("Data for %s was decoded", self.name)
 
     def _on_published_message(
         self, client, userdata, mid  # pylint: disable=unused-argument
@@ -573,7 +574,7 @@ class WorxCloud(dict):
     def _on_log(self, client, userdata, level, buf):
         """Capture MQTT log messages."""
         logger = self._log.getChild("mqtt.log")
-        logger.debug("MQTT log message for %s:%s", self.name, buf)
+        logger.debug("MQTT log message for %s: %s", self.name, buf)
 
     def _on_connect_fail(self, client, userdata):
         """Called on connection failure."""
@@ -599,8 +600,10 @@ class WorxCloud(dict):
             )
             self.mqtt.connected = True
             client.subscribe(topic)
-            mqp = self.mqtt.send()
-            mqp.wait_for_publish(10)
+
+            if isinstance(self._mqtt_data, type(None)):
+                mqp = self.mqtt.send()
+                mqp.wait_for_publish(10)
 
             if self._callback is not None:
                 self._callback()
