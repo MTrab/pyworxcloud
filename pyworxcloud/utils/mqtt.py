@@ -66,6 +66,7 @@ class MQTTData(LDict):
         self["messages"] = MQTTMessages()
         self["endpoint"] = None
         self["registered"] = None
+        self["connected"] = False
 
     @property
     def logger(self) -> bool:
