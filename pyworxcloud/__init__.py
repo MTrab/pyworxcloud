@@ -596,8 +596,10 @@ class WorxCloud(dict):
                 while not mqp.is_published:
                     time.sleep(0.1)
 
+            logger.debug("Setting MQTT connected flag TRUE")
             self.mqtt.connected = True
         else:
+            logger.debug("Setting MQTT connected flag FALSE")
             self.mqtt.connected = False
             if self._callback is not None:
                 self._callback(self.product["serial_number"], "on_connect")
@@ -633,6 +635,7 @@ class WorxCloud(dict):
                 if self._callback is not None:
                     self._callback(self.product["serial_number"], "on_disconnect")
 
+        logger.debug("Setting MQTT connected flag FALSE")
         self.mqtt.connected = False
         self.mqtt.unsubscribe(self.mqttdata.topics["out"])
 
