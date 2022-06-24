@@ -5,6 +5,7 @@ from typing import Mapping
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
 
+from ..exceptions import MQTTException
 from ..helpers import get_logger
 from .landroid_class import LDict
 
@@ -142,7 +143,7 @@ class MQTT(mqtt.Client, LDict):
             _LOGGER.error(
                 "MQTT server was not connected, can't send message to %s", self.name
             )
-            return None
+            raise MQTTException("MQTT not connected")
 
         try:
             status = self.publish(topic, data, qos, retain)
