@@ -587,7 +587,6 @@ class WorxCloud(dict):
             logger.debug(
                 "MQTT for %s connected, subscribing to topic '%s'", self.name, topic
             )
-            self.mqtt.connected = True
             client.subscribe(topic)
 
             if isinstance(self._mqtt_data, type(None)):
@@ -597,6 +596,8 @@ class WorxCloud(dict):
                 mqp = self.mqtt.send()
                 while not mqp.is_published:
                     time.sleep(0.1)
+
+            self.mqtt.connected = True
         else:
             self.mqtt.connected = False
             if self._callback is not None:
