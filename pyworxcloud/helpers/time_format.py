@@ -1,13 +1,12 @@
 """Time formatting helpers."""
 
-from datetime import datetime
 import re
+from datetime import datetime
 from typing import Any
+
 import pytz
 
-from ..utils import (
-    __all__ as all_utils,
-)
+from ..utils import __all__ as all_utils
 
 DATE_FORMATS = [
     "%Y-%m-%d %H:%M:%S",

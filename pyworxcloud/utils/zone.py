@@ -10,7 +10,6 @@ class Zone(LDict):
         """Initialize zone object."""
         super().__init__()
 
-
         self["current"] = None
         self["index"] = None
         self["indicies"] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]

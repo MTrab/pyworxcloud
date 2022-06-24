@@ -1,6 +1,7 @@
 """MQTT information class."""
 import time
 from typing import Mapping
+
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
 
