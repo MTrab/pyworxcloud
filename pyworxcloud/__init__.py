@@ -612,8 +612,20 @@ class WorxCloud(dict):
         properties=None,  # pylint: disable=unused-argument,invalid-name
     ):
         """MQTT callback method."""
+        logger = self._log.getChild("mqtt.disconnected")
         if rc > 0:
-            logger = self._log.getChild("mqtt.disconnected")
+            if rc == 7:
+                if not self.mqtt.connected:
+                    logger.debug(
+                        "Unexpected MQTT disconnect for %s occured with code %s (%s)",
+                        self.name,
+                        rc,
+                        error_string(rc),
+                    )
+                    raise MQTTException(
+                        "Unexpected MQTT disconnect - were you perhaps banned?"
+                    )
+
             if self.mqtt.connected:
                 logger.debug(
                     "MQTT connection for %s was lost! (%s)", self.name, error_string(rc)
@@ -621,17 +633,8 @@ class WorxCloud(dict):
                 if self._callback is not None:
                     self._callback(self.product["serial_number"], "on_disconnect")
 
-            logger.debug(
-                "MQTT disconnect RC %s (%s) - unsubscribing '%s' for %s",
-                rc,
-                error_string(rc),
-                self.mqttdata.topics["out"],
-                self.name,
-            )
-
-            self.mqtt.connected = False
-            self.mqtt.unsubscribe(self.mqttdata.topics["out"])
-            # self.mqtt.loop_stop(True)
+        self.mqtt.connected = False
+        self.mqtt.unsubscribe(self.mqttdata.topics["out"])
 
     def _fetch(self) -> None:
         """Fetch base API information."""

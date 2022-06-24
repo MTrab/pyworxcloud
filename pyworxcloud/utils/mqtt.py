@@ -154,8 +154,8 @@ class MQTT(mqtt.Client, LDict):
             _LOGGER.error(
                 "MQTT error while sending message %s to %s.\n%s", data, self.name, exc
             )
-        finally:
-            return status
+        except Exception as exc:
+            _LOGGER.error("MQTT error %s to %s.\n%s", data, self.name, exc)
 
     def command(self, action: Command) -> MQTTMessageInfo:
         """Send command to device."""
@@ -171,3 +171,4 @@ class MQTT(mqtt.Client, LDict):
         _LOGGER.debug("Awaiting message to be published to %s", self.name)
         while not status.is_published:
             time.sleep(0.1)
+        return status

@@ -5,7 +5,7 @@ from pyworxcloud import WorxCloud
 
 EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
-TYPE = "worx"
+TYPE = environ["TYPE"]
 
 
 if __name__ == "__main__":
