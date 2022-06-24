@@ -14,9 +14,11 @@ import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import error_string, connack_string
 
+
 from .clouds import CloudType
 from .const import UNWANTED_ATTRIBS
 from .day_map import DAY_MAP
+from .events import EventHandler, LandroidEvent
 from .exceptions import (
     AuthorizationError,
     MQTTException,
@@ -149,13 +151,13 @@ class WorxCloud(dict):
         self._username = username
         self._cloud = cloud
         self._auth_result = False
-        self._callback = None  # Callback used when data arrives from cloud
         self._dev_id = index
         self._log = get_logger("pyworxcloud")
         self._raw = None
         self._mqtt_data = None
         self._save_zones = None
         self._verify_ssl = verify_ssl
+        self._events = EventHandler()
 
         # Set default attribute values
         ###############################
@@ -181,6 +183,14 @@ class WorxCloud(dict):
         self.updated = "never"
         self.work_time = 0
         self.zone = Zone()
+
+        self._events.set_handler(
+            LandroidEvent.MQTT_CONNECTION, self._on_mqtt_state_change
+        )
+
+    def _on_mqtt_state_change(self, state: bool) -> None:
+        """Handle MQTT state changes."""
+        self.mqttdata["connected"] = state
 
     def __enter__(self):
         """Default actions using with statement."""
@@ -228,13 +238,14 @@ class WorxCloud(dict):
         elif isinstance(chattr, dict):
             chattr.update({key: value})
 
-    def set_callback(self, callback) -> None:
+    def set_callback(self, event: LandroidEvent, func: Any) -> None:
         """Set callback which is called when data is received.
 
         Args:
-            callback (function): Function to be called.
+            event: LandroidEvent for this callback
+            func: Function to be called.
         """
-        self._callback = callback
+        self._events.set_handler(event, func)
 
     def disconnect(self) -> None:
         """Close API connections."""
@@ -332,6 +343,7 @@ class WorxCloud(dict):
             }
         )
         self.mqttdata["registered"] = self.mqtt_registered
+
         # Remove unwanted attribs
         for attr in UNWANTED_ATTRIBS:
             if hasattr(self, attr):
@@ -396,8 +408,7 @@ class WorxCloud(dict):
         self._fetch()
         self._mqtt_data = message.payload.decode("utf-8")
         self._decode_data(self._mqtt_data)
-        if self._callback is not None:
-            self._callback(self.product["serial_number"], "forward_on_message")
+        self._events.call(LandroidEvent.DATA_RECEIVED)
 
     def _decode_data(self, indata) -> None:
         """Decode incoming JSON data."""
@@ -592,17 +603,17 @@ class WorxCloud(dict):
             if isinstance(self._mqtt_data, type(None)):
                 logger.debug("MQTT chached data not found - requesting")
 
-                mqp = self.mqtt.fetch()
+                mqp = self.mqtt.send(force=True)
                 while not mqp.is_published:
                     time.sleep(0.1)
 
             logger.debug("Setting MQTT connected flag TRUE")
             self.mqtt.connected = True
+            self._events.call(LandroidEvent.MQTT_CONNECTION, state=self.mqtt.connected)
         else:
             logger.debug("Setting MQTT connected flag FALSE")
             self.mqtt.connected = False
-            if self._callback is not None:
-                self._callback(self.product["serial_number"], "on_connect")
+            self._events.call(LandroidEvent.MQTT_CONNECTION, state=self.mqtt.connected)
 
             raise MQTTException(connack_string(rc))
 
@@ -618,12 +629,6 @@ class WorxCloud(dict):
         if rc > 0:
             if rc == 7:
                 if not self.mqtt.connected:
-                    logger.debug(
-                        "Unexpected MQTT disconnect for %s occured with code %s (%s)",
-                        self.name,
-                        rc,
-                        error_string(rc),
-                    )
                     raise MQTTException(
                         "Unexpected MQTT disconnect - were you perhaps banned?"
                     )
@@ -632,12 +637,11 @@ class WorxCloud(dict):
                 logger.debug(
                     "MQTT connection for %s was lost! (%s)", self.name, error_string(rc)
                 )
-                if self._callback is not None:
-                    self._callback(self.product["serial_number"], "on_disconnect")
 
-        logger.debug("Setting MQTT connected flag FALSE")
-        self.mqtt.connected = False
-        self.mqtt.unsubscribe(self.mqttdata.topics["out"])
+            logger.debug("Setting MQTT connected flag FALSE")
+            self.mqtt.connected = False
+            self._events.call(LandroidEvent.MQTT_CONNECTION, state=self.mqtt.connected)
+            self.mqtt.unsubscribe(self.mqttdata.topics["out"])
 
     def _fetch(self) -> None:
         """Fetch base API information."""
