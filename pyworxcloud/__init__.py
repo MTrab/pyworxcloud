@@ -622,10 +622,11 @@ class WorxCloud(dict):
                     self._callback(self.product["serial_number"], "on_disconnect")
 
             logger.debug(
-                "MQTT disconnect RC %s (%s) - unsubscribing '%s' and disconnecting all",
+                "MQTT disconnect RC %s (%s) - unsubscribing '%s' for %s",
                 rc,
                 error_string(rc),
                 self.mqttdata.topics["out"],
+                self.name,
             )
 
             self.mqtt.connected = False

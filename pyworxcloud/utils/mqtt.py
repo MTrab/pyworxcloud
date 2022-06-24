@@ -134,7 +134,7 @@ class MQTT(mqtt.Client, LDict):
     ) -> MQTTMessageInfo:
         """Send Landroid cloud message to API endpoint."""
         topic = self.topics["in"]
-        _LOGGER.debug("Sending %s to %s on %s", data, self.name,topic)
+        _LOGGER.debug("Sending %s to %s on %s", data, self.name, topic)
         if not self.connected:
             _LOGGER.error(
                 "MQTT server was not connected, can't send message to %s", self.name
@@ -164,7 +164,9 @@ class MQTT(mqtt.Client, LDict):
         return self.send(cmd)
 
     def fetch(self) -> MQTTMessageInfo:
-        """Try fetching latest state from API broker."""
+        """Try fetching latest state from API broker.
+        This ignores MQTT connected flag! Use with care!
+        """
         status = self.publish(self.topics["in"], "{}", 0, False)
         _LOGGER.debug("Awaiting message to be published to %s", self.name)
         while not status.is_published:
