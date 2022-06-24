@@ -1,4 +1,5 @@
 """MQTT information class."""
+import time
 from typing import Mapping
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
@@ -143,7 +144,8 @@ class MQTT(mqtt.Client, LDict):
         try:
             status = self.publish(topic, data, qos, retain)
             _LOGGER.debug("Awaiting message to be published to %s", self.name)
-            status.wait_for_publish(10)
+            while not status.is_published:
+                time.sleep(0.1)
         except ValueError:
             _LOGGER.error(
                 "MQTT queue for %s was full, message %s was not sent!", self.name, data
