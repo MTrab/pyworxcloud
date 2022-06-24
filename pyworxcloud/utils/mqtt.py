@@ -162,3 +162,10 @@ class MQTT(mqtt.Client, LDict):
         cmd = '"cmd":{}'.format(action)
         cmd = "{" + cmd + "}"
         return self.send(cmd)
+
+    def fetch(self) -> MQTTMessageInfo:
+        """Try fetching latest state from API broker."""
+        status = self.publish(self.topics["in"], "{}", 0, False)
+        _LOGGER.debug("Awaiting message to be published to %s", self.name)
+        while not status.is_published:
+            time.sleep(0.1)
