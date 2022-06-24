@@ -1,8 +1,12 @@
-"""pyWorxCloud states definition."""
-from __future__ import annotations
+"""States handler."""
+
+from enum import IntEnum
+
+from .landroid_class import LDict
 
 # Valid states - some are missing as these haven't been identified yet
 STATE_TO_DESCRIPTION = {
+    -1: "unknown",
     0: "idle",
     1: "home",
     2: "start sequence",
@@ -25,6 +29,7 @@ STATE_TO_DESCRIPTION = {
 
 # Valid error states
 ERROR_TO_DESCRIPTION = {
+    -1: "unknown",
     0: "no error",
     1: "trapped",
     2: "lifted",
@@ -48,3 +53,38 @@ ERROR_TO_DESCRIPTION = {
     20: "wire sync",
     21: "msg num",
 }
+
+
+class StateType(IntEnum):
+    """State types."""
+
+    STATUS = 0
+    ERROR = 1
+
+
+class States(LDict):
+    """States class handler."""
+
+    def update(self, new_id):
+        self["id"] = new_id
+        self["description"] = self.__descriptor[self["id"]]
+
+    def __init__(self, statetype: StateType = StateType.STATUS):
+        super().__init__()
+
+        self.__descriptor = STATE_TO_DESCRIPTION
+        if statetype == StateType.ERROR:
+            self.__descriptor = ERROR_TO_DESCRIPTION
+
+        self["id"] = -1
+        self["description"] = self.__descriptor[self["id"]]
+
+    @property
+    def id(self) -> int:
+        """Return state ID."""
+        return self["id"]
+
+    @property
+    def description(self) -> str:
+        """Return state description."""
+        return self["description"]

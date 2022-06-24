@@ -1,4 +1,4 @@
-"""API implementation"""
+"""Landroid Cloud API implementation"""
 # pylint: disable=unnecessary-lambda
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import json
 import operator
 import re
 import time
+from typing import Any
 import uuid
 
 import requests
@@ -28,8 +29,8 @@ from .exceptions import (
 )
 
 
-class LandroidAPI:
-    """Worx Cloud API definition."""
+class LandroidCloudAPI:
+    """Landroid Cloud API definition."""
 
     def __init__(
         self,
@@ -40,7 +41,13 @@ class LandroidAPI:
         | CloudType.LANDXCAPE
         | CloudType.FERREX = CloudType.WORX,
     ) -> None:
-        """Initialize new instance of API broker."""
+        """Initialize a new instance of the API broker.
+
+        Args:
+            username (str): Email for the user account.
+            password (str): Password for the user account.
+            cloud (CloudType.WORX | CloudType.KRESS | CloudType.LANDXCAPE | CloudType.FERREX, optional): CloudType representing the device. Defaults to CloudType.WORX.
+        """
         self.cloud: CloudType = cloud
         self._token_type = "app"
         self._token = None
@@ -55,7 +62,12 @@ class LandroidAPI:
         self.password = password
 
     def set_token(self, token: str, now: int = -1) -> None:
-        """Set the token used for communication."""
+        """Set the API token to be used
+
+        Args:
+            token (str): Token from authentication.
+            now (int, optional): When was the token last refreshed. Defaults to -1 which will force a token refresh.
+        """
         if now == -1:
             now = int(time.time())
 
@@ -63,7 +75,11 @@ class LandroidAPI:
         self._token = token
 
     def set_token_type(self, token_type: str) -> None:
-        """Set type of token."""
+        """Set token type.
+
+        Args:
+            token_type (str): Token type
+        """
         self._token_type = token_type
 
     def _generate_identify_token(self, seed_token: str) -> str:
@@ -99,7 +115,11 @@ class LandroidAPI:
         return header_data
 
     def auth(self) -> str:
-        """Authenticate."""
+        """Authenticate against API endpoint
+
+        Returns:
+            str: JSON object containing authentication token.
+        """
         self.uuid = str(uuid.uuid1())
         self._api_host = (API_BASE).format(self.api_url)
 
@@ -121,41 +141,74 @@ class LandroidAPI:
         return calldata
 
     def get_profile(self) -> str:
-        """Get user profile."""
+        """Get user profile.
+
+        Returns:
+            str: JSON object with user data.
+        """
         calldata = self._call("/users/me")
         self._data = calldata
         return calldata
 
     def get_cert(self) -> str:
-        """Get user certificate."""
+        """Get the user certificate.
+
+        Returns:
+            str: JSON object with certificate info.
+        """
         calldata = self._call("/users/certificate")
         self._data = calldata
         return calldata
 
     def get_products(self) -> str:
-        """Get devices associated with this user."""
+        """Get products associated with the account.
+
+        Returns:
+            str: JSON object containing available devices associated with the account.
+        """
         calldata = self._call("/product-items")
         self._data = calldata
         return calldata
 
-    def get_product_info(self, product_id: int) -> list | None:
-        """Get information on the device from product_id."""
+    def get_product_info(self, product_id: int) -> dict[str, Any] | None:
+        """Get product info and features for a given device model.
+
+        Args:
+            product_id (int): Product_id to get information for.
+
+        Returns:
+            list | None: A list of attributes with the product information.
+        """
         products = self._call("/products")
         try:
             return [x for x in products if x["id"] == product_id][0]
         except:
             return None
 
-    def get_board(self, board_code: str) -> list | None:
-        """Get devices associated with this user."""
+    def get_board(self, board_id: int) -> list | None:
+        """Get board info and features for a given baseboard.
+
+        Args:
+            board_code (str): Board_id to get information for.
+
+        Returns:
+            list | None: A list of attributes with board information.
+        """
         boards = self._call("/boards")
         try:
-            return [x for x in boards if x["code"] == board_code.upper()][0]
+            return [x for x in boards if x["id"] == board_id][0]
         except:
             return None
 
-    def get_status(self, serial) -> str:
-        """Get device status."""
+    def get_status(self, serial: str) -> str:
+        """Get device status
+
+        Args:
+            serial (str): Serialnumber for the device to get status for.
+
+        Returns:
+            str: JSON object containing the device status.
+        """
         callstr = f"/product-items/{serial}/status"
         calldata = self._call(callstr)
         return calldata
@@ -217,5 +270,5 @@ class LandroidAPI:
 
     @property
     def data(self) -> str:
-        """Return data for device."""
+        """Return the latest dataset of information and states from the API."""
         return self._data

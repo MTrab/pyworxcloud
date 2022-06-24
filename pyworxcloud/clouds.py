@@ -10,7 +10,16 @@ FERREX = "ferrex"
 
 
 class CloudType(object):
-    """Supported cloud types."""
+    """Supported cloud types.
+
+    CloudType.WORX: For Worx Landroid devices.
+
+    CloudType.KRESS: For Kress devices.
+
+    CloudType.LANDXCAPE: For Landxcape devices.
+
+    CloudType.FERREX: For Aldi Ferrex devices.
+    """
 
     class WORX(str):
         """Settings for Worx devices."""
