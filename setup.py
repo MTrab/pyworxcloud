@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+
 import setuptools
 
 if sys.version_info < (3, 10, 0):

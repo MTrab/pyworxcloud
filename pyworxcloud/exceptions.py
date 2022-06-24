@@ -29,8 +29,10 @@ class TimeoutException(Exception):
 class RequestException(Exception):
     """Define a request exception."""
 
+
 class MQTTException(Exception):
     """Define a MQTT exception."""
+
 
 # Exception classes for URL requests
 class RequestError(Exception):
