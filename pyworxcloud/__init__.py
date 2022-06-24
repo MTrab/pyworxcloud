@@ -165,7 +165,7 @@ class WorxCloud(dict):
         self.error = States(StateType.ERROR)
         self.gps = Location()
         self.locked = False
-        self.mqtt = MQTT()
+        self.mqtt = None
         self.mqttdata = MQTTData()
         self.online = False
         self.orientation = Orientation([0, 0, 0])
@@ -298,11 +298,11 @@ class WorxCloud(dict):
             name=self.name,
         )
 
+        # self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
+
         self.mqtt.on_message = self._forward_on_message
         self.mqtt.on_connect = self._on_connect
         self.mqtt.on_disconnect = self._on_disconnect
-        self.mqtt.on_publish = self._on_published_message
-        self.mqtt.on_connect_fail = self._on_connect_fail
 
         if pahologger:
             mqttlog = self._log.getChild("PahoMQTT")
@@ -316,7 +316,7 @@ class WorxCloud(dict):
         if not verify_ssl:
             self.mqtt.tls_insecure_set(True)
 
-        self.mqtt.connect(self.mqttdata["endpoint"], port=8883)
+        self.mqtt.connect(self.mqttdata["endpoint"], port=8883, keepalive=600)
 
         self.mqtt.loop_start()
         self.mqttdata["messages"]["raw"].update(
@@ -566,25 +566,10 @@ class WorxCloud(dict):
         convert_to_time(self, self.time_zone, callback=self.update_attribute)
         logger.debug("Data for %s was decoded", self.name)
 
-    def _on_published_message(
-        self, client, userdata, mid  # pylint: disable=unused-argument
-    ):
-        """Callback on message published."""
-        logger = self._log.getChild("mqtt.published")
-        logger.debug("MQTT message published to %s, mid %s", self.name,mid)
-
     def _on_log(self, client, userdata, level, buf):
         """Capture MQTT log messages."""
         logger = self._log.getChild("mqtt.log")
         logger.debug("MQTT log message for %s: %s", self.name, buf)
-
-    def _on_connect_fail(self, client, userdata, properties=None):
-        """Called on connection failure."""
-        logger = self._log.getChild("mqtt.log")
-        logger.debug("MQTT connection for %s failed!", self.name)
-        self.mqtt.connected = False
-        if self._callback is not None:
-            self._callback(self.product["serial_number"], "on_connect_fail")
 
     def _on_connect(
         self,
@@ -600,18 +585,18 @@ class WorxCloud(dict):
         if rc == 0:
             topic = self.mqttdata.topics["out"]
             logger.debug(
-                "MQTT connected for %s, subscribing to topic '%s'", self.name, topic
+                "MQTT for %s connected, subscribing to topic '%s'", self.name, topic
             )
             self.mqtt.connected = True
             client.subscribe(topic)
-            if client.on_subscribe:
-                while not client.suback_flag:
-                    client.loop()
 
             if isinstance(self._mqtt_data, type(None)):
                 logger.debug("MQTT chached data not found - requesting")
+                # mqp = self.mqtt.send("{" "cmd" ": 0}")
+                # mqp.wait_for_publish(10)
                 mqp = self.mqtt.send()
-                mqp.wait_for_publish(10)
+                while not mqp.is_published:
+                    time.sleep(0.1)
         else:
             self.mqtt.connected = False
             if self._callback is not None:

@@ -28,14 +28,16 @@ if __name__ == "__main__":
     cloud.connect(0, False, True)
 
     # Wait for MQTT connection
-    while not cloud.mqtt.connected:
-        pass
+    # while not cloud.mqtt.connected:
+    #     pass
 
     # Read latest states received from the device
     cloud.update()
 
-    cloud.home()
+    # cloud._mqtt.publish("DB510/F0FE6B83B4A8/commandIn", '{}', 0, False)
+    # cloud.mqtt.send()
+    # cloud.home()
     # Print all vars and attributes of the cloud object
     # pprint(vars(cloud))
 
-    cloud.disconnect()
+    # cloud.disconnect()
