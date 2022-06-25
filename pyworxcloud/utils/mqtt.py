@@ -150,7 +150,8 @@ class MQTT(mqtt.Client, LDict):
             _LOGGER.debug("Awaiting message to be published to %s", self.name)
             while not status.is_published:
                 time.sleep(0.1)
-        except ValueError:
+            return status
+        except ValueError as exc:
             _LOGGER.error(
                 "MQTT queue for %s was full, message %s was not sent!", self.name, data
             )
