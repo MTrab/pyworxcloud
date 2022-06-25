@@ -605,6 +605,9 @@ class WorxCloud(dict):
                 logger.debug("MQTT chached data not found - requesting")
 
                 mqp = self.mqtt.send(force=True)
+                if isinstance(mqp, type(None)):
+                    raise MQTTException("Couldn't send request to MQTT server.")
+
                 while not mqp.is_published:
                     time.sleep(0.1)
 
