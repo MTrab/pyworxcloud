@@ -310,7 +310,7 @@ class WorxCloud(dict):
             name=self.name,
         )
 
-        self.mqtt.reconnect_delay_set(60, 300, True)
+        self.mqtt.reconnect_delay_set(60, 300)
 
         self.mqtt.on_message = self._forward_on_message
         self.mqtt.on_connect = self._on_connect
