@@ -39,5 +39,6 @@ if __name__ == "__main__":
     # cloud.home()
     # Print all vars and attributes of the cloud object
     pprint(vars(cloud))
+    # print(cloud.mqttdata)
 
     # cloud.disconnect()

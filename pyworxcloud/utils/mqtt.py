@@ -78,7 +78,7 @@ class MQTTData(LDict):
     @logger.setter
     def logger(self, value: bool) -> None:
         """Set logger state."""
-        self.__logger = value
+        self.__logger_enabled = value
 
     @property
     def topics(self) -> dict:
@@ -97,37 +97,40 @@ class MQTT(mqtt.Client, LDict):
 
     def __init__(
         self,
-        client_id="",
+        master=None,
         clean_session=None,
         userdata=None,
         protocol=mqtt.MQTTv311,
         transport="tcp",
         reconnect_on_failure=True,
-        topics: dict = {},
-        name: str = None,
     ):
+        if isinstance(master, type(None)):
+            return
+
         super().__init__(
-            client_id,
+            master._worx_mqtt_client_id,
             clean_session,
             userdata,
             protocol,
             transport,
             reconnect_on_failure,
         )
-        self.__connected = False
 
-        self.topics = topics
-        self.name = name
+        self.topics = master.mqttdata.topics
+        self.name = master.name
+        self.master = master
+
+        master.mqttdata["connected"] = False
 
     @property
     def connected(self) -> bool:
         """Return connection state."""
-        return self.__connected
+        return self.master.mqttdata["connected"]
 
     @connected.setter
     def connected(self, state: bool) -> None:
         """Set connected flag."""
-        self.__connected = state
+        self.master.mqttdata["connected"] = state
 
     def send(
         self,

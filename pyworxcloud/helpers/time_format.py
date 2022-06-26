@@ -64,7 +64,7 @@ def convert_to_time(
             parent += f";;{subkey}"
 
     for key in data:
-        if key.startswith("_"):
+        if key.startswith("_") or key == 'master':
             continue
 
         if not key in data:
