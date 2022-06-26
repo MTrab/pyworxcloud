@@ -182,14 +182,6 @@ class WorxCloud(dict):
         self.work_time = 0
         self.zone = Zone()
 
-        self._events.set_handler(
-            LandroidEvent.MQTT_CONNECTION, self._on_mqtt_state_change
-        )
-
-    def _on_mqtt_state_change(self, state: bool) -> None:
-        """Handle MQTT state changes."""
-        self.mqttdata["connected"] = state
-
     def __enter__(self):
         """Default actions using with statement."""
         if isinstance(self._dev_id, type(None)):
@@ -304,13 +296,11 @@ class WorxCloud(dict):
 
         # setup MQTT handler
         self.mqtt = MQTT(
-            self._worx_mqtt_client_id,
+            self,
             protocol=mqtt.MQTTv311,
-            topics=self.mqttdata.topics,
-            name=self.name,
         )
 
-        # self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
+        self.mqtt.reconnect_delay_set(60, 300)
 
         self.mqtt.on_message = self._forward_on_message
         self.mqtt.on_connect = self._on_connect
