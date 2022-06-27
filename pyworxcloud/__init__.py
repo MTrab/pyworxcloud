@@ -269,7 +269,7 @@ class WorxCloud(dict):
             "mac_address": self.mac_address,
             "serial_number": self.serial_number,
             "setup_location": self.setup_location,
-            "device": self._api.get_product_info(self.product_id),
+            "mower": self._api.get_product_info(self.product_id),
             "created_at": self.created_at,
             "warranty": {
                 "expires": self.warranty_expires_at,
