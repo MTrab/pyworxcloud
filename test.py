@@ -32,15 +32,15 @@ if __name__ == "__main__":
         pass
 
     # Read latest states received from the device
-    # cloud.update()
+    cloud.update()
 
     # cloud._mqtt.publish("DB510/F0FE6B83B4A8/commandIn", '{}', 0, False)
     # cloud.mqtt.send()
     # cloud.home()
     # Print all vars and attributes of the cloud object
-    for index,(name,device) in enumerate(cloud.devices.items()):
-        device.home()
-        # pprint(vars(cloud.devices[device]))
+    for index, (name, device) in enumerate(cloud.devices.items()):
+        # device.home()
+        pprint(vars(device))
     # print(cloud.mqttdata)
 
     # cloud.disconnect()
