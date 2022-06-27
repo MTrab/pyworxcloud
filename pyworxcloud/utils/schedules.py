@@ -35,11 +35,25 @@ class WeekdaySettings(LDict):
         self["boundary"] = boundary
 
 
+class Weekdays(LDict):
+    """Represents all weekdays."""
+
+    def __init__(self):
+        super().__init__()
+
+        for day in list(calendar.day_name):
+            self.update({day.lower(): WeekdaySettings()})
+
+
 class Schedule(LDict):
     """Represents a schedule."""
 
     def __init__(
-        self, schedule_type: ScheduleType, variation: int = 0, active: bool = True
+        self,
+        variation: int = 0,
+        active: bool = True,
+        auto_schedule_settings: dict = {},
+        auto_schedule_enabled: bool | None = None,
     ) -> None:
         """Initialize an empty primary or secondary schedule.
 
@@ -50,8 +64,7 @@ class Schedule(LDict):
 
         self["time_extension"] = variation
         self["active"] = active
-        self["type"] = schedule_type
-        self["days"] = {}
-
-        for day in list(calendar.day_name):
-            self["days"].update({day.lower(): WeekdaySettings()})
+        self["auto_schedule"] = {
+            "settings": auto_schedule_settings,
+            "enabled": auto_schedule_enabled,
+        }

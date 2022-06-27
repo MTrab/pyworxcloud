@@ -5,13 +5,14 @@ from .blades import Blades
 from .capability import Capability, DeviceCapability
 from .devices import DeviceHandler
 from .location import Location
-from .mqtt import MQTT, Command, MQTTData
+from .mqtt import MQTT, Command
 from .orientation import Orientation
 from .product import ProductInfo
 from .rainsensor import Rainsensor
-from .schedules import Schedule, ScheduleType
+from .schedules import Schedule, ScheduleType, Weekdays
 from .state import States, StateType
 from .statistics import Statistic
+from .warranty import Warranty
 from .zone import Zone
 
 __all__ = [
@@ -23,7 +24,6 @@ __all__ = [
     DeviceCapability,
     Location,
     MQTT,
-    MQTTData,
     Orientation,
     ProductInfo,
     Rainsensor,
@@ -32,5 +32,7 @@ __all__ = [
     States,
     StateType,
     Statistic,
+    Warranty,
+    Weekdays,
     Zone,
 ]
