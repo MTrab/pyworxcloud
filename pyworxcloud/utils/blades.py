@@ -1,4 +1,5 @@
 """Blade information."""
+from __future__ import annotations
 
 from .landroid_class import LDict
 
@@ -17,23 +18,23 @@ class Blades(LDict):
         if isinstance(data, type(None)):
             return
 
-        if hasattr(data, "blade_work_time"):
+        if "blade_work_time" in data:
             # Total time with blades on in minutes
-            self["total_on"] = int(data.blade_work_time)
+            self["total_on"] = int(data["blade_work_time"])
         else:
             self["total_on"] = None
 
-        if hasattr(data, "blade_work_time_reset"):
+        if "blade_work_time_reset" in data:
             # Blade time reset at minutes
-            self["reset_at"] = int(data.blade_work_time_reset)
+            self["reset_at"] = int(data["blade_work_time_reset"])
         else:
             self["reset_at"] = None
 
-        if hasattr(data, "blade_work_time_reset_at"):
+        if "blade_work_time_reset_at" in data:
             # Blade time reset time and date
             self["reset_time"] = (
-                data.blade_work_time_reset_at
-                if not isinstance(data.blade_work_time_reset_at, type(None))
+                data["blade_work_time_reset_at"]
+                if not isinstance(data["blade_work_time_reset_at"], type(None))
                 else None
             )
         else:

@@ -1,4 +1,5 @@
 """Time formatting helpers."""
+from __future__ import annotations
 
 import re
 from datetime import datetime
@@ -68,7 +69,7 @@ def convert_to_time(
             parent += f";;{subkey}"
 
     for key in data:
-        if key.startswith("_") or key == "master":
+        if key.startswith("_") or key == "devices":
             continue
 
         if not key in data:

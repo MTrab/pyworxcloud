@@ -1,5 +1,6 @@
 """MQTT information class."""
-import pprint
+from __future__ import annotations
+
 import time
 from typing import Mapping
 
@@ -12,6 +13,9 @@ from ..helpers import get_logger
 from .landroid_class import LDict
 
 _LOGGER = get_logger("mqtt")
+
+MQTT_IN = "{}/{}/commandIn"
+MQTT_OUT = "{}/{}/commandOut"
 
 
 class MQTTMsgType(LDict):
@@ -58,40 +62,40 @@ class Command:
     SAFEHOME = 9
 
 
-class MQTTData(LDict):
-    """Class for handling MQTT information."""
+# class MQTTData(LDict):
+#     """Class for handling MQTT information."""
 
-    __topics: MQTTTopics = MQTTTopics()
-    __logger_enabled: bool = False
+#     __topics: MQTTTopics = MQTTTopics()
+#     __logger_enabled: bool = False
 
-    def __init__(self):
-        """Init MQTT info class."""
-        super().__init__()
-        self["messages"] = MQTTMessages()
-        self["endpoint"] = None
-        self["registered"] = None
-        self["connected"] = False
+#     def __init__(self):
+#         """Init MQTT info class."""
+#         super().__init__()
+#         self["messages"] = MQTTMessages()
+#         self["endpoint"] = None
+#         self["registered"] = None
+#         self["connected"] = False
 
-    @property
-    def logger(self) -> bool:
-        """Return if logger is enabled or not."""
-        return self.__logger_enabled
+#     @property
+#     def logger(self) -> bool:
+#         """Return if logger is enabled or not."""
+#         return self.__logger_enabled
 
-    @logger.setter
-    def logger(self, value: bool) -> None:
-        """Set logger state."""
-        self.__logger_enabled = value
+#     @logger.setter
+#     def logger(self, value: bool) -> None:
+#         """Set logger state."""
+#         self.__logger_enabled = value
 
-    @property
-    def topics(self) -> dict:
-        """Return topics dict."""
-        return self.__topics
+#     @property
+#     def topics(self) -> dict:
+#         """Return topics dict."""
+#         return self.__topics
 
-    @topics.setter
-    def topics(self, value: dict) -> None:
-        """Set topics values."""
-        for k, v in value.items() if isinstance(value, Mapping) else value:
-            self.__topics.update({k: v})
+#     @topics.setter
+#     def topics(self, value: dict) -> None:
+#         """Set topics values."""
+#         for k, v in value.items() if isinstance(value, Mapping) else value:
+#             self.__topics.update({k: v})
 
 
 class MQTT(mqtt.Client, LDict):
@@ -99,18 +103,19 @@ class MQTT(mqtt.Client, LDict):
 
     def __init__(
         self,
-        master=None,
+        devices=None,
+        client_id: str = None,
         clean_session=None,
         userdata=None,
         protocol=mqtt.MQTTv311,
         transport="tcp",
         reconnect_on_failure=True,
     ):
-        if isinstance(master, type(None)):
+        if isinstance(devices, type(None)):
             return
 
         super().__init__(
-            master._worx_mqtt_client_id,
+            client_id,
             clean_session,
             userdata,
             protocol,
@@ -118,23 +123,20 @@ class MQTT(mqtt.Client, LDict):
             reconnect_on_failure,
         )
 
-        self.device_topics = {}
-        for device in master.devices.items():
-            self.device_topics.update({device[0]: device[1].mqtt_topics})
+        # self.device_topics = {}
+        # for device in master.devices.items():
+        #     self.device_topics.update({device[0]: device[1].mqtt_topics})
 
-        self.master = master
+        self.devices = devices
 
-        master.mqttdata["connected"] = False
+        self.endpoint = None
+        self.connected = False
 
-    @property
-    def connected(self) -> bool:
-        """Return connection state."""
-        return self.master.mqttdata["connected"]
-
-    @connected.setter
-    def connected(self, state: bool) -> None:
-        """Set connected flag."""
-        self.master.mqttdata["connected"] = state
+        self.topics = {}
+        for name, device in devices.items():
+            topic_in = MQTT_IN.format(device.mainboard.code, device.mac_address)
+            topic_out = MQTT_OUT.format(device.mainboard.code, device.mac_address)
+            self.topics.update({name: MQTTTopics(topic_in, topic_out)})
 
     def send(
         self,
@@ -147,8 +149,8 @@ class MQTT(mqtt.Client, LDict):
         """Send Landroid cloud message to API endpoint."""
         from .devices import DeviceHandler
 
-        recipient: DeviceHandler = self.master.devices[device]
-        topic = recipient.mqtt_topics["in"]
+        recipient: DeviceHandler = self.devices[device]
+        topic = self.topics[device]["in"]
         _LOGGER.debug("Sending %s to %s on %s", data, recipient.name, topic)
         if not self.connected and not force:
             _LOGGER.error(

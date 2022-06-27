@@ -26,7 +26,7 @@ class InfoType(IntEnum):
     BOARD = 1
 
 
-class Info(LDict):
+class ProductInfo(LDict):
     """Handling mainboard information."""
 
     def __init__(
@@ -54,18 +54,3 @@ class Info(LDict):
 
         for attr, val in api_prod.items():
             setattr(self, str(attr), val)
-
-
-class ProductInfo(LDict):
-    """Class definition for handling physical device information."""
-
-    def __init__(self, api: Any | None = None, product_id: int | None = None):
-        """Initialize a device object."""
-        super().__init__()
-
-        self.mower = Info(InfoType.MOWER, api, product_id)
-        self.mainboard = Info(
-            InfoType.BOARD,
-            api,
-            self.mower.board_id if hasattr(self.mower, "board_id") else None,
-        )

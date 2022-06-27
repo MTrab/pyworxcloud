@@ -22,30 +22,20 @@ from .events import EventHandler, LandroidEvent
 from .exceptions import (
     AuthorizationError,
     MQTTException,
-    NoOneTimeScheduleError,
-    NoPartymodeError,
     OfflineError,
 )
 from .helpers import convert_to_time, get_logger
 from .utils import (
     MQTT,
     Battery,
-    Blades,
-    Capability,
     Command,
     DeviceHandler,
     DeviceCapability,
     Location,
-    MQTTData,
     Orientation,
-    ProductInfo,
-    Rainsensor,
-    Schedule,
     ScheduleType,
-    States,
-    StateType,
     Statistic,
-    Zone,
+    Weekdays,
 )
 from .utils.schedules import TYPE_TO_STRING
 
@@ -153,7 +143,6 @@ class WorxCloud(dict):
         self._username = username
         self._cloud = cloud
         self._auth_result = False
-        self._dev_id = index
         self._log = get_logger("pyworxcloud")
         self._raw = None
 
@@ -164,30 +153,7 @@ class WorxCloud(dict):
         # Dict of devices, identified by name
         self.devices = {}
 
-        # Set default attribute values
-        ###############################
-        # self.accessories = None
-        # self.battery = Battery()
-        # self.blades = Blades()
-        # self.error = States(StateType.ERROR)
-        # self.gps = Location()
-        # self.locked = False
         self.mqtt = None
-        self.mqttdata = MQTTData()
-        # self.online = False
-        # self.orientation = Orientation([0, 0, 0])
-        # self.capabilities = Capability()
-        # self.partymode_enabled = False
-        # self.product = []
-        # self.rainsensor = Rainsensor()
-        # self.rssi = None
-        # self.schedules: dict[str, Any] = {"time_extension": 0, "active": True}
-        # self.serial_number = None
-        # self.status = States()
-        # self.torque = None
-        # self.updated = "never"
-        # self.work_time = 0
-        # self.zone = Zone()
 
     def __enter__(self):
         """Default actions using with statement."""
@@ -249,7 +215,7 @@ class WorxCloud(dict):
     def disconnect(self) -> None:
         """Close API connections."""
         if self.mqtt.connected:
-            topic = self.mqttdata.topics["out"]
+            topic = self.mqtt.topics["out"]
             self.mqtt.unsubscribe(topic)
             self.mqtt.disconnect()
             self.mqtt.loop_stop()
@@ -274,33 +240,6 @@ class WorxCloud(dict):
 
         self._fetch()
 
-        # product = DeviceHandler()
-        # product["device"]["mower"].get_information_from_id(self._api, self.product_id)
-
-        # self.devices.add({self._api.na})
-        # self.product = {
-        #     "mac_address": self.mac_address,
-        #     "serial_number": self.serial_number,
-        #     "setup_location": self.setup_location,
-        #     "mower": self._api.get_product_info(self.product_id),
-        #     "created_at": self.created_at,
-        #     "warranty": {
-        #         "expires": self.warranty_expires_at,
-        #         "registered": self.warranty_registered,
-        #     },
-        #     "sim": self.sim,
-        #     "registered_at": self.registered_at,
-        # }
-
-        # self.product.update(
-        #     {"board": self._api.get_board(self.product["mower"]["board_id"])}
-        # )
-        # self.product.update(
-        #     {
-        #         "model": f'{self.product["mower"]["default_name"]}{self.product["mower"]["meters"]}'
-        #     }
-        # )
-
         # Get blades statistics
         # self.blades = Blades(data=self)
 
@@ -309,10 +248,12 @@ class WorxCloud(dict):
 
         # setup MQTT handler
         self.mqtt = MQTT(
-            self,
+            self.devices,
+            self._worx_mqtt_client_id,
             protocol=mqtt.MQTTv311,
         )
 
+        self.mqtt.endpoint = self._endpoint
         self.mqtt.reconnect_delay_set(60, 300)
 
         self.mqtt.on_message = self._forward_on_message
@@ -321,9 +262,9 @@ class WorxCloud(dict):
 
         if pahologger:
             mqttlog = self._log.getChild("PahoMQTT")
-            self.mqtt.on_log = self._on_log
+            # self.mqtt.on_log = self._on_log
             self.mqtt.enable_logger(mqttlog)
-            self.mqttdata.logger = True
+            self.mqtt.logger = True
 
         with self._get_cert() as cert:
             self.mqtt.tls_set(certfile=cert)
@@ -331,7 +272,7 @@ class WorxCloud(dict):
         if not verify_ssl:
             self.mqtt.tls_insecure_set(True)
 
-        self.mqtt.connect(self.mqttdata["endpoint"], port=8883, keepalive=600)
+        self.mqtt.connect(self.mqtt.endpoint, port=8883, keepalive=600)
 
         self.mqtt.loop_start()
         # self.mqttdata["messages"]["raw"].update(
@@ -348,12 +289,11 @@ class WorxCloud(dict):
         # )
         # self.mqttdata["registered"] = self.mqtt_registered
 
-        # Remove unwanted attribs
-        for attr in UNWANTED_ATTRIBS:
-            if hasattr(self, attr):
-                delattr(self, attr)
-
-        # convert_to_time(self, self.time_zone, callback=self.update_attribute)
+        # Convert time strings to objects.
+        for index, (name, device) in enumerate(self.devices.items()):
+            convert_to_time(
+                name, device, device.time_zone, callback=self.update_attribute
+            )
 
         return True
 
@@ -374,7 +314,7 @@ class WorxCloud(dict):
             profile = self._api.data
             if profile is None:
                 return False
-            self.mqttdata.update({"endpoint": profile["mqtt_endpoint"]})
+            self._endpoint = profile["mqtt_endpoint"]
             self._worx_mqtt_client_id = "android-" + self._api.uuid
         except:  # pylint: disable=bare-except
             return False
@@ -388,17 +328,6 @@ class WorxCloud(dict):
         with pfx_to_pem(certresp["pkcs12"]) as pem_cert:
             yield pem_cert
 
-    # def _get_mac_address(self):
-    #     """Get device MAC address for identification."""
-    #     self._fetch()
-    #     # self.mqttdata.topics.update(
-    #     #     {
-    #     #         "out": self.mqtt_topics["command_out"],
-    #     #         "in": self.mqtt_topics["command_in"],
-    #     #     },
-    #     # )
-    #     # del self.mqtt_topics
-
     def _forward_on_message(
         self,
         client,
@@ -409,25 +338,27 @@ class WorxCloud(dict):
         """MQTT callback method definition."""
         logger = self._log.getChild("mqtt.message_received")
         topic = message.topic
-        for dev in self.devices.items():
-            device: DeviceHandler = dev[1]
-            if device.mqtt_topics["out"] == topic:
+        for name, topics in self.mqtt.topics.items():
+            if topics["out"] == topic:
                 break
 
-        logger.debug("Received MQTT message for %s - processing data", device.name)
+        logger.debug("Received MQTT message for %s - processing data", name)
         # self._fetch()
         # self._mqtt_data = message.payload.decode("utf-8")
-        # self._decode_data(self._mqtt_data)
-        # self._events.call(LandroidEvent.DATA_RECEIVED)
+        self.devices[name]._mqtt_data = message.payload.decode("utf-8")
+        self._decode_data(self.devices[name])
+        self._events.call(LandroidEvent.DATA_RECEIVED)
 
-    def _decode_data(self, device: DeviceHandler, indata) -> None:
+    def _decode_data(self, device: DeviceHandler) -> None:
         """Decode incoming JSON data."""
         logger = self._log.getChild("decode_data")
         logger.debug("Data decoding for %s started", device.name)
 
-        data = json.loads(indata)
+        if device._mqtt_data:
+            data = json.loads(device._mqtt_data)
+        else:
+            return
         if "dat" in data:
-            device.firmware = data["dat"]["fw"]
             device.rssi = data["dat"]["rsi"]
             device.status.update(data["dat"]["ls"])
             device.error.update(data["dat"]["le"])
@@ -493,8 +424,7 @@ class WorxCloud(dict):
                 device.schedules["time_extension"] = data["cfg"]["sc"]["p"]
 
                 sch_type = ScheduleType.PRIMARY
-                schedule: dict = Schedule(sch_type)
-                device.schedules[TYPE_TO_STRING[sch_type]] = schedule["days"]
+                device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
 
                 for day in range(0, len(data["cfg"]["sc"]["d"])):
                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
@@ -542,8 +472,7 @@ class WorxCloud(dict):
             # Fetch secondary schedule
             if "dd" in data["cfg"]["sc"]:
                 sch_type = ScheduleType.SECONDARY
-                schedule = Schedule(sch_type)
-                device.schedules[TYPE_TO_STRING[sch_type]] = schedule["days"]
+                device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
 
                 for day in range(0, len(data["cfg"]["sc"]["d"])):
                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
@@ -608,21 +537,21 @@ class WorxCloud(dict):
         logger = self._log.getChild("mqtt.connected")
         logger.debug(connack_string(rc))
         if rc == 0:
-            for device in self.mqtt.device_topics.items():
-                topic = device[1]["out"]
+            for name, topics in self.mqtt.topics.items():
+                topic = topics["out"]
                 logger.debug(
-                    "MQTT for %s connected, subscribing to topic '%s'", device[0], topic
+                    "MQTT for %s connected, subscribing to topic '%s'", name, topic
                 )
                 client.subscribe(topic)
 
-            for device in self.devices.items():
-                device[1].mqtt = self.mqtt
-                if isinstance(device[1]._mqtt_data, type(None)):
+            for name, device in self.devices.items():
+                device.mqtt = self.mqtt
+                if isinstance(device._mqtt_data, type(None)):
                     logger.debug(
-                        "MQTT chached data not found for %s - requesting now", device[0]
+                        "MQTT chached data not found for %s - requesting now", name
                     )
 
-                    mqp = device[1].mqtt.send(device[0], force=True)
+                    mqp = device.mqtt.send(name, force=True)
                     if isinstance(mqp, type(None)):
                         raise MQTTException("Couldn't send request to MQTT server.")
 
@@ -663,7 +592,7 @@ class WorxCloud(dict):
             logger.debug("Setting MQTT connected flag FALSE")
             self.mqtt.connected = False
             self._events.call(LandroidEvent.MQTT_CONNECTION, state=self.mqtt.connected)
-            self.mqtt.unsubscribe(self.mqttdata.topics["out"])
+            self.mqtt.unsubscribe(self.mqtt.topics["out"])
 
     def _fetch(self) -> None:
         """Fetch base API information."""
@@ -715,13 +644,12 @@ class WorxCloud(dict):
 
     def update(self) -> None:
         """Retrive current device status."""
-        for dev in self.devices:
-            device = self.devices[dev]
+        for name, device in self.devices.items():
             status = self._api.get_status(device.serial_number)
             status = str(status).replace("'", '"')
-            self._raw = status
+            device._mqtt_data = status
 
-            self._decode_data(device, status)
+            self._decode_data(device)
 
     def start(self) -> None:
         """Start mowing task
