@@ -20,7 +20,7 @@ MQTT_IN = "{}/{}/commandIn"
 MQTT_OUT = "{}/{}/commandOut"
 
 
-class DeviceHandler(LDict, Actions):
+class DeviceHandler(LDict):
     """DeviceHandler for Landroid Cloud devices."""
 
     def __init__(self, api: Any | None = None, product: Any | None = None) -> dict:
@@ -66,3 +66,19 @@ class DeviceHandler(LDict, Actions):
             )
 
         self.schedules: dict[str, Any] = {"time_extension": 0, "active": True}
+
+    # def __dict__(self):
+    #     for key, value in self:
+    #         if key.startswith("_"):
+    #             continue
+
+    #         self.update({key: value})
+
+    # def __dict__(self):
+    #     # return super().__iter__()
+
+    #     for key in self:
+    #         if key.startswith("_"):
+    #             continue
+
+    #         yield key, getattr(self, key)

@@ -6,7 +6,7 @@ from typing import Any
 from .landroid_class import LDict
 
 
-class SetupLocation(dict):
+class SetupLocation(LDict):
     """Handling setup location."""
 
     def __init__(self, latitude: float = 0.0, longitude: float = 0.0) -> None:
@@ -17,7 +17,7 @@ class SetupLocation(dict):
         self["longitude"] = longitude
 
 
-class WarrantyInfo(dict):
+class WarrantyInfo(LDict):
     """Handling warranty information."""
 
 
@@ -26,7 +26,7 @@ class InfoType(IntEnum):
     BOARD = 1
 
 
-class Info(dict):
+class Info(LDict):
     """Handling mainboard information."""
 
     def __init__(
