@@ -9,7 +9,7 @@ from .blades import Blades
 from .capability import Capability
 from .landroid_class import LDict
 from .location import Location
-from .mqtt import MQTTData, MQTTTopics
+from .mqtt import MQTTTopics
 from .orientation import Orientation
 from .product import ProductInfo
 from .rainsensor import Rainsensor
@@ -66,14 +66,3 @@ class DeviceHandler(LDict, Actions):
             )
 
         self.schedules: dict[str, Any] = {"time_extension": 0, "active": True}
-
-        # self.accessories = None
-        # self.locked = False
-        # self.online = False
-        # self.partymode_enabled = False
-        # self.rssi = None
-        # self.serial_number = data["serial_number"]
-        # self.torque = None
-        # self.updated = "never"
-        # self.time_zone = data["time_zone"]
-        # self.work_time = 0
