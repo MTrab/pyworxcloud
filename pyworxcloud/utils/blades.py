@@ -1,7 +1,5 @@
 """Blade information."""
 
-from datetime import datetime
-
 from .landroid_class import LDict
 
 
@@ -14,7 +12,7 @@ class Blades(LDict):
     ) -> None:
         """Initialize blade object."""
         super().__init__()
-        from ..helpers import string_to_time
+        # from ..helpers import string_to_time
 
         if isinstance(data, type(None)):
             return
@@ -34,7 +32,7 @@ class Blades(LDict):
         if hasattr(data, "blade_work_time_reset_at"):
             # Blade time reset time and date
             self["reset_time"] = (
-                string_to_time(data.blade_work_time_reset_at)
+                data.blade_work_time_reset_at
                 if not isinstance(data.blade_work_time_reset_at, type(None))
                 else None
             )

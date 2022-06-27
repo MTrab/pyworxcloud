@@ -6,7 +6,10 @@ from typing import Any
 
 import pytz
 
-from ..utils import __all__ as all_utils
+try:
+    from ..utils import __all__ as all_utils
+except:
+    pass
 
 DATE_FORMATS = [
     "%Y-%m-%d %H:%M:%S",
@@ -41,6 +44,7 @@ def string_to_time(dt_string: str, tz: str = "UTC") -> datetime:
 
 @staticmethod
 def convert_to_time(
+    device: str,
     data: Any,
     tz: str = "UTC",
     expression: str | None = None,
@@ -64,7 +68,7 @@ def convert_to_time(
             parent += f";;{subkey}"
 
     for key in data:
-        if key.startswith("_") or key == 'master':
+        if key.startswith("_") or key == "master":
             continue
 
         if not key in data:
@@ -75,6 +79,7 @@ def convert_to_time(
 
         if isinstance(value, tuple(all_utils)) or isinstance(value, dict):
             convert_to_time(
+                device=device,
                 data=value,
                 tz=tz,
                 expression=expression,
@@ -89,4 +94,4 @@ def convert_to_time(
 
         if len(hits) == 1:
             newtime = string_to_time(hits[0])
-            callback(parent, key, newtime)
+            callback(device, parent, key, newtime)

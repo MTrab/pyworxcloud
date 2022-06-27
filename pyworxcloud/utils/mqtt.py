@@ -1,9 +1,11 @@
 """MQTT information class."""
+import pprint
 import time
 from typing import Mapping
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
+
 
 from ..exceptions import MQTTException
 from ..helpers import get_logger
@@ -35,11 +37,11 @@ class MQTTMessages(LDict):
 class MQTTTopics(LDict):
     """Topics class."""
 
-    def __init__(self):
+    def __init__(self, topic_in: str | None = None, topic_out: str | None = None):
         super().__init__()
 
-        self["in"] = None
-        self["out"] = None
+        self["in"] = topic_in
+        self["out"] = topic_out
 
 
 class Command:
@@ -116,8 +118,10 @@ class MQTT(mqtt.Client, LDict):
             reconnect_on_failure,
         )
 
-        self.topics = master.mqttdata.topics
-        self.name = master.name
+        self.device_topics = {}
+        for device in master.devices.items():
+            self.device_topics.update({device[0]: device[1].mqtt_topics})
+
         self.master = master
 
         master.mqttdata["connected"] = False
@@ -134,39 +138,49 @@ class MQTT(mqtt.Client, LDict):
 
     def send(
         self,
+        device: str,
         data: str = "{}",
         qos: int = 0,
         retain: bool = False,
         force: bool = False,
     ) -> MQTTMessageInfo:
         """Send Landroid cloud message to API endpoint."""
-        topic = self.topics["in"]
-        _LOGGER.debug("Sending %s to %s on %s", data, self.name, topic)
+        from .devices import DeviceHandler
+
+        recipient: DeviceHandler = self.master.devices[device]
+        topic = recipient.mqtt_topics["in"]
+        _LOGGER.debug("Sending %s to %s on %s", data, recipient.name, topic)
         if not self.connected and not force:
             _LOGGER.error(
-                "MQTT server was not connected, can't send message to %s", self.name
+                "MQTT server was not connected, can't send message to %s",
+                recipient.name,
             )
             raise MQTTException("MQTT not connected")
 
         try:
             status = self.publish(topic, data, qos, retain)
-            _LOGGER.debug("Awaiting message to be published to %s", self.name)
+            _LOGGER.debug("Awaiting message to be published to %s", recipient.name)
             while not status.is_published:
                 time.sleep(0.1)
             return status
         except ValueError as exc:
             _LOGGER.error(
-                "MQTT queue for %s was full, message %s was not sent!", self.name, data
+                "MQTT queue for %s was full, message %s was not sent!",
+                recipient.name,
+                data,
             )
         except RuntimeError as exc:
             _LOGGER.error(
-                "MQTT error while sending message %s to %s.\n%s", data, self.name, exc
+                "MQTT error while sending message %s to %s.\n%s",
+                data,
+                recipient.name,
+                exc,
             )
         except Exception as exc:
-            _LOGGER.error("MQTT error %s to %s.\n%s", data, self.name, exc)
+            _LOGGER.error("MQTT error %s to %s.\n%s", data, recipient.name, exc)
 
-    def command(self, action: Command) -> MQTTMessageInfo:
+    def command(self, device: str, action: Command) -> MQTTMessageInfo:
         """Send command to device."""
         cmd = '"cmd":{}'.format(action)
         cmd = "{" + cmd + "}"
-        return self.send(cmd)
+        return self.send(device, cmd)
