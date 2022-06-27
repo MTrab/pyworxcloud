@@ -280,11 +280,11 @@ class WorxCloud(dict):
         }
 
         self.product.update(
-            {"board": self._api.get_board(self.product["device"]["board_id"])}
+            {"board": self._api.get_board(self.product["mower"]["board_id"])}
         )
         self.product.update(
             {
-                "model": f'{self.product["device"]["default_name"]}{self.product["device"]["meters"]}'
+                "model": f'{self.product["mower"]["default_name"]}{self.product["mower"]["meters"]}'
             }
         )
 
