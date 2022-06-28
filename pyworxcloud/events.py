@@ -36,7 +36,7 @@ class EventHandler:
             return
 
         if LandroidEvent.DATA_RECEIVED == event:
-            self.__events[event]()
+            self.__events[event](name=kwargs["name"], device=kwargs["device"])
         elif LandroidEvent.MQTT_CONNECTION == event:
             if not "state" in kwargs:
                 # Invalid event call, state is required.
