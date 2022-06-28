@@ -13,7 +13,7 @@ class Blades(LDict):
     ) -> None:
         """Initialize blade object."""
         super().__init__()
-        # from ..helpers import string_to_time
+        from ..helpers import string_to_time
 
         if isinstance(data, type(None)):
             return
@@ -33,7 +33,7 @@ class Blades(LDict):
         if "blade_work_time_reset_at" in data:
             # Blade time reset time and date
             self["reset_time"] = (
-                data["blade_work_time_reset_at"]
+                string_to_time(data["blade_work_time_reset_at"], data["time_zone"])
                 if not isinstance(data["blade_work_time_reset_at"], type(None))
                 else None
             )
