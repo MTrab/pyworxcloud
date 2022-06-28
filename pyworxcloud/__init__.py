@@ -612,7 +612,14 @@ class WorxCloud(dict):
             logger.debug("Setting MQTT connected flag FALSE")
             self.mqtt.connected = False
             self._events.call(LandroidEvent.MQTT_CONNECTION, state=self.mqtt.connected)
-            self.mqtt.unsubscribe(self.mqtt.topics["out"])
+            for name, topics in self.mqtt.topics.items():
+                topic = topics["out"]
+                logger.debug(
+                    "MQTT for %s disconnected, unsubscribing from topic '%s'",
+                    name,
+                    topic,
+                )
+                client.unsubscribe(topic)
 
     def _fetch(self) -> None:
         """Fetch base API information."""
