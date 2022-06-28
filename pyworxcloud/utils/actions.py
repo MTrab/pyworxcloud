@@ -222,3 +222,18 @@ class Actions:
             self.mqtt.command(self.name, Command.PAUSE)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
+
+    def send(self, data: str) -> None:
+        """Send raw JSON data to the device.
+
+        Args:
+            data (str): Data to be sent, formatted as a valid JSON object.
+
+        Raises:
+            OfflineError: Raised if the device isn't online.
+        """
+        if self.online:
+            self._log.debug("Sending %s to %s", data, self.name)
+            self.mqtt.send(self.name, data)
+        else:
+            raise OfflineError("The device is currently offline, no action was sent.")
