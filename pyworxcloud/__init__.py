@@ -262,7 +262,7 @@ class WorxCloud(dict):
 
         if pahologger:
             mqttlog = self._log.getChild("PahoMQTT")
-            # self.mqtt.on_log = self._on_log
+            self.mqtt.on_log = self._on_log
             self.mqtt.enable_logger(mqttlog)
             self.mqtt.logger = True
 
@@ -275,6 +275,7 @@ class WorxCloud(dict):
         self.mqtt.connect(self.mqtt.endpoint, port=8883, keepalive=600)
 
         self.mqtt.loop_start()
+
         # self.mqttdata["messages"]["raw"].update(
         #     {
         #         "in": self.raw_messages_in,
@@ -342,10 +343,24 @@ class WorxCloud(dict):
             if topics["out"] == topic:
                 break
 
-        logger.debug("Received MQTT message for %s - processing data", name)
+        logger.debug(
+            "Received MQTT message for %s - processing data %s",
+            name,
+            message.payload.decode("utf-8"),
+        )
+
         # self._fetch()
         # self._mqtt_data = message.payload.decode("utf-8")
-        self.devices[name]._mqtt_data = message.payload.decode("utf-8")
+
+        while not self.devices[name].is_decoded:
+            pass  # Await last dataset to be handled before sending a new into the handler
+
+        msg = message.payload.decode("utf-8")
+        if self.devices[name].raw_data == msg:
+            self._log.debug("Data was already present and not changed.")
+            return  # Data was identical, update was not needed
+
+        self.devices[name].raw_data = msg
         self._decode_data(self.devices[name])
         self._events.call(LandroidEvent.DATA_RECEIVED)
 
@@ -354,10 +369,16 @@ class WorxCloud(dict):
         logger = self._log.getChild("decode_data")
         logger.debug("Data decoding for %s started", device.name)
 
-        if device._mqtt_data:
+        if device.json_data:
+            logger.debug("Found JSON decoded data: %s", device.json_data)
+            data = device.json_data
+        elif device.raw_data:
+            logger.debug("Found raw data: %s", device.raw_data)
             data = json.loads(device._mqtt_data)
         else:
+            logger.debug("No valid data was found, skipping update for %s", device.name)
             return
+
         if "dat" in data:
             device.rssi = data["dat"]["rsi"]
             device.status.update(data["dat"]["ls"])
@@ -518,12 +539,14 @@ class WorxCloud(dict):
         convert_to_time(
             device.name, device, device.time_zone, callback=self.update_attribute
         )
+
+        device.is_decoded = True
         logger.debug("Data for %s was decoded", device.name)
 
     def _on_log(self, client, userdata, level, buf):
         """Capture MQTT log messages."""
         logger = self._log.getChild("mqtt.log")
-        logger.debug("MQTT log message for %s: %s", self.name, buf)
+        logger.debug("MQTT log message received: %s", buf)
 
     def _on_connect(
         self,
@@ -546,7 +569,7 @@ class WorxCloud(dict):
 
             for name, device in self.devices.items():
                 device.mqtt = self.mqtt
-                if isinstance(device._mqtt_data, type(None)):
+                if isinstance(device.raw_data, type(None)):
                     logger.debug(
                         "MQTT chached data not found for %s - requesting now", name
                     )
@@ -556,7 +579,8 @@ class WorxCloud(dict):
                         raise MQTTException("Couldn't send request to MQTT server.")
 
                     while not mqp.is_published:
-                        time.sleep(0.1)
+                        pass
+                        # time.sleep(0.1)
 
             logger.debug("Setting MQTT connected flag TRUE")
             self.mqtt.connected = True
@@ -627,55 +651,32 @@ class WorxCloud(dict):
         return len(products)
 
     # Service calls starts here
-    def send(self, data: str) -> None:
-        """Send raw JSON data to the device.
+    # def send(self, data: str) -> None:
+    #     """Send raw JSON data to the device.
 
-        Args:
-            data (str): Data to be sent, formatted as a valid JSON object.
+    #     Args:
+    #         data (str): Data to be sent, formatted as a valid JSON object.
 
-        Raises:
-            OfflineError: Raised if the device isn't online.
-        """
-        if self.online:
-            self._log.debug("Sending %s to %s", data, self.name)
-            self.mqtt.send(data)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
+    #     Raises:
+    #         OfflineError: Raised if the device isn't online.
+    #     """
+    #     if self.online:
+    #         self._log.debug("Sending %s to %s", data, self.name)
+    #         self.mqtt.send(data)
+    #     else:
+    #         raise OfflineError("The device is currently offline, no action was sent.")
 
     def update(self) -> None:
         """Retrive current device status."""
         for name, device in self.devices.items():
             status = self._api.get_status(device.serial_number)
             status = str(status).replace("'", '"')
-            device._mqtt_data = status
+            device.raw_data = status
+
+            while not device.is_decoded:
+                pass  # Await previous dataset to be handled before sending a new into the handler.
 
             self._decode_data(device)
-
-    def start(self) -> None:
-        """Start mowing task
-
-        Raises:
-            OfflineError: Raised if the device is offline.
-        """
-        if self.online:
-            logger = self._log.getChild("command")
-            logger.debug("Sending START command to %s", self.name)
-            self.mqtt.command(Command.START)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def pause(self) -> None:
-        """Pause the mowing task
-
-        Raises:
-            OfflineError: Raised if the device is offline.
-        """
-        if self.online:
-            logger = self._log.getChild("command")
-            logger.debug("Sending PAUSE command to %s", self.name)
-            self.mqtt.command(Command.PAUSE)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
 
 
 @contextlib.contextmanager

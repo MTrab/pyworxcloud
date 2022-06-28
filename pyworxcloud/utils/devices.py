@@ -1,11 +1,13 @@
 """Class for handling device info and states."""
 from __future__ import annotations
+import json
 
 from typing import Any
 
 
 from ..const import UNWANTED_ATTRIBS
 
+from .actions import Actions
 from .battery import Battery
 from .blades import Blades
 from .capability import Capability
@@ -23,23 +25,52 @@ from .warranty import Warranty
 from .zone import Zone
 
 
-class DeviceHandler(LDict):
+class DeviceHandler(LDict, Actions):
     """DeviceHandler for Landroid Cloud devices."""
+
+    __is_decoded: bool = True
+    __raw_data: str | None = None
+    __json_data: str | None = None
 
     def __init__(self, api: Any | None = None, product: Any | None = None) -> dict:
         """Initialize the object."""
         super().__init__()
 
-        self._mqtt_data = None
-        self._api_data = None
-
         if not isinstance(product, type(None)) and not isinstance(api, type(None)):
             self.__mapinfo(api, product)
 
+    @property
+    def raw_data(self) -> str:
+        """Returns current raw dataset."""
+        return self.__raw_data
+
+    @property
+    def json_data(self) -> str:
+        """Returns current dataset as JSON."""
+        return self.__json_data
+
+    @raw_data.setter
+    def raw_data(self, value: str) -> None:
+        """Set new MQTT data."""
+        self.__is_decoded = False
+        self.__raw_data = value
+        try:
+            self.__json_data = json.loads(value)
+        except:
+            pass  # Just continue if we couldn't decode the data
+
+    @property
+    def is_decoded(self) -> bool:
+        """Returns true if latest dataset was decoded and handled."""
+        return self.__is_decoded
+
+    @is_decoded.setter
+    def is_decoded(self, value: bool) -> None:
+        """Set decoded flag when dataset was decoded and handled."""
+        self.__is_decoded = value
+
     def __mapinfo(self, api: Any, data: Any) -> None:
         """Map information from API."""
-
-        self._mqtt_data = None
 
         for attr, val in data.items():
             setattr(self, str(attr), val)

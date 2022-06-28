@@ -1,5 +1,6 @@
 """MQTT information class."""
 from __future__ import annotations
+import re
 
 import time
 from typing import Mapping
@@ -151,6 +152,10 @@ class MQTT(mqtt.Client, LDict):
 
         recipient: DeviceHandler = self.devices[device]
         topic = self.topics[device]["in"]
+
+        if not re.match("^\{[A-ZÆØÅa-zæøå0-9:'\"{} \n]*\}$", data):
+            data = "{" + data + "}"
+
         _LOGGER.debug("Sending %s to %s on %s", data, recipient.name, topic)
         if not self.connected and not force:
             _LOGGER.error(
@@ -161,9 +166,15 @@ class MQTT(mqtt.Client, LDict):
 
         try:
             status = self.publish(topic, data, qos, retain)
-            _LOGGER.debug("Awaiting message to be published to %s", recipient.name)
+            _LOGGER.debug(
+                "Awaiting message to be published to %s on %s", recipient.name, topic
+            )
             while not status.is_published:
-                time.sleep(0.1)
+                pass  # Await status to change to is_published
+                # time.sleep(0.1)
+            _LOGGER.debug(
+                "MQTT message was published to %s on %s", recipient.name, topic
+            )
             return status
         except ValueError as exc:
             _LOGGER.error(
