@@ -1,3 +1,4 @@
+import time
 from os import environ
 from pprint import pprint
 
@@ -32,15 +33,20 @@ if __name__ == "__main__":
         pass
 
     # Read latest states received from the device
-    cloud.update()
+    # cloud.update()
 
     # cloud._mqtt.publish("DB510/F0FE6B83B4A8/commandIn", '{}', 0, False)
     # cloud.mqtt.send()
     # cloud.home()
     # Print all vars and attributes of the cloud object
     for index, (name, device) in enumerate(cloud.devices.items()):
-        # device.home()
-        pprint(vars(device))
+        device.start()
+        # device.raindelay(30)
+        # time.sleep(5)
+        # device.mqtt.send(name)
+        # time.sleep(5)
+        # cloud.update()
+        # pprint(vars(device))
     # print(cloud.mqttdata)
 
     # cloud.disconnect()

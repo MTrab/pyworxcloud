@@ -35,9 +35,9 @@ class Actions:
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            logger = self._log.getChild("command")
+            logger = _LOGGER.getChild("command")
             logger.debug("Sending ZONETRAINING command to %s", self.name)
-            self.mqtt.command(Command.ZONETRAINING)
+            self.mqtt.command(self.name, Command.ZONETRAINING)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -52,13 +52,13 @@ class Actions:
         """
         if self.online:
             if enabled:
-                logger = self._log.getChild("command")
+                logger = _LOGGER.getChild("command")
                 logger.debug("Sending LOCK command to %s", self.name)
-                self.mqtt.command(Command.LOCK)
+                self.mqtt.command(self.name, Command.LOCK)
             else:
-                logger = self._log.getChild("command")
+                logger = _LOGGER.getChild("command")
                 logger.debug("Sending UNLOCK command to %s", self.name)
-                self.mqtt.command(Command.UNLOCK)
+                self.mqtt.command(self.name, Command.UNLOCK)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -69,9 +69,9 @@ class Actions:
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            logger = self._log.getChild("command")
+            logger = _LOGGER.getChild("command")
             logger.debug("Sending RESTART command to %s", self.name)
-            self.mqtt.command(Command.RESTART)
+            self.mqtt.command(self.name, Command.RESTART)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -82,9 +82,9 @@ class Actions:
             OfflineError: Raised if the device is offline.
         """
         if self.online:
-            logger = self._log.getChild("command")
+            logger = _LOGGER.getChild("command")
             logger.debug("Sending SAFEHOME command to %s", self.name)
-            self.mqtt.command(Command.SAFEHOME)
+            self.mqtt.command(self.name, Command.SAFEHOME)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -100,8 +100,8 @@ class Actions:
         if self.online:
             if not isinstance(rain_delay, str):
                 rain_delay = str(rain_delay)
-            msg = f'"rd": {rain_delay}'
-            self.mqtt.send(msg)
+            msg = "{" + f'"rd": {rain_delay}' + "}"
+            self.mqtt.send(self.name, msg)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -120,7 +120,7 @@ class Actions:
             else:
                 msg = '{"sc": {"m": 0}}'
 
-            self.mqtt.send(msg)
+            self.mqtt.send(self.name, msg)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -140,7 +140,7 @@ class Actions:
             else:
                 msg = '{"sc": {"m": 1, "distm": 0}}'
 
-            self.mqtt.send(msg)
+            self.mqtt.send(self.name, msg)
         elif not self.capabilities.check(DeviceCapability.PARTY_MODE):
             raise NoPartymodeError("This device does not support Partymode")
         elif not self.online:
@@ -162,7 +162,7 @@ class Actions:
                 runtime = int(runtime)
 
             raw = {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}}
-            self.mqtt.send(json.dumps(raw))
+            self.mqtt.send(self.name, json.dumps(raw))
         elif not self.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE):
             raise NoOneTimeScheduleError(
                 "This device does not support Edgecut-on-demand"
@@ -193,6 +193,32 @@ class Actions:
                 new_zones = tmp
 
             raw = {"mzv": new_zones}
-            self.mqtt.send(json.dumps(raw))
+            self.mqtt.send(self.name, json.dumps(raw))
+        else:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+    def start(self) -> None:
+        """Start mowing task
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
+        if self.online:
+            logger = _LOGGER.getChild("command")
+            logger.debug("Sending START command to %s", self.name)
+            self.mqtt.command(self.name, Command.START)
+        else:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+    def pause(self) -> None:
+        """Pause the mowing task
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
+        if self.online:
+            logger = _LOGGER.getChild("command")
+            logger.debug("Sending PAUSE command to %s", self.name)
+            self.mqtt.command(self.name, Command.PAUSE)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
