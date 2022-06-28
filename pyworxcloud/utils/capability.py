@@ -1,9 +1,9 @@
 """Device capabilities."""
 from __future__ import annotations
-from enum import IntEnum
+from enum import Enum
 
 
-class DeviceCapability(IntEnum):
+class DeviceCapability(Enum):
     """Available device capabilities."""
 
     EDGE_CUT = 1
