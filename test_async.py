@@ -28,19 +28,19 @@ def worx_test():
 
     # Connect to device with index 0 (devices are enumerated 0, 1, 2 ...) and do
     # not verify SSL (False)
-    cloud.connect(verify_ssl=False, pahologger=True)
+    cloud.connect(verify_ssl=False, pahologger=False)
 
     lastupdate = {}
     cloud.update()
     # cloud.start()
     while 1:
-        for device in cloud.devices.items():
-            device_update = device[1].updated
-            if not device[0] in lastupdate:
-                lastupdate.update({device[0]: ""})
-            if device_update != lastupdate[device[0]]:
-                lastupdate.update({device[0]: device_update})
-                # pprint(vars(device[1]))
+        for name,device in cloud.devices.items():
+            device_update = device.updated
+            if not name in lastupdate:
+                lastupdate.update({name: ""})
+            if device_update != lastupdate[name]:
+                lastupdate.update({name: device_update})
+                pprint(vars(device))
         # try:
         #     print("Updating Worx")
         #     # Read latest states received from the device

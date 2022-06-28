@@ -22,13 +22,12 @@ from .events import EventHandler, LandroidEvent
 from .exceptions import (
     AuthorizationError,
     MQTTException,
-    OfflineError,
 )
 from .helpers import convert_to_time, get_logger
 from .utils import (
     MQTT,
     Battery,
-    Command,
+    Blades,
     DeviceHandler,
     DeviceCapability,
     Location,
@@ -240,12 +239,6 @@ class WorxCloud(dict):
 
         self._fetch()
 
-        # Get blades statistics
-        # self.blades = Blades(data=self)
-
-        # Get battery information
-        # self.battery = Battery(cycle_info=self)
-
         # setup MQTT handler
         self.mqtt = MQTT(
             self.devices,
@@ -291,7 +284,7 @@ class WorxCloud(dict):
         # self.mqttdata["registered"] = self.mqtt_registered
 
         # Convert time strings to objects.
-        for index, (name, device) in enumerate(self.devices.items()):
+        for name, device in self.devices.items():
             convert_to_time(
                 name, device, device.time_zone, callback=self.update_attribute
             )
@@ -366,6 +359,8 @@ class WorxCloud(dict):
 
     def _decode_data(self, device: DeviceHandler) -> None:
         """Decode incoming JSON data."""
+        device.is_decoded=False
+
         logger = self._log.getChild("decode_data")
         logger.debug("Data decoding for %s started", device.name)
 
@@ -376,6 +371,7 @@ class WorxCloud(dict):
             logger.debug("Found raw data: %s", device.raw_data)
             data = json.loads(device._mqtt_data)
         else:
+            device.is_decoded=True
             logger.debug("No valid data was found, skipping update for %s", device.name)
             return
 
@@ -609,9 +605,7 @@ class WorxCloud(dict):
                     )
 
             if self.mqtt.connected:
-                logger.debug(
-                    "MQTT connection for %s was lost! (%s)", self.name, error_string(rc)
-                )
+                logger.debug("MQTT connection was lost! (%s)", error_string(rc))
 
             logger.debug("Setting MQTT connected flag FALSE")
             self.mqtt.connected = False
@@ -671,11 +665,11 @@ class WorxCloud(dict):
         for name, device in self.devices.items():
             status = self._api.get_status(device.serial_number)
             status = str(status).replace("'", '"')
-            device.raw_data = status
 
             while not device.is_decoded:
                 pass  # Await previous dataset to be handled before sending a new into the handler.
 
+            device.raw_data = status
             self._decode_data(device)
 
 

@@ -1,14 +1,23 @@
 """Device capabilities."""
 from __future__ import annotations
+from enum import IntEnum
 
 
-class DeviceCapability:
+class DeviceCapability(IntEnum):
     """Available device capabilities."""
 
     EDGE_CUT = 1
     ONE_TIME_SCHEDULE = 2
     PARTY_MODE = 4
     TORQUE = 8
+
+
+CAPABILITY_TO_TEXT = {
+    DeviceCapability.EDGE_CUT: "Edge Cut",
+    DeviceCapability.ONE_TIME_SCHEDULE: "One-Time-Schedule",
+    DeviceCapability.PARTY_MODE: "Party Mode",
+    DeviceCapability.TORQUE: "Motor Torque",
+}
 
 
 class Capability(int):

@@ -15,7 +15,6 @@ from .firmware import Firmware
 from .landroid_class import LDict
 from .lawn import Lawn
 from .location import Location
-from .mqtt import MQTTTopics
 from .orientation import Orientation
 from .product import InfoType, ProductInfo
 from .rainsensor import Rainsensor
@@ -102,3 +101,5 @@ class DeviceHandler(LDict, Actions):
         for attr in UNWANTED_ATTRIBS:
             if hasattr(self, attr):
                 delattr(self, attr)
+
+        self.is_decoded=True
