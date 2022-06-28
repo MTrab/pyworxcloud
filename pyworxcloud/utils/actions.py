@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 
 
-from ..exceptions import NoOneTimeScheduleError, NoPartymodeError, OfflineError
+from ..exceptions import (
+    NoOneTimeScheduleError,
+    NoPartymodeError,
+    OfflineError,
+    RateLimit,
+)
 from ..helpers import get_logger
 from .capability import DeviceCapability
 from .mqtt import Command
@@ -233,7 +238,17 @@ class Actions:
             OfflineError: Raised if the device isn't online.
         """
         if self.online:
-            self._log.debug("Sending %s to %s", data, self.name)
+            logger = _LOGGER.getChild("raw_data_publish")
+            logger.debug("Sending %s to %s", data, self.name)
             self.mqtt.send(self.name, data)
+        else:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+    def refresh(self) -> None:
+        """Try to force a refresh of data from the API."""
+        if self.online:
+            logger = _LOGGER.getChild("forced_refresh")
+            logger.debug("Forcing a data refresh from the API for %s", self.name)
+            self.mqtt.send(self.name)
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
