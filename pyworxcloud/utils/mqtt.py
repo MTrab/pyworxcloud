@@ -164,7 +164,6 @@ class MQTT(mqtt.Client, LDict):
             )
         except RateLimitException as exc:
             msg = f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {exc.period_remaining} before trying again"
-            _LOGGER.error(msg)
             raise RateLimit(
                 message=msg,
                 limit=PUBLISH_CALLS_LIMIT,
