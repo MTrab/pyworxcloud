@@ -94,5 +94,5 @@ def convert_to_time(
             continue
 
         if len(hits) == 1:
-            newtime = string_to_time(hits[0])
+            newtime = string_to_time(hits[0], tz)
             callback(device, parent, key, newtime)

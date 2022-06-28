@@ -34,27 +34,13 @@ def worx_test():
     cloud.update()
     # cloud.start()
     while 1:
-        for name,device in cloud.devices.items():
+        for name, device in cloud.devices.items():
             device_update = device.updated
             if not name in lastupdate:
                 lastupdate.update({name: ""})
             if device_update != lastupdate[name]:
                 lastupdate.update({name: device_update})
                 pprint(vars(device))
-        # try:
-        #     print("Updating Worx")
-        #     # Read latest states received from the device
-        #     cloud.update()
-
-        #     # Print all vars and attributes of the cloud object
-        #     pprint(vars(cloud))
-        # except TimeoutError:
-        #     print(" - Timed out waiting for response")
-        # except:
-        #     print(" - Ooops - something went wrong!")
-
-        # print("Sleeping 300 seconds")
-        # time.sleep(300)
 
 
 asyncio.run(main())
