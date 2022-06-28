@@ -14,15 +14,14 @@ class Warranty(LDict):
 
     def __init__(self, data: Any) -> None:
         from ..helpers.time_format import string_to_time
+
         super().__init__()
 
         self["expires_at"] = string_to_time(
-            data["warranty_expires_at"]
+            data["warranty_expires_at"], data["time_zone"]
         )
         self["registered"] = data["warranty_registered"]
         self["expired"] = bool(
             self["expires_at"]
-            < datetime.now().astimezone(pytz.UTC)
+            < datetime.now().astimezone(pytz.timezone(data["time_zone"]))
         )
-
-
