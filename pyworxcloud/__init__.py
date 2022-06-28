@@ -19,17 +19,14 @@ from .clouds import CloudType
 from .const import UNWANTED_ATTRIBS
 from .day_map import DAY_MAP
 from .events import EventHandler, LandroidEvent
-from .exceptions import (
-    AuthorizationError,
-    MQTTException,
-)
+from .exceptions import AuthorizationError, MQTTException
 from .helpers import convert_to_time, get_logger
 from .utils import (
     MQTT,
     Battery,
     Blades,
-    DeviceHandler,
     DeviceCapability,
+    DeviceHandler,
     Location,
     Orientation,
     ScheduleType,

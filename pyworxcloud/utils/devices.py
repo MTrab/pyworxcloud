@@ -1,12 +1,10 @@
 """Class for handling device info and states."""
 from __future__ import annotations
-import json
 
+import json
 from typing import Any
 
-
 from ..const import UNWANTED_ATTRIBS
-
 from .actions import Actions
 from .battery import Battery
 from .blades import Blades
@@ -18,7 +16,7 @@ from .orientation import Orientation
 from .product import InfoType, ProductInfo
 from .rainsensor import Rainsensor
 from .schedules import Schedule
-from .state import StateType, States
+from .state import States, StateType
 from .warranty import Warranty
 from .zone import Zone
 

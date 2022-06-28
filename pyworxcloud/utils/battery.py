@@ -94,7 +94,9 @@ class Battery(LDict):
             self["cycles"].update(
                 {
                     "reset_at": int(indata.battery_charge_cycles_reset),
-                    "reset_time": string_to_time(indata.battery_charge_cycles_reset_at,indata.time_zone)
+                    "reset_time": string_to_time(
+                        indata.battery_charge_cycles_reset_at, indata.time_zone
+                    )
                     if not isinstance(indata.battery_charge_cycles_reset_at, type(None))
                     else None,
                 }
