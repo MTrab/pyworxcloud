@@ -40,13 +40,13 @@ if __name__ == "__main__":
     # cloud.home()
     # Print all vars and attributes of the cloud object
     for index, (name, device) in enumerate(cloud.devices.items()):
-        device.start()
+        # device.start()
         # device.raindelay(30)
         # time.sleep(5)
         # device.mqtt.send(name)
         # time.sleep(5)
         # cloud.update()
-        # pprint(vars(device))
+        pprint(vars(device))
     # print(cloud.mqttdata)
 
     # cloud.disconnect()
