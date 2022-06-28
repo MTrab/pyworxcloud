@@ -1,9 +1,9 @@
 """Device capabilities."""
 from __future__ import annotations
-from enum import Enum
+from enum import IntEnum
 
 
-class DeviceCapability(Enum):
+class DeviceCapability(IntEnum):
     """Available device capabilities."""
 
     EDGE_CUT = 1
@@ -30,12 +30,12 @@ class Capability(int):
 
     def add(self, capability: DeviceCapability) -> None:
         """Add capability to the list."""
-        if int(capability) & self.__int__ == 0:
-            self.__int__ = self.__int__ | int(capability)
+        if capability & self.__int__ == 0:
+            self.__int__ = self.__int__ | capability
 
     def check(self, capability: DeviceCapability) -> bool:
         """Check if device has capability."""
-        if int(capability) & self.__int__ == 0:
+        if capability & self.__int__ == 0:
             return False
         else:
             return True
