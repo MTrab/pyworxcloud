@@ -30,12 +30,12 @@ class Capability(int):
 
     def add(self, capability: DeviceCapability) -> None:
         """Add capability to the list."""
-        if capability & self.__int__ == 0:
-            self.__int__ = self.__int__ | capability
+        if int(capability) & self.__int__ == 0:
+            self.__int__ = self.__int__ | int(capability)
 
     def check(self, capability: DeviceCapability) -> bool:
         """Check if device has capability."""
-        if capability & self.__int__ == 0:
+        if int(capability) & self.__int__ == 0:
             return False
         else:
             return True
