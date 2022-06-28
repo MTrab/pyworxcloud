@@ -1,3 +1,4 @@
+import time
 from os import environ
 from pprint import pprint
 
@@ -25,11 +26,11 @@ if __name__ == "__main__":
 
     # Connect to device with index 0 (devices are enumerated 0, 1, 2 ...) and do
     # not verify SSL (False)
-    cloud.connect(0, False, True)
+    cloud.connect(verify_ssl=False, pahologger=True)
 
     # Wait for MQTT connection
-    # while not cloud.mqtt.connected:
-    #     pass
+    while not cloud.mqtt.connected:
+        pass
 
     # Read latest states received from the device
     cloud.update()
@@ -38,7 +39,16 @@ if __name__ == "__main__":
     # cloud.mqtt.send()
     # cloud.home()
     # Print all vars and attributes of the cloud object
-    pprint(vars(cloud))
+    for index, (name, device) in enumerate(cloud.devices.items()):
+        # device.start()
+        # device.raindelay(30)
+        # time.sleep(5)
+        # device.mqtt.send(name)
+        for _ in range(6):
+            device.refresh()
+            time.sleep(5)
+        # cloud.update()
+        # pprint(vars(device))
     # print(cloud.mqttdata)
 
     # cloud.disconnect()

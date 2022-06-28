@@ -1,15 +1,24 @@
 """MQTT information class."""
-import time
-from typing import Mapping
+from __future__ import annotations
+import re
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
 
-from ..exceptions import MQTTException
+from ratelimit import limits, RateLimitException
+
+from ..exceptions import MQTTException, RateLimit
 from ..helpers import get_logger
 from .landroid_class import LDict
 
+
 _LOGGER = get_logger("mqtt")
+
+MQTT_IN = "{}/{}/commandIn"
+MQTT_OUT = "{}/{}/commandOut"
+
+PUBLISH_LIMIT_PERIOD = 60  # s
+PUBLISH_CALLS_LIMIT = 5  # polls per timeframe
 
 
 class MQTTMsgType(LDict):
@@ -35,11 +44,11 @@ class MQTTMessages(LDict):
 class MQTTTopics(LDict):
     """Topics class."""
 
-    def __init__(self):
+    def __init__(self, topic_in: str | None = None, topic_out: str | None = None):
         super().__init__()
 
-        self["in"] = None
-        self["out"] = None
+        self["in"] = topic_in
+        self["out"] = topic_out
 
 
 class Command:
@@ -56,59 +65,24 @@ class Command:
     SAFEHOME = 9
 
 
-class MQTTData(LDict):
-    """Class for handling MQTT information."""
-
-    __topics: MQTTTopics = MQTTTopics()
-    __logger_enabled: bool = False
-
-    def __init__(self):
-        """Init MQTT info class."""
-        super().__init__()
-        self["messages"] = MQTTMessages()
-        self["endpoint"] = None
-        self["registered"] = None
-        self["connected"] = False
-
-    @property
-    def logger(self) -> bool:
-        """Return if logger is enabled or not."""
-        return self.__logger_enabled
-
-    @logger.setter
-    def logger(self, value: bool) -> None:
-        """Set logger state."""
-        self.__logger_enabled = value
-
-    @property
-    def topics(self) -> dict:
-        """Return topics dict."""
-        return self.__topics
-
-    @topics.setter
-    def topics(self, value: dict) -> None:
-        """Set topics values."""
-        for k, v in value.items() if isinstance(value, Mapping) else value:
-            self.__topics.update({k: v})
-
-
 class MQTT(mqtt.Client, LDict):
     """Full MQTT handler class."""
 
     def __init__(
         self,
-        master=None,
+        devices=None,
+        client_id: str = None,
         clean_session=None,
         userdata=None,
         protocol=mqtt.MQTTv311,
         transport="tcp",
         reconnect_on_failure=True,
     ):
-        if isinstance(master, type(None)):
+        if isinstance(devices, type(None)):
             return
 
         super().__init__(
-            master._worx_mqtt_client_id,
+            client_id,
             clean_session,
             userdata,
             protocol,
@@ -116,57 +90,95 @@ class MQTT(mqtt.Client, LDict):
             reconnect_on_failure,
         )
 
-        self.topics = master.mqttdata.topics
-        self.name = master.name
-        self.master = master
+        self.devices = devices
 
-        master.mqttdata["connected"] = False
+        self.endpoint = None
+        self.connected = False
 
-    @property
-    def connected(self) -> bool:
-        """Return connection state."""
-        return self.master.mqttdata["connected"]
+        self.topics = {}
+        for name, device in devices.items():
+            topic_in = MQTT_IN.format(device.mainboard.code, device.mac_address)
+            topic_out = MQTT_OUT.format(device.mainboard.code, device.mac_address)
+            self.topics.update({name: MQTTTopics(topic_in, topic_out)})
 
-    @connected.setter
-    def connected(self, state: bool) -> None:
-        """Set connected flag."""
-        self.master.mqttdata["connected"] = state
+    @limits(calls=PUBLISH_CALLS_LIMIT, period=PUBLISH_LIMIT_PERIOD)
+    def __send(
+        self,
+        topic: str,
+        data: str = "{}",
+        qos: int = 0,
+        retain: bool = False,
+    ) -> MQTTMessageInfo:
+        """Do the actual publish."""
+        return self.publish(topic, data, qos, retain)
 
     def send(
         self,
+        device: str,
         data: str = "{}",
         qos: int = 0,
         retain: bool = False,
         force: bool = False,
     ) -> MQTTMessageInfo:
         """Send Landroid cloud message to API endpoint."""
-        topic = self.topics["in"]
-        _LOGGER.debug("Sending %s to %s on %s", data, self.name, topic)
+        from .devices import DeviceHandler
+
+        recipient: DeviceHandler = self.devices[device]
+        topic = self.topics[device]["in"]
+
+        if not re.match("^\{[A-ZÆØÅa-zæøå0-9:'\"{} \n]*\}$", data):
+            data = "{" + data + "}"
+
+        _LOGGER.debug("Sending %s to %s on %s", data, recipient.name, topic)
         if not self.connected and not force:
             _LOGGER.error(
-                "MQTT server was not connected, can't send message to %s", self.name
+                "MQTT server was not connected, can't send message to %s",
+                recipient.name,
             )
             raise MQTTException("MQTT not connected")
 
         try:
-            status = self.publish(topic, data, qos, retain)
-            _LOGGER.debug("Awaiting message to be published to %s", self.name)
+            status = self.__send(topic, data, qos, retain)
+            _LOGGER.debug(
+                "Awaiting message to be published to %s on %s", recipient.name, topic
+            )
             while not status.is_published:
-                time.sleep(0.1)
+                pass  # Await status to change to is_published
+                # time.sleep(0.1)
+            _LOGGER.debug(
+                "MQTT message was published to %s on %s", recipient.name, topic
+            )
             return status
         except ValueError as exc:
             _LOGGER.error(
-                "MQTT queue for %s was full, message %s was not sent!", self.name, data
+                "MQTT queue for %s was full, message %s was not sent!",
+                recipient.name,
+                data,
             )
         except RuntimeError as exc:
             _LOGGER.error(
-                "MQTT error while sending message %s to %s.\n%s", data, self.name, exc
+                "MQTT error while sending message %s to %s.\n%s",
+                data,
+                recipient.name,
+                exc,
             )
+        except RateLimitException as exc:
+            msg = f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {exc.period_remaining} before trying again"
+            raise RateLimit(
+                message=msg,
+                limit=PUBLISH_CALLS_LIMIT,
+                period=PUBLISH_LIMIT_PERIOD,
+                remaining=exc.period_remaining,
+            ) from exc
         except Exception as exc:
-            _LOGGER.error("MQTT error %s to %s.\n%s", data, self.name, exc)
+            _LOGGER.error(
+                "MQTT error sending '%s' to '%s'",
+                data,
+                recipient.name,
+            )
 
-    def command(self, action: Command) -> MQTTMessageInfo:
+    def command(self, device: str, action: Command) -> MQTTMessageInfo:
         """Send command to device."""
         cmd = '"cmd":{}'.format(action)
         cmd = "{" + cmd + "}"
-        return self.send(cmd)
+        return self.send(device, cmd)
