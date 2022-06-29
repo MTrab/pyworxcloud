@@ -7,7 +7,7 @@ from .landroid_class import LDict
 class Location(LDict):
     """GPS location."""
 
-    def __init__(self, latitude: float | None = None, longitude: float | None = None):
+    def __init__(self, latitude: float = None, longitude: float = None):
         """Initialize location object."""
         super().__init__()
 

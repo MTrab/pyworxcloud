@@ -170,7 +170,7 @@ class LandroidCloudAPI:
         self._data = calldata
         return calldata
 
-    def get_product_info(self, product_id: int) -> dict[str, Any] | None:
+    def get_product_info(self, product_id: int) -> dict[str, Any]:
         """Get product info and features for a given device model.
 
         Args:
@@ -185,7 +185,7 @@ class LandroidCloudAPI:
         except:
             return None
 
-    def get_board(self, board_id: int) -> list | None:
+    def get_board(self, board_id: int) -> list:
         """Get board info and features for a given baseboard.
 
         Args:

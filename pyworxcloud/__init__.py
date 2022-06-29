@@ -175,9 +175,7 @@ class WorxCloud(dict):
 
         return True
 
-    def update_attribute(
-        self, device: str, attr: str | None, key: str, value: Any
-    ) -> None:
+    def update_attribute(self, device: str, attr: str, key: str, value: Any) -> None:
         """Used as callback to update value."""
         chattr = self.devices[device]
         if not isinstance(attr, type(None)):
