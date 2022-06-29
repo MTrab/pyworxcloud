@@ -20,7 +20,6 @@ DATE_FORMATS = [
 ]
 
 
-@staticmethod
 def string_to_time(dt_string: str, tz: str = "UTC") -> datetime:
     """Convert string to datetime object.
     Trying all known date/time formats as defined in DATE_FORMATS constant.
@@ -43,15 +42,14 @@ def string_to_time(dt_string: str, tz: str = "UTC") -> datetime:
     return dt_object
 
 
-@staticmethod
 def convert_to_time(
     device: str,
     data: Any,
     tz: str = "UTC",
-    expression: str | None = None,
-    parent: str | None = None,
-    subkey: str | None = None,
-    callback: Any | None = None,
+    expression: str = None,
+    parent: str = None,
+    subkey: str = None,
+    callback: Any = None,
 ) -> None:
     """Find and convert all strings resembling timestamps."""
     expression = (

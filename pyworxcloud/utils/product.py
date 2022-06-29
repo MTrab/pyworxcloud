@@ -32,8 +32,8 @@ class ProductInfo(LDict):
     def __init__(
         self,
         info_type: InfoType,
-        api: Any | None = None,
-        product_id: int | None = None,
+        api: Any = None,
+        product_id: int = None,
     ):
         """Initialize mower infor object."""
         super().__init__()

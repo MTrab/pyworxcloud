@@ -28,10 +28,10 @@ class DeviceHandler(LDict, Actions):
     """DeviceHandler for Landroid Cloud devices."""
 
     __is_decoded: bool = True
-    __raw_data: str | None = None
-    __json_data: str | None = None
+    __raw_data: str = None
+    __json_data: str = None
 
-    def __init__(self, api: Any | None = None, product: Any | None = None) -> dict:
+    def __init__(self, api: Any = None, product: Any = None) -> dict:
         """Initialize the object."""
         super().__init__()
 

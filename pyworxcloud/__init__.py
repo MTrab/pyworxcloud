@@ -38,8 +38,8 @@ from .utils import (
 )
 from .utils.schedules import TYPE_TO_STRING
 
-if sys.version_info < (3, 10, 0):
-    sys.exit("The pyWorxcloud module requires Python 3.10.0 or later")
+if sys.version_info < (3, 9, 0):
+    sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
 
 
 class WorxCloud(dict):
@@ -185,9 +185,7 @@ class WorxCloud(dict):
 
         return True
 
-    def update_attribute(
-        self, device: str, attr: str | None, key: str, value: Any
-    ) -> None:
+    def update_attribute(self, device: str, attr: str, key: str, value: Any) -> None:
         """Used as callback to update value."""
         chattr = self.devices[device]
         if not isinstance(attr, type(None)):
@@ -221,7 +219,7 @@ class WorxCloud(dict):
 
     def connect(
         self,
-        device: str | None = None,
+        device: str = None,
         verify_ssl: bool = True,
         pahologger: bool = False,
     ) -> bool:

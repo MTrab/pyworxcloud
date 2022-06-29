@@ -42,7 +42,7 @@ class MQTTMessages(LDict):
 class MQTTTopics(LDict):
     """Topics class."""
 
-    def __init__(self, topic_in: str | None = None, topic_out: str | None = None):
+    def __init__(self, topic_in: str = None, topic_out: str = None):
         super().__init__()
 
         self["in"] = topic_in
