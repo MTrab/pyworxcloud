@@ -20,7 +20,7 @@ DATE_FORMATS = [
 ]
 
 
-def string_to_time(dt_string: str, tz: str = "UTC") -> datetime:
+def string_to_time(dt_string: str, tz: str = "UTC") -> datetime | str:
     """Convert string to datetime object.
     Trying all known date/time formats as defined in DATE_FORMATS constant.
 
@@ -34,12 +34,13 @@ def string_to_time(dt_string: str, tz: str = "UTC") -> datetime:
     timezone = pytz.timezone(tz)
     for format in DATE_FORMATS:
         try:
-            dt_object = timezone.localize(
-                datetime.strptime(dt_string, format)
-            )  # .astimezone(timezone)
+            dt_object = timezone.localize(datetime.strptime(dt_string, format))
             break
         except ValueError:
             pass
+        except TypeError:
+            # Something wasn't right with the provided string, just return it as it was
+            dt_object = dt_string
 
     return dt_object
 
