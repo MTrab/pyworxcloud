@@ -213,7 +213,9 @@ class LandroidCloudAPI:
         calldata = self._call(callstr)
         return calldata
 
-    def _call(self, path: str, payload: str|None = None, checktoken: bool = True) -> str:
+    def _call(
+        self, path: str, payload: str | None = None, checktoken: bool = True
+    ) -> str:
         """Do the actual call to the device."""
         # Check if token needs refreshing
         now = int(time.time())  # Current time in unix timestamp format

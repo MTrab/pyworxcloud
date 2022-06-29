@@ -3,11 +3,7 @@ from __future__ import annotations
 
 import json
 
-from ..exceptions import (
-    NoOneTimeScheduleError,
-    NoPartymodeError,
-    OfflineError,
-)
+from ..exceptions import NoOneTimeScheduleError, NoPartymodeError, OfflineError
 from ..helpers import get_logger
 from .capability import DeviceCapability
 from .mqtt import Command

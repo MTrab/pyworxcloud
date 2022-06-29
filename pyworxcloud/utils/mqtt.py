@@ -6,8 +6,7 @@ from typing import Any
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
-
-from ratelimit import limits, RateLimitException
+from ratelimit import RateLimitException, limits
 
 from ..exceptions import MQTTException, RateLimit
 from ..helpers import get_logger

@@ -7,7 +7,7 @@ from .landroid_class import LDict
 class Statistic(LDict):
     """Statistics."""
 
-    def __init__(self, data: list|None = None) ->dict:
+    def __init__(self, data: list | None = None) -> dict:
         """Initialize a statistics class."""
         super().__init__()
 

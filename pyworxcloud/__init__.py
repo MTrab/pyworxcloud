@@ -17,16 +17,13 @@ from .api import LandroidCloudAPI
 from .clouds import CloudType
 from .day_map import DAY_MAP
 from .events import EventHandler, LandroidEvent
-from .exceptions import (
-    AuthorizationError,
-    MQTTException,
-)
+from .exceptions import AuthorizationError, MQTTException
 from .helpers import convert_to_time, get_logger
 from .utils import (
     MQTT,
     Battery,
-    DeviceHandler,
     DeviceCapability,
+    DeviceHandler,
     Location,
     Orientation,
     ScheduleType,
