@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, Iterator
+from typing import Any
 
 from .landroid_class import LDict
 
@@ -54,7 +54,6 @@ class ProductInfo(LDict):
             api_prod = api.get_board(product_id)
 
         for attr, val in api_prod.items():
-            # self[str(attr)] = val
             setattr(self, str(attr), val)
 
     # def __iter__(self) -> Iterator[dict[str, Any]]:

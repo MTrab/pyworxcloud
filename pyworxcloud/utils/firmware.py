@@ -14,5 +14,3 @@ class Firmware(LDict):
 
         self["auto_upgrade"] = data["firmware_auto_upgrade"]
         self["version"] = data["firmware_version"]
-
-

@@ -13,7 +13,6 @@ from ..exceptions import MQTTException, RateLimit
 from ..helpers import get_logger
 from .landroid_class import LDict
 
-
 _LOGGER = get_logger("mqtt")
 
 MQTT_IN = "{}/{}/commandIn"

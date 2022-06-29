@@ -6,7 +6,6 @@ from typing import Any
 
 import pytz
 
-
 from .landroid_class import LDict
 
 

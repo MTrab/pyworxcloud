@@ -18,7 +18,7 @@ from .orientation import Orientation
 from .product import InfoType, ProductInfo
 from .rainsensor import Rainsensor
 from .schedules import Schedule
-from .state import StateType, States
+from .state import States, StateType
 from .warranty import Warranty
 from .zone import Zone
 
@@ -27,8 +27,8 @@ class DeviceHandler(LDict, Actions):
     """DeviceHandler for Landroid Cloud devices."""
 
     __is_decoded: bool = True
-    __raw_data: str|None = None
-    __json_data: str|None = None
+    __raw_data: str | None = None
+    __json_data: str | None = None
 
     def __init__(self, api: Any | None = None, product: Any | None = None) -> dict:
         """Initialize the object."""

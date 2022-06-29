@@ -66,11 +66,11 @@ class StateType(IntEnum):
 class States(LDict):
     """States class handler."""
 
-    def update(self, new_id:int)->None:
+    def update(self, new_id: int) -> None:
         self["id"] = new_id
         self["description"] = self.__descriptor[self["id"]]
 
-    def __init__(self, statetype: StateType = StateType.STATUS)->dict:
+    def __init__(self, statetype: StateType = StateType.STATUS) -> dict:
         super().__init__()
 
         self.__descriptor = STATE_TO_DESCRIPTION

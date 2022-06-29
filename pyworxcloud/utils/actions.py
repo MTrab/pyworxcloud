@@ -92,7 +92,7 @@ class Actions:
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    def raindelay(self, rain_delay: str) -> None:
+    def raindelay(self, rain_delay: str | int) -> None:
         """Set new rain delay.
 
         Args:
@@ -150,7 +150,7 @@ class Actions:
         elif not self.online:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    def ots(self, boundary: bool, runtime: str) -> None:
+    def ots(self, boundary: bool, runtime: str | int) -> None:
         """Start a One-Time-Schedule task
 
         Args:
@@ -174,7 +174,7 @@ class Actions:
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    def setzone(self, zone: str) -> None:
+    def setzone(self, zone: str | int) -> None:
         """Set zone to be mowed when next mowing task is started.
 
         Args:

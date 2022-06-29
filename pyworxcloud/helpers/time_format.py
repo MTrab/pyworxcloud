@@ -68,7 +68,7 @@ def convert_to_time(
         else:
             parent += f";;{subkey}"
 
-    for key,value in data.items():
+    for key in data:
         if key.startswith("_") or key == "devices":
             continue
 
@@ -76,7 +76,7 @@ def convert_to_time(
             continue
 
         hits = []
-        # value = data[key]
+        value = data[key]
 
         if isinstance(value, tuple(all_utils)) or isinstance(value, dict):
             convert_to_time(

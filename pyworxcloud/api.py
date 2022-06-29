@@ -170,7 +170,7 @@ class LandroidCloudAPI:
         self._data = calldata
         return calldata
 
-    def get_product_info(self, product_id: int) -> dict[str, Any]:
+    def get_product_info(self, product_id: int) -> dict[str, Any] | None:
         """Get product info and features for a given device model.
 
         Args:
@@ -185,7 +185,7 @@ class LandroidCloudAPI:
         except:
             return None
 
-    def get_board(self, board_id: int) -> list:
+    def get_board(self, board_id: int) -> list | None:
         """Get board info and features for a given baseboard.
 
         Args:
@@ -213,9 +213,7 @@ class LandroidCloudAPI:
         calldata = self._call(callstr)
         return calldata
 
-    def _call(
-        self, path: str, payload: str | None = None, checktoken: bool = True
-    ) -> str:
+    def _call(self, path: str, payload: str|None = None, checktoken: bool = True) -> str:
         """Do the actual call to the device."""
         # Check if token needs refreshing
         now = int(time.time())  # Current time in unix timestamp format
