@@ -22,13 +22,21 @@ class Blades(LDict):
 
         if "blade_work_time" in data:
             # Total time with blades on in minutes
-            self["total_on"] = int(data["blade_work_time"])
+            self["total_on"] = (
+                int(data["blade_work_time"])
+                if not isinstance(data["blade_work_time_reset"], type(None))
+                else None
+            )
         else:
             self["total_on"] = None
 
         if "blade_work_time_reset" in data:
             # Blade time reset at minutes
-            self["reset_at"] = int(data["blade_work_time_reset"])
+            self["reset_at"] = (
+                int(data["blade_work_time_reset"])
+                if not isinstance(data["blade_work_time_reset"], type(None))
+                else None
+            )
         else:
             self["reset_at"] = None
 
