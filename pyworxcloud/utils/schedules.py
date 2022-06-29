@@ -53,7 +53,7 @@ class Schedule(LDict):
         variation: int = 0,
         active: bool = True,
         auto_schedule_settings: dict = {},
-        auto_schedule_enabled: bool | None = None,
+        auto_schedule_enabled: bool = None,
     ) -> None:
         """Initialize an empty primary or secondary schedule.
 
