@@ -13,5 +13,11 @@ class Firmware(LDict):
     def __init__(self, data: Any) -> None:
         super().__init__()
 
-        self["auto_upgrade"] = data["firmware_auto_upgrade"] if "firmware_auto_upgrade" in data else CONST_UNKNOWN
-        self["version"] = data["firmware_version"] if "firmware_version" in data else CONST_UNKNOWN
+        self["auto_upgrade"] = (
+            data["firmware_auto_upgrade"]
+            if "firmware_auto_upgrade" in data
+            else CONST_UNKNOWN
+        )
+        self["version"] = (
+            data["firmware_version"] if "firmware_version" in data else CONST_UNKNOWN
+        )

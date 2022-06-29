@@ -6,7 +6,6 @@ from typing import Any
 
 from ..const import UNWANTED_ATTRIBS
 from ..exceptions import APIException
-
 from .actions import Actions
 from .battery import Battery
 from .blades import Blades
@@ -70,8 +69,10 @@ class DeviceHandler(LDict, Actions):
     def __mapinfo(self, api: Any, data: Any) -> None:
         """Map information from API."""
 
-        if isinstance(data,type(None)) or isinstance(api,type(None)):
-            raise APIException("Either 'data' or 'api' object was missing, no data was mapped!")
+        if isinstance(data, type(None)) or isinstance(api, type(None)):
+            raise APIException(
+                "Either 'data' or 'api' object was missing, no data was mapped!"
+            )
 
         for attr, val in data.items():
             setattr(self, str(attr), val)
