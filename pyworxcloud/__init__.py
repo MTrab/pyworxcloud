@@ -4,31 +4,42 @@ from __future__ import annotations
 import base64
 import contextlib
 import json
-import logging
+import sys
 import tempfile
-import time
 from datetime import datetime, timedelta
-from multiprocessing import AuthenticationError
+from typing import Any
 
 import OpenSSL.crypto
 import paho.mqtt.client as mqtt
+from paho.mqtt.client import connack_string, error_string
 
-from pyworxcloud.clouds import CloudType
-
+from .api import LandroidCloudAPI
+from .clouds import CloudType
 from .day_map import DAY_MAP
+from .events import EventHandler, LandroidEvent
 from .exceptions import (
     AuthorizationError,
-    NoOneTimeScheduleError,
-    NoPartymodeError,
-    OfflineError,
+    MQTTException,
 )
-from .landroidapi import LandroidAPI
-from .schedules import TYPE_MAP, Schedule, ScheduleType
+from .helpers import convert_to_time, get_logger
+from .utils import (
+    MQTT,
+    Battery,
+    DeviceHandler,
+    DeviceCapability,
+    Location,
+    Orientation,
+    ScheduleType,
+    Statistic,
+    Weekdays,
+)
+from .utils.schedules import TYPE_TO_STRING
 
-_LOGGER = logging.getLogger(__name__)
+if sys.version_info < (3, 9, 0):
+    sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
 
 
-class WorxCloud(object):
+class WorxCloud(dict):
     """
     Worx by Landroid Cloud connector.
 
@@ -38,7 +49,7 @@ class WorxCloud(object):
     There are no public available API documentation available.
     """
 
-    wait = True
+    __device: str | None = None
 
     def __init__(
         self,
@@ -49,12 +60,62 @@ class WorxCloud(object):
         | CloudType.LANDXCAPE
         | CloudType.FERREX
         | str = CloudType.WORX,
-        index: int = 0,
         verify_ssl: bool = True,
     ) -> None:
-        """Initialize WorxCloud object and set default attribute values."""
+        """
+        Initialize :class:WorxCloud class and set default attribute values.
+
+        1. option for connecting and printing the current states from the API, using :code:`with`
+
+        .. testcode::
+        from pyworxcloud import WorxCloud
+        from pprint import pprint
+
+        with WorxCloud("your@email","password","worx", 0, False) as cloud:
+            pprint(vars(cloud))
+
+        2. option for connecting and printing the current states from the API, using :code:`connect` and :code:`disconnect`
+
+        .. testcode::
+        from pyworxcloud import WorxCloud
+        from pprint import pprint
+
+        cloud = WorxCloud("your@email", "password", "worx")
+
+        # Initialize connection
+        auth = cloud.authenticate()
+
+        if not auth:
+            # If invalid credentials are used, or something happend during
+            # authorize, then exit
+            exit(0)
+
+        # Connect to device with index 0 (devices are enumerated 0, 1, 2 ...)
+        # and do not verify SSL (False)
+        cloud.connect(0, False)
+
+        # Read latest states received from the device
+        cloud.update()
+
+        # Print all vars and attributes of the cloud object
+        pprint(vars(cloud))
+
+        # Disconnect from the API
+        cloud.disconnect()
+
+        For further information, see the Wiki for documentation: https://github.com/MTrab/pyworxcloud/wiki
+
+        Args:
+            username (str): Email used for logging into the app for your device.
+            password (str): Password for your account.
+            cloud (CloudType.WORX | CloudType.KRESS | CloudType.LANDXCAPE | CloudType.FERREX | str, optional): The CloudType matching your device. Defaults to CloudType.WORX.
+            index (int, optional): Device number if more than one is connected to your account (starting from 0 representing the first added device). Defaults to 0.
+            verify_ssl (bool, optional): Should this module verify the API endpoint SSL certificate? Defaults to True.
+
+        Raise:
+            TypeError: Error raised if invalid CloudType was specified.
+        """
         self._worx_mqtt_client_id = None
-        self._worx_mqtt_endpoint = None
 
         if not isinstance(
             cloud,
@@ -72,140 +133,134 @@ class WorxCloud(object):
                     "Wrong type specified, valid types are: worx, landxcape, kress, ferrex"
                 )
 
-        self._api = LandroidAPI(username, password, cloud)
+        self._api = LandroidCloudAPI(username, password, cloud)
 
+        self._username = username
+        self._cloud = cloud
         self._auth_result = False
-        self._callback = None  # Callback used when data arrives from cloud
-        self._dev_id = index
-        self._mqtt = None
+        self._log = get_logger("pyworxcloud")
         self._raw = None
+
         self._save_zones = None
         self._verify_ssl = verify_ssl
+        self._events = EventHandler()
 
-        # Set default attribute values
-        ###############################
-        self.accessories = None
-        self.battery_charge_cycle = None
-        self.battery_charge_cycle_current = None
-        self.battery_charge_cycles_reset = None
-        self.battery_charging = None
-        self.battery_percent = 0
-        self.battery_temperature = 0
-        self.battery_voltage = 0
-        self.blade_time = 0
-        self.blade_time_current = 0
-        self.blade_work_time_reset = None
-        self.board = []
-        self.current_zone = 0
-        self.distance = 0
-        self.error = None
-        self.error_description = None
-        self.firmware = None
-        self.gps_latitude = None
-        self.gps_longitude = None
-        self.locked = False
-        self.mac = None
-        self.mac_address = None
-        self.model = "Unknown"
-        self.mowing_zone = 0
-        self.mqtt_in = None
-        self.mqtt_out = None
-        self.mqtt_topics = {}
-        self.online = False
-        self.ots_capable = False
-        self.partymode_capable = False
-        self.partymode_enabled = False
-        self.pitch = 0
-        self.product = []
-        self.rain_delay = None
-        self.rain_delay_time_remaining = None
-        self.rain_sensor_triggered = None
-        self.roll = 0
-        self.rssi = None
-        self.schedule_mower_active = False
-        self.schedule_variation = None
-        self.schedules = {}
-        self.serial_number = None
-        self.status = None
-        self.status_description = None
-        self.torque = None
-        self.torque_capable = False
-        self.updated = None
-        self.work_time = 0
-        self.yaw = 0
-        self.zone = []
-        self.zone_probability = []
+        # Dict of devices, identified by name
+        self.devices = {}
 
-    def __enter__(self):
+        self.mqtt = None
+
+    def __enter__(self) -> Any:
         """Default actions using with statement."""
-        if isinstance(self._dev_id, type(None)):
-            self._dev_id = 0
-
         self.authenticate()
 
-        self.connect(self._dev_id, self._verify_ssl)
+        self.connect(verify_ssl=self._verify_ssl)
         self.update()
 
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback) -> Any:
         """Called on end of with statement."""
         self.disconnect()
 
     def authenticate(self) -> bool:
         """Authenticate against the API."""
+        self._log.debug("Authenticating %s", self._username)
+
         auth = self._authenticate()
         if auth is False:
             self._auth_result = False
+            self._log.debug("Authentication for %s failed!", self._username)
             raise AuthorizationError("Unauthorized")
 
         self._auth_result = True
+        self._log.debug("Authentication for %s successful", self._username)
 
         return True
 
-    def set_callback(self, callback) -> None:
-        """Set callback function to call when data arrives from cloud."""
-        self._callback = callback
+    def update_attribute(self, device: str, attr: str, key: str, value: Any) -> None:
+        """Used as callback to update value."""
+        chattr = self.devices[device]
+        if not isinstance(attr, type(None)):
+            for level in attr.split(";;"):
+                if hasattr(chattr, level):
+                    chattr = getattr(chattr, level)
+                else:
+                    chattr = chattr[level]
+
+        if hasattr(chattr, key):
+            setattr(chattr, key, value)
+        elif isinstance(chattr, dict):
+            chattr.update({key: value})
+
+    def set_callback(self, event: LandroidEvent, func: Any) -> None:
+        """Set callback which is called when data is received.
+
+        Args:
+            event: LandroidEvent for this callback
+            func: Function to be called.
+        """
+        self._events.set_handler(event, func)
 
     def disconnect(self) -> None:
         """Close API connections."""
-        if hasattr(self._mqtt, "disconnect"):
-            self._mqtt.disconnect()
+        if self.mqtt.connected:
+            topic = self.mqtt.topics["out"]
+            self.mqtt.unsubscribe(topic)
+            self.mqtt.disconnect()
+            self.mqtt.loop_stop()
 
-    def connect(self, index: int | None = None, verify_ssl: bool = True) -> bool:
-        """Connect to cloud services."""
-        if not isinstance(index, type(None)):
-            if index != self._dev_id:
-                self._dev_id = index
+    def connect(
+        self,
+        verify_ssl: bool = True,
+        pahologger: bool = False,
+    ) -> bool:
+        """Connect to the cloud service endpoint
 
-        self._get_mac_address()
-        self.product = self._api.get_product_info(self.product_id)
-        self.model = f'{self.product["default_name"]}{self.product["meters"]}'
+        Args:
+            index (int | None, optional): Device number to connect to. Defaults to None.
+            verify_ssl (bool, optional): Should we verify SSL certificate. Defaults to True.
 
-        self._mqtt = mqtt.Client(self._worx_mqtt_client_id, protocol=mqtt.MQTTv311)
+        Returns:
+            bool: True if connection was successful, otherwise False.
+        """
+        self._fetch()
 
-        self._mqtt.on_message = self._forward_on_message
-        self._mqtt.on_connect = self._on_connect
+        # setup MQTT handler
+        self.mqtt = MQTT(
+            self.devices,
+            self._worx_mqtt_client_id,
+            protocol=mqtt.MQTTv311,
+        )
 
-        try:
-            with self._get_cert() as cert:
-                self._mqtt.tls_set(certfile=cert)
-        except ValueError:
-            pass
+        self.mqtt.endpoint = self._endpoint
+        self.mqtt.reconnect_delay_set(60, 300)
+
+        self.mqtt.on_message = self._forward_on_message
+        self.mqtt.on_connect = self._on_connect
+        self.mqtt.on_disconnect = self._on_disconnect
+
+        if pahologger:
+            mqttlog = self._log.getChild("PahoMQTT")
+            self.mqtt.on_log = self._on_log
+            self.mqtt.enable_logger(mqttlog)
+            self.mqtt.logger = True
+
+        with self._get_cert() as cert:
+            self.mqtt.tls_set(certfile=cert)
 
         if not verify_ssl:
-            self._mqtt.tls_insecure_set(True)
+            self.mqtt.tls_insecure_set(True)
 
-        conn_res = self._mqtt.connect(
-            self._worx_mqtt_endpoint, port=8883, keepalive=600
-        )
-        if conn_res:
-            return False
+        self.mqtt.connect(self.mqtt.endpoint, port=8883, keepalive=600)
 
-        self._mqtt.loop_start()
-        mqp = self._mqtt.publish(self.mqtt_in, "{}", qos=0, retain=False)
-        while not mqp.is_published:
-            time.sleep(0.1)
+        self.mqtt.loop_start()
+
+        # Convert time strings to objects.
+        for name, device in self.devices.items():
+            convert_to_time(
+                name, device, device.time_zone, callback=self.update_attribute
+            )
 
         return True
 
@@ -226,8 +281,7 @@ class WorxCloud(object):
             profile = self._api.data
             if profile is None:
                 return False
-            self._worx_mqtt_endpoint = profile["mqtt_endpoint"]
-
+            self._endpoint = profile["mqtt_endpoint"]
             self._worx_mqtt_client_id = "android-" + self._api.uuid
         except:  # pylint: disable=bare-except
             return False
@@ -241,163 +295,187 @@ class WorxCloud(object):
         with pfx_to_pem(certresp["pkcs12"]) as pem_cert:
             yield pem_cert
 
-    def _get_mac_address(self):
-        """Get device MAC address for identification."""
-        self._fetch()
-        self.mqtt_out = self.mqtt_topics["command_out"]
-        self.mqtt_in = self.mqtt_topics["command_in"]
-        self.mac = self.mac_address
-        self.board = self._api.get_board(self.mqtt_out.split("/")[0])
-
     def _forward_on_message(
-        self, client, userdata, message
-    ):  # pylint: disable=unused-argument
+        self,
+        client: mqtt.Client | None,
+        userdata: Any | None,
+        message: Any | None,
+        properties: Any | None = None,  # pylint: disable=unused-argument
+    ) -> None:
         """MQTT callback method definition."""
-        json_message = message.payload.decode("utf-8")
-        self._decode_data(json_message)
+        logger = self._log.getChild("mqtt.message_received")
+        topic = message.topic
+        for name, topics in self.mqtt.topics.items():
+            if topics["out"] == topic:
+                break
 
-        if self._callback is not None:
-            self._callback()
+        logger.debug(
+            "Received MQTT message for %s - processing data %s",
+            name,
+            message.payload.decode("utf-8"),
+        )
 
-    def _decode_data(self, indata) -> None:
+        # self._fetch()
+        # self._mqtt_data = message.payload.decode("utf-8")
+
+        while not self.devices[name].is_decoded:
+            pass  # Await last dataset to be handled before sending a new into the handler
+
+        msg = message.payload.decode("utf-8")
+        if self.devices[name].raw_data == msg:
+            self._log.debug("Data was already present and not changed.")
+            return  # Data was identical, update was not needed
+
+        self.devices[name].raw_data = msg
+        self._decode_data(self.devices[name])
+        self._events.call(
+            LandroidEvent.DATA_RECEIVED, name=name, device=self.devices[name]
+        )
+
+    def _decode_data(self, device: DeviceHandler) -> None:
         """Decode incoming JSON data."""
-        data = json.loads(indata)
-        if "dat" in data:
-            self.firmware = data["dat"]["fw"]
-            self.mowing_zone = data["dat"]["lz"]
-            self.rssi = data["dat"]["rsi"]
-            self.status = data["dat"]["ls"]
-            self.error = data["dat"]["le"]
+        device.is_decoded = False
 
-            self.current_zone = data["dat"]["lz"]
-            self.locked = bool(data["dat"]["lk"])
+        logger = self._log.getChild("decode_data")
+        logger.debug("Data decoding for %s started", device.name)
+
+        if device.json_data:
+            logger.debug("Found JSON decoded data: %s", device.json_data)
+            data = device.json_data
+        elif device.raw_data:
+            logger.debug("Found raw data: %s", device.raw_data)
+            data = json.loads(device._mqtt_data)
+        else:
+            device.is_decoded = True
+            logger.debug("No valid data was found, skipping update for %s", device.name)
+            return
+
+        if "dat" in data:
+            device.rssi = data["dat"]["rsi"]
+            device.status.update(data["dat"]["ls"])
+            device.error.update(data["dat"]["le"])
+
+            device.zone.index = data["dat"]["lz"]
+
+            device.locked = bool(data["dat"]["lk"])
 
             # Get battery info if available
             if "bt" in data["dat"]:
-                self.battery_temperature = data["dat"]["bt"]["t"]
-                self.battery_voltage = data["dat"]["bt"]["v"]
-                self.battery_percent = data["dat"]["bt"]["p"]
-                self.battery_charging = data["dat"]["bt"]["c"]
-                self.battery_charge_cycle = data["dat"]["bt"]["nr"]
-                if self.battery_charge_cycles_reset is not None:
-                    self.battery_charge_cycle_current = (
-                        self.battery_charge_cycle - self.battery_charge_cycles_reset
-                    )
-                    if self.battery_charge_cycle_current < 0:
-                        self.battery_charge_cycle_current = 0
+                if len(device.battery) == 0:
+                    device.battery = Battery(data["dat"]["bt"])
                 else:
-                    self.battery_charge_cycle_current = self.battery_charge_cycle
-
-            # Get blade data if available
+                    device.battery.set_data(data["dat"]["bt"])
+            # Get device statistics if available
             if "st" in data["dat"]:
-                self.blade_time = data["dat"]["st"]["b"]
-                if self.blade_work_time_reset is not None:
-                    self.blade_time_current = (
-                        self.blade_time - self.blade_work_time_reset
-                    )
-                    if self.blade_time_current < 0:
-                        self.blade_time_current = 0
-                else:
-                    self.blade_time_current = self.blade_time
-                self.distance = data["dat"]["st"]["d"]
-                self.work_time = data["dat"]["st"]["wt"]
+                device.statistics = Statistic(data["dat"]["st"])
 
             # Get orientation if available.
             if "dmp" in data["dat"]:
-                self.pitch = data["dat"]["dmp"][0]
-                self.roll = data["dat"]["dmp"][1]
-                self.yaw = data["dat"]["dmp"][2]
+                device.orientation = Orientation(data["dat"]["dmp"])
 
             # Check for extra module availability
             if "modules" in data["dat"]:
                 if "4G" in data["dat"]["modules"]:
-                    self.gps_latitude = data["dat"]["modules"]["4G"]["gps"]["coo"][0]
-                    self.gps_longitude = data["dat"]["modules"]["4G"]["gps"]["coo"][1]
+                    device.gps = Location(
+                        data["dat"]["modules"]["4G"]["gps"]["coo"][0],
+                        data["dat"]["modules"]["4G"]["gps"]["coo"][1],
+                    )
 
             # Get remaining rain delay if available
             if "rain" in data["dat"]:
-                self.rain_delay_time_remaining = data["dat"]["rain"]["cnt"]
-                self.rain_sensor_triggered = bool(str(data["dat"]["rain"]["s"]) == "1")
+                device.rainsensor.triggered = bool(str(data["dat"]["rain"]["s"]) == "1")
+                device.rainsensor.remaining = int(data["dat"]["rain"]["cnt"])
 
         if "cfg" in data:
-            self.updated = data["cfg"]["tm"] + " " + data["cfg"]["dt"]
-            self.rain_delay = data["cfg"]["rd"]
-            self.serial = data["cfg"]["sn"]
+            device.updated = data["cfg"]["dt"] + " " + data["cfg"]["tm"]
+            device.rainsensor.delay = int(data["cfg"]["rd"])
 
             # Fetch wheel torque
             if "tq" in data["cfg"]:
-                self.torque_capable = True
-                self.torque = data["cfg"]["tq"]
+                device.capabilities.add(DeviceCapability.TORQUE)
+                device.torque = data["cfg"]["tq"]
 
             # Fetch zone information
             if "mz" in data["cfg"]:
-                self.zone = data["cfg"]["mz"]
-                self.zone_probability = data["cfg"]["mzv"]
+                device.zone.starting_point = data["cfg"]["mz"]
+                device.zone.indicies = data["cfg"]["mzv"]
+
+                # Map current zone to zone index
+                device.zone.current = device.zone.indicies[device.zone.index]
 
             # Fetch main schedule
             if "sc" in data["cfg"]:
-                self.ots_capable = bool("ots" in data["cfg"]["sc"])
-                self.schedule_mower_active = bool(str(data["cfg"]["sc"]["m"]) == "1")
-                self.partymode_enabled = bool(str(data["cfg"]["sc"]["m"]) == "2")
-                self.partymode_capable = bool("distm" in data["cfg"]["sc"])
+                if "ots" in data["cfg"]["sc"]:
+                    device.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                if "distm" in data["cfg"]["sc"]:
+                    device.capabilities.add(DeviceCapability.PARTY_MODE)
 
-                self.schedule_variation = data["cfg"]["sc"]["p"]
+                device.partymode_enabled = bool(str(data["cfg"]["sc"]["m"]) == "2")
+
+                device.schedules["active"] = bool(str(data["cfg"]["sc"]["m"]) == "1")
+                device.schedules["time_extension"] = data["cfg"]["sc"]["p"]
 
                 sch_type = ScheduleType.PRIMARY
-                schedule = Schedule(sch_type).todict
-                self.schedules[TYPE_MAP[sch_type]] = schedule["days"]
+                device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
 
                 for day in range(0, len(data["cfg"]["sc"]["d"])):
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["start"] = data[
-                        "cfg"
-                    ]["sc"]["d"][day][0]
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"] = data[
-                        "cfg"
-                    ]["sc"]["d"][day][1]
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["boundary"] = bool(
-                        data["cfg"]["sc"]["d"][day][2]
-                    )
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "start"
+                    ] = data["cfg"]["sc"]["d"][day][0]
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "duration"
+                    ] = data["cfg"]["sc"]["d"][day][1]
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "boundary"
+                    ] = bool(data["cfg"]["sc"]["d"][day][2])
 
                     time_start = datetime.strptime(
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["start"],
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "start"
+                        ],
                         "%H:%M",
                     )
 
                     if isinstance(
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"],
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "duration"
+                        ],
                         type(None),
                     ):
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                             "duration"
                         ] = "0"
 
                     duration = int(
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"]
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "duration"
+                        ]
                     )
 
-                    duration = duration * (1 + (int(self.schedule_variation) / 100))
+                    duration = duration * (
+                        1 + (int(device.schedules["time_extension"]) / 100)
+                    )
                     end_time = time_start + timedelta(minutes=duration)
 
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                         "end"
                     ] = end_time.time().strftime("%H:%M")
 
             # Fetch secondary schedule
             if "dd" in data["cfg"]["sc"]:
                 sch_type = ScheduleType.SECONDARY
-                schedule = Schedule(sch_type).todict
-                self.schedules[TYPE_MAP[sch_type]] = schedule["days"]
+                device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
 
                 for day in range(0, len(data["cfg"]["sc"]["d"])):
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["start"] = data[
-                        "cfg"
-                    ]["sc"]["dd"][day][0]
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"] = data[
-                        "cfg"
-                    ]["sc"]["dd"][day][1]
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["boundary"] = bool(
-                        data["cfg"]["sc"]["dd"][day][2]
-                    )
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "start"
+                    ] = data["cfg"]["sc"]["dd"][day][0]
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "duration"
+                    ] = data["cfg"]["sc"]["dd"][day][1]
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        "boundary"
+                    ] = bool(data["cfg"]["sc"]["dd"][day][2])
 
                     time_start = datetime.strptime(
                         data["cfg"]["sc"]["dd"][day][0],
@@ -405,194 +483,166 @@ class WorxCloud(object):
                     )
 
                     if isinstance(
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"],
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "duration"
+                        ],
                         type(None),
                     ):
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                             "duration"
                         ] = "0"
 
                     duration = int(
-                        self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]]["duration"]
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "duration"
+                        ]
                     )
 
-                    duration = duration * (1 + (int(self.schedule_variation) / 100))
+                    duration = duration * (
+                        1 + (int(device.schedules["time_extension"]) / 100)
+                    )
                     end_time = time_start + timedelta(minutes=duration)
 
-                    self.schedules[TYPE_MAP[sch_type]][DAY_MAP[day]][
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                         "end"
                     ] = end_time.time().strftime("%H:%M")
 
-        self.wait = False
+        convert_to_time(
+            device.name, device, device.time_zone, callback=self.update_attribute
+        )
+
+        device.is_decoded = True
+        logger.debug("Data for %s was decoded", device.name)
+
+    def _on_log(
+        self,
+        client: mqtt.Client | None,
+        userdata: Any | None,
+        level: Any | None,
+        buf: Any | None,
+    ) -> None:
+        """Capture MQTT log messages."""
+        logger = self._log.getChild("mqtt.log")
+        logger.debug("MQTT log message received: %s", buf)
 
     def _on_connect(
-        self, client, userdata, flags, rc
-    ):  # pylint: disable=unused-argument,invalid-name
+        self,
+        client: mqtt.Client | None,
+        userdata: Any | None,
+        flags: Any | None,
+        rc: int | None,
+        properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
+    ) -> None:
         """MQTT callback method."""
-        client.subscribe(self.mqtt_out)
+        logger = self._log.getChild("mqtt.connected")
+        logger.debug(connack_string(rc))
+        if rc == 0:
+            for name, topics in self.mqtt.topics.items():
+                topic = topics["out"]
+                logger.debug(
+                    "MQTT for %s connected, subscribing to topic '%s'", name, topic
+                )
+                client.subscribe(topic)
+
+            for name, device in self.devices.items():
+                device.mqtt = self.mqtt
+                if isinstance(device.raw_data, type(None)):
+                    logger.debug(
+                        "MQTT chached data not found for %s - requesting now", name
+                    )
+
+                    mqp = device.mqtt.send(name, force=True)
+                    if isinstance(mqp, type(None)):
+                        raise MQTTException("Couldn't send request to MQTT server.")
+
+                    while not mqp.is_published:
+                        pass
+                        # time.sleep(0.1)
+
+            logger.debug("Setting MQTT connected flag TRUE")
+            self.mqtt.connected = True
+            self._events.call(LandroidEvent.MQTT_CONNECTION, state=self.mqtt.connected)
+        else:
+            logger.debug("Setting MQTT connected flag FALSE")
+            self.mqtt.connected = False
+            self._events.call(LandroidEvent.MQTT_CONNECTION, state=self.mqtt.connected)
+
+            raise MQTTException(connack_string(rc))
+
+    def _on_disconnect(
+        self,
+        client: mqtt.Client | None,
+        userdata: Any | None,
+        rc: int | None,
+        properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
+    ) -> None:
+        """MQTT callback method."""
+        logger = self._log.getChild("mqtt.disconnected")
+        if rc > 0:
+            if rc == 7:
+                if not self.mqtt.connected:
+                    raise MQTTException(
+                        "Unexpected MQTT disconnect - were you perhaps banned?"
+                    )
+
+            if self.mqtt.connected:
+                logger.debug("MQTT connection was lost! (%s)", error_string(rc))
+
+            logger.debug("Setting MQTT connected flag FALSE")
+            self.mqtt.connected = False
+            self._events.call(LandroidEvent.MQTT_CONNECTION, state=self.mqtt.connected)
+            for name, topics in self.mqtt.topics.items():
+                topic = topics["out"]
+                logger.debug(
+                    "MQTT for %s disconnected, unsubscribing from topic '%s'",
+                    name,
+                    topic,
+                )
+                client.unsubscribe(topic)
 
     def _fetch(self) -> None:
-        """Fetch devices."""
+        """Fetch base API information."""
         self._api.get_products()
-        products = self._api.data
 
-        accessories = None
-        for attr, val in products[self._dev_id].items():
-            if attr == "accessories":
-                accessories = val
-            else:
-                setattr(self, str(attr), val)
+        for product in self._api.data:
+            if self.__device:
+                if product["name"] != self.__device:
+                    continue
 
-        if not accessories is None:
-            self.accessories = []
-            for key in accessories:
-                self.accessories.append(key)
+            device = DeviceHandler(self._api, product)
+            self.devices.update({product["name"]: device})
+
+            # device["accessories"] = None
+            # for attr, val in product.items():
+            # if attr == "accessories":
+            #     device["accessories"] = val
+            # else:
+            #     setattr(device, str(attr), val)
 
     def enumerate(self) -> int:
-        """Enumerate amount of devices attached to account."""
+        """Fetch number of devices connected to the account.
+
+        Returns:
+            int: Represents the number of available devices in the account, starting from 0 as the first devices associated with the account.
+        """
         self._api.get_products()
         products = self._api.data
+        self._log.debug(
+            "Enumeration found %s devices on account %s", len(products), self._username
+        )
         return len(products)
-
-    # Service calls starts here
-    def send(self, data: str) -> None:
-        """Publish data to the device."""
-        if self.online:
-            self._mqtt.publish(self.mqtt_in, data, qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
 
     def update(self) -> None:
         """Retrive current device status."""
-        status = self._api.get_status(self.serial_number)
-        status = str(status).replace("'", '"')
-        self._raw = status
+        for name, device in self.devices.items():
+            status = self._api.get_status(device.serial_number)
+            status = str(status).replace("'", '"')
 
-        self._decode_data(status)
+            while not device.is_decoded:
+                pass  # Await previous dataset to be handled before sending a new into the handler.
 
-    def start(self) -> None:
-        """Start mowing."""
-        if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":1}', qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def pause(self) -> None:
-        """Pause mowing."""
-        if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":2}', qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def home(self) -> None:
-        """Stop (and go home)."""
-        if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":3}', qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def zonetraining(self) -> None:
-        """Start zonetraining."""
-        if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":4}', qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def lock(self, enabled: bool) -> None:
-        """Lock or Unlock device."""
-        if self.online:
-            if enabled:
-                self._mqtt.publish(self.mqtt_in, '{"cmd":5}', qos=0, retain=False)
-            else:
-                self._mqtt.publish(self.mqtt_in, '{"cmd":6}', qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def restart(self):
-        """Reboot device."""
-        if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":7}', qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def safehome(self):
-        """Stop and go home (with blades off)."""
-        if self.online:
-            self._mqtt.publish(self.mqtt_in, '{"cmd":9}', qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def raindelay(self, rain_delay: str | int) -> None:
-        """Set new rain delay."""
-        if self.online:
-            if not isinstance(rain_delay, str):
-                rain_delay = str(rain_delay)
-            msg = f'"rd": {rain_delay}'
-            self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def toggle_schedule(self, enable: bool) -> None:
-        """Enable or disable schedule."""
-        if self.online:
-            if enable:
-                msg = '{"sc": {"m": 1}}'
-                self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
-            else:
-                msg = '{"sc": {"m": 0}}'
-                self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def toggle_partymode(self, enabled: bool) -> None:
-        """Enable or disable Party Mode."""
-        if self.online and self.partymode_capable:
-            if enabled:
-                msg = '{"sc": {"m": 2, "distm": 0}}'
-                self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
-            else:
-                msg = '{"sc": {"m": 1, "distm": 0}}'
-                self._mqtt.publish(self.mqtt_in, msg, qos=0, retain=False)
-        elif not self.partymode_capable:
-            raise NoPartymodeError("This device does not support Partymode")
-        elif not self.online:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def ots(self, boundary: bool, runtime: str | int) -> None:
-        """Start OTS routine."""
-        if self.online and self.ots_capable:
-            if not isinstance(runtime, int):
-                runtime = int(runtime)
-
-            raw = {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}}
-            _LOGGER.debug(json.dumps(raw))
-            self._mqtt.publish(self.mqtt_in, json.dumps(raw), qos=0, retain=False)
-        elif not self.ots_capable:
-            raise NoOneTimeScheduleError(
-                "This device does not support Edgecut-on-demand"
-            )
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
-    def setzone(self, zone: str | int) -> None:
-        """Set next zone to mow."""
-        if self.online:
-            if not isinstance(zone, int):
-                zone = int(zone)
-
-            current = self.zone_probability
-            new_zones = current
-            while not new_zones[self.mowing_zone] == zone:
-                tmp = []
-                tmp.append(new_zones[9])
-                for i in range(0, 9):
-                    tmp.append(new_zones[i])
-                new_zones = tmp
-
-            raw = {"mzv": new_zones}
-            self._mqtt.publish(self.mqtt_in, json.dumps(raw), qos=0, retain=False)
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
+            device.raw_data = status
+            self._decode_data(device)
 
 
 @contextlib.contextmanager

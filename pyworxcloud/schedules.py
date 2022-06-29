@@ -18,7 +18,7 @@ TYPE_MAP = {ScheduleType.PRIMARY: "primary", ScheduleType.SECONDARY: "secondary"
 class Weekday:
     """Represents a weekday."""
 
-    def __init__(self, weekday: str):
+    def __init__(self, weekday: str) -> None:
         """Initiate weekday."""
         self._name = weekday.lower()
         self._start = None
@@ -69,7 +69,7 @@ class Weekday:
 class Schedule:
     """Represents a schedule."""
 
-    def __init__(self, schedule_type: ScheduleType):
+    def __init__(self, schedule_type: ScheduleType) -> dict:
         """Initiate a new schedule."""
         self.type = schedule_type
         self.weekdays = {}

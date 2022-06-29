@@ -1,3 +1,4 @@
+import time
 from os import environ
 from pprint import pprint
 
@@ -5,9 +6,14 @@ from pyworxcloud import WorxCloud
 
 EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
-TYPE = "worx"
+TYPE = environ["TYPE"]
+
 
 if __name__ == "__main__":
+    # Clear the screen for better visibility when debugging
+    print("\033c", end="")
+
+    # Initialize the class
     cloud = WorxCloud(EMAIL, PASS, TYPE)
 
     # Initialize connection
@@ -20,10 +26,26 @@ if __name__ == "__main__":
 
     # Connect to device with index 0 (devices are enumerated 0, 1, 2 ...) and do
     # not verify SSL (False)
-    cloud.connect(0, False)
+    cloud.connect(verify_ssl=False, pahologger=True)
+
+    # Wait for MQTT connection
+    while not cloud.mqtt.connected:
+        pass
 
     # Read latest states received from the device
     cloud.update()
 
+    # cloud._mqtt.publish("DB510/F0FE6B83B4A8/commandIn", '{}', 0, False)
+    # cloud.mqtt.send()
+    # cloud.home()
     # Print all vars and attributes of the cloud object
-    pprint(vars(cloud))
+    for index, (name, device) in enumerate(cloud.devices.items()):
+        # device.start()
+        # device.raindelay(30)
+        # time.sleep(5)
+        # device.mqtt.send(name)
+        # cloud.update()
+        pprint(vars(device))
+    # print(cloud.mqttdata)
+
+    # cloud.disconnect()
