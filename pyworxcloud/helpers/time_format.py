@@ -34,7 +34,9 @@ def string_to_time(dt_string: str, tz: str = "UTC") -> datetime:
     timezone = pytz.timezone(tz)
     for format in DATE_FORMATS:
         try:
-            dt_object = datetime.strptime(dt_string, format).astimezone(timezone)
+            dt_object = timezone.localize(
+                datetime.strptime(dt_string, format)
+            )  # .astimezone(timezone)
             break
         except ValueError:
             pass

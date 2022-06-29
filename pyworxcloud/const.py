@@ -32,4 +32,8 @@ UNWANTED_ATTRIBS = [
     "lawn_size",
     "mqtt_topics",
     "mqtt_endpoint",
+    "messages_in",
+    "messages_out",
+    "raw_messages_in",
+    "raw_messages_out",
 ]

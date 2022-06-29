@@ -14,7 +14,6 @@ from .capability import Capability
 from .firmware import Firmware
 from .landroid_class import LDict
 from .lawn import Lawn
-from .location import Location
 from .orientation import Orientation
 from .product import InfoType, ProductInfo
 from .rainsensor import Rainsensor
@@ -86,14 +85,14 @@ class DeviceHandler(LDict, Actions):
         self.zone = Zone()
         self.warranty = Warranty(data)
         self.firmware = Firmware(data)
-        self.schedules = Schedule(
-            auto_schedule_settings=data["auto_schedule_settings"],
-            auto_schedule_enabled=data["auto_schedule"],
-        )
-        self.lawn = Lawn(data["lawn_perimeter"], data["lawn_size"])
+        self.schedules = Schedule()
 
-        self.schedules["auto_schedule"]["settings"] = data["auto_schedule_settings"]
-        self.schedules["auto_schedule"]["settings"] = data["auto_schedule_settings"]
+        if data in ["lawn_perimeter", "lawn_size"]:
+            self.lawn = Lawn(data["lawn_perimeter"], data["lawn_size"])
+
+        if data in ["auto_schedule_settings", "auto_schedule"]:
+            self.schedules["auto_schedule"]["settings"] = data["auto_schedule_settings"]
+            self.schedules["auto_schedule"]["enabled"] = data["auto_schedule"]
 
         self.name = data["name"]
         self.model = f"{self.chassis.default_name}{self.chassis.meters}"
@@ -102,4 +101,4 @@ class DeviceHandler(LDict, Actions):
             if hasattr(self, attr):
                 delattr(self, attr)
 
-        self.is_decoded=True
+        self.is_decoded = True
