@@ -24,4 +24,4 @@ class Warranty(LDict):
         self["expired"] = bool(
             self["expires_at"]
             < datetime.now().astimezone(pytz.timezone(data["time_zone"]))
-        )
+        ) if not isinstance(self["expires_at"], type(None)) else None

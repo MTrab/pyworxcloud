@@ -14,20 +14,11 @@ class Statistic(LDict):
         if not data:
             return
 
-        if "b" in data:
-            # Total runtime with blades on in minutes
-            self["worktime_blades_on"] = data["b"]
-        else:
-            self["worktime_blades_on"] = None
+        # Total runtime with blades on in minutes
+        self["worktime_blades_on"] = data["b"] if "b" in data else None
 
-        if "d" in data:
-            # Total distance in meters
-            self["distance"] = data["d"]
-        else:
-            self["distance"] = None
+        # Total distance in meters
+        self["distance"] = data["d"] if "d" in data else None
 
-        if "wt" in data:
-            # Total worktime in minutes
-            self["worktime_total"] = data["wt"]
-        else:
-            self["worktime_total"] = None
+        # Total worktime in minutes
+        self["worktime_total"] = data["wt"] if "wt" in data else None

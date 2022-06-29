@@ -37,3 +37,5 @@ UNWANTED_ATTRIBS = [
     "raw_messages_in",
     "raw_messages_out",
 ]
+
+CONST_UNKNOWN = "unknown"
