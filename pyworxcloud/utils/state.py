@@ -1,4 +1,5 @@
 """States handler."""
+from __future__ import annotations
 
 from enum import IntEnum
 
@@ -65,11 +66,11 @@ class StateType(IntEnum):
 class States(LDict):
     """States class handler."""
 
-    def update(self, new_id):
+    def update(self, new_id: int) -> None:
         self["id"] = new_id
         self["description"] = self.__descriptor[self["id"]]
 
-    def __init__(self, statetype: StateType = StateType.STATUS):
+    def __init__(self, statetype: StateType = StateType.STATUS) -> dict:
         super().__init__()
 
         self.__descriptor = STATE_TO_DESCRIPTION

@@ -1,16 +1,16 @@
 """MQTT information class."""
 from __future__ import annotations
+
 import re
+from typing import Any
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
-
-from ratelimit import limits, RateLimitException
+from ratelimit import RateLimitException, limits
 
 from ..exceptions import MQTTException, RateLimit
 from ..helpers import get_logger
 from .landroid_class import LDict
-
 
 _LOGGER = get_logger("mqtt")
 
@@ -24,7 +24,7 @@ PUBLISH_CALLS_LIMIT = 5  # polls per timeframe
 class MQTTMsgType(LDict):
     """Define specific message type data."""
 
-    def __init__(self):
+    def __init__(self) -> dict:
         super().__init__()
 
         self["in"] = 0
@@ -34,7 +34,7 @@ class MQTTMsgType(LDict):
 class MQTTMessages(LDict):
     """Messages class."""
 
-    def __init__(self):
+    def __init__(self) -> dict:
         super().__init__()
 
         self["raw"] = MQTTMsgType()
@@ -44,7 +44,9 @@ class MQTTMessages(LDict):
 class MQTTTopics(LDict):
     """Topics class."""
 
-    def __init__(self, topic_in: str = None, topic_out: str = None):
+    def __init__(
+        self, topic_in: str | None = None, topic_out: str | None = None
+    ) -> dict:
         super().__init__()
 
         self["in"] = topic_in
@@ -70,14 +72,14 @@ class MQTT(mqtt.Client, LDict):
 
     def __init__(
         self,
-        devices=None,
-        client_id: str = None,
-        clean_session=None,
-        userdata=None,
-        protocol=mqtt.MQTTv311,
-        transport="tcp",
-        reconnect_on_failure=True,
-    ):
+        devices: Any | None = None,
+        client_id: str | None = None,
+        clean_session: Any | None = None,
+        userdata: Any | None = None,
+        protocol: Any = mqtt.MQTTv311,
+        transport: str = "tcp",
+        reconnect_on_failure: bool = True,
+    ) -> dict:
         if isinstance(devices, type(None)):
             return
 

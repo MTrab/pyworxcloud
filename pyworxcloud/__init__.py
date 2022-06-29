@@ -6,7 +6,6 @@ import contextlib
 import json
 import sys
 import tempfile
-import time
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -16,20 +15,15 @@ from paho.mqtt.client import connack_string, error_string
 
 from .api import LandroidCloudAPI
 from .clouds import CloudType
-from .const import UNWANTED_ATTRIBS
 from .day_map import DAY_MAP
 from .events import EventHandler, LandroidEvent
-from .exceptions import (
-    AuthorizationError,
-    MQTTException,
-)
+from .exceptions import AuthorizationError, MQTTException
 from .helpers import convert_to_time, get_logger
 from .utils import (
     MQTT,
     Battery,
-    Blades,
-    DeviceHandler,
     DeviceCapability,
+    DeviceHandler,
     Location,
     Orientation,
     ScheduleType,
@@ -63,7 +57,6 @@ class WorxCloud(dict):
         | CloudType.LANDXCAPE
         | CloudType.FERREX
         | str = CloudType.WORX,
-        index: int = 0,
         verify_ssl: bool = True,
     ) -> None:
         """
@@ -154,19 +147,16 @@ class WorxCloud(dict):
 
         self.mqtt = None
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         """Default actions using with statement."""
-        if isinstance(self._dev_id, type(None)):
-            self._dev_id = 0
-
         self.authenticate()
 
-        self.connect(self._dev_id, self._verify_ssl)
+        self.connect(verify_ssl=self._verify_ssl)
         self.update()
 
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback) -> Any:
         """Called on end of with statement."""
         self.disconnect()
 
@@ -219,7 +209,6 @@ class WorxCloud(dict):
 
     def connect(
         self,
-        device: str = None,
         verify_ssl: bool = True,
         pahologger: bool = False,
     ) -> bool:
@@ -232,9 +221,6 @@ class WorxCloud(dict):
         Returns:
             bool: True if connection was successful, otherwise False.
         """
-        if not isinstance(device, type(None)):
-            self.__device = device
-
         self._fetch()
 
         # setup MQTT handler
@@ -266,20 +252,6 @@ class WorxCloud(dict):
         self.mqtt.connect(self.mqtt.endpoint, port=8883, keepalive=600)
 
         self.mqtt.loop_start()
-
-        # self.mqttdata["messages"]["raw"].update(
-        #     {
-        #         "in": self.raw_messages_in,
-        #         "out": self.raw_messages_out,
-        #     }
-        # )
-        # self.mqttdata["messages"]["filtered"].update(
-        #     {
-        #         "in": self.messages_in,
-        #         "out": self.messages_out,
-        #     }
-        # )
-        # self.mqttdata["registered"] = self.mqtt_registered
 
         # Convert time strings to objects.
         for name, device in self.devices.items():
@@ -322,11 +294,11 @@ class WorxCloud(dict):
 
     def _forward_on_message(
         self,
-        client,
-        userdata,
-        message,
-        properties=None,  # pylint: disable=unused-argument
-    ):
+        client: mqtt.Client | None,
+        userdata: Any | None,
+        message: Any | None,
+        properties: Any | None = None,  # pylint: disable=unused-argument
+    ) -> None:
         """MQTT callback method definition."""
         logger = self._log.getChild("mqtt.message_received")
         topic = message.topic
@@ -539,19 +511,25 @@ class WorxCloud(dict):
         device.is_decoded = True
         logger.debug("Data for %s was decoded", device.name)
 
-    def _on_log(self, client, userdata, level, buf):
+    def _on_log(
+        self,
+        client: mqtt.Client | None,
+        userdata: Any | None,
+        level: Any | None,
+        buf: Any | None,
+    ) -> None:
         """Capture MQTT log messages."""
         logger = self._log.getChild("mqtt.log")
         logger.debug("MQTT log message received: %s", buf)
 
     def _on_connect(
         self,
-        client: mqtt.Client,
-        userdata,
-        flags,
-        rc,
-        properties=None,  # pylint: disable=unused-argument,invalid-name
-    ):
+        client: mqtt.Client | None,
+        userdata: Any | None,
+        flags: Any | None,
+        rc: int | None,
+        properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
+    ) -> None:
         """MQTT callback method."""
         logger = self._log.getChild("mqtt.connected")
         logger.debug(connack_string(rc))
@@ -590,11 +568,11 @@ class WorxCloud(dict):
 
     def _on_disconnect(
         self,
-        client,
-        userdata,
-        rc,
-        properties=None,  # pylint: disable=unused-argument,invalid-name
-    ):
+        client: mqtt.Client | None,
+        userdata: Any | None,
+        rc: int | None,
+        properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
+    ) -> None:
         """MQTT callback method."""
         logger = self._log.getChild("mqtt.disconnected")
         if rc > 0:

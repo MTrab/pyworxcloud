@@ -1,4 +1,5 @@
 """Utils."""
+from __future__ import annotations
 
 from .battery import Battery
 from .blades import Blades

@@ -44,11 +44,8 @@ if __name__ == "__main__":
         # device.raindelay(30)
         # time.sleep(5)
         # device.mqtt.send(name)
-        for _ in range(6):
-            device.refresh()
-            time.sleep(5)
         # cloud.update()
-        # pprint(vars(device))
+        pprint(vars(device))
     # print(cloud.mqttdata)
 
     # cloud.disconnect()

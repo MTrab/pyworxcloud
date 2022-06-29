@@ -1,4 +1,5 @@
 """Zone representation."""
+from __future__ import annotations
 
 from .landroid_class import LDict
 
@@ -6,7 +7,7 @@ from .landroid_class import LDict
 class Zone(LDict):
     """Class for handling zone data."""
 
-    def __init__(self):
+    def __init__(self) -> dict:
         """Initialize zone object."""
         super().__init__()
 

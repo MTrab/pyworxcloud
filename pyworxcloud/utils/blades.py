@@ -1,6 +1,8 @@
 """Blade information."""
 from __future__ import annotations
 
+from typing import Any
+
 from .landroid_class import LDict
 
 
@@ -9,7 +11,7 @@ class Blades(LDict):
 
     def __init__(
         self,
-        data=None,
+        data: Any | None = None,
     ) -> None:
         """Initialize blade object."""
         super().__init__()

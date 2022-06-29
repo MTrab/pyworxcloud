@@ -1,5 +1,6 @@
 """Handler for the physical device information."""
 from __future__ import annotations
+
 from enum import IntEnum
 from typing import Any
 
@@ -32,9 +33,9 @@ class ProductInfo(LDict):
     def __init__(
         self,
         info_type: InfoType,
-        api: Any = None,
-        product_id: int = None,
-    ):
+        api: Any | None = None,
+        product_id: int | None = None,
+    ) -> dict:
         """Initialize mower infor object."""
         super().__init__()
 
@@ -54,3 +55,19 @@ class ProductInfo(LDict):
 
         for attr, val in api_prod.items():
             setattr(self, str(attr), val)
+
+    # def __iter__(self) -> Iterator[dict[str, Any]]:
+    #     for key, val in self.items():
+    #         if key.startswith("_"):
+    #             continue
+
+    #         yield (key, val)
+
+    # def __dict__(self) -> dict[str, Any]:
+    #     attrs = {}
+    #     for key, val in self.items():
+    #         if key.startswith("_"):
+    #             continue
+    #         attrs.update({key:val})
+    #         # yield (key, val)
+    #     return attrs

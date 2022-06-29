@@ -38,7 +38,7 @@ class WeekdaySettings(LDict):
 class Weekdays(LDict):
     """Represents all weekdays."""
 
-    def __init__(self):
+    def __init__(self) -> dict:
         super().__init__()
 
         for day in list(calendar.day_name):
@@ -53,8 +53,8 @@ class Schedule(LDict):
         variation: int = 0,
         active: bool = True,
         auto_schedule_settings: dict = {},
-        auto_schedule_enabled: bool = None,
-    ) -> None:
+        auto_schedule_enabled: bool | None = None,
+    ) -> dict:
         """Initialize an empty primary or secondary schedule.
 
         Args:

@@ -1,5 +1,6 @@
 """Firmware information handler."""
 from __future__ import annotations
+
 from typing import Any
 
 from .landroid_class import LDict
@@ -13,5 +14,3 @@ class Firmware(LDict):
 
         self["auto_upgrade"] = data["firmware_auto_upgrade"]
         self["version"] = data["firmware_version"]
-
-        
