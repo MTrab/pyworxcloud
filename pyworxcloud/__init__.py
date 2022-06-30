@@ -602,10 +602,6 @@ class WorxCloud(dict):
         self._api.get_products()
 
         for product in self._api.data:
-            if self.__device:
-                if product["name"] != self.__device:
-                    continue
-
             device = DeviceHandler(self._api, product)
             self.devices.update({product["name"]: device})
 
