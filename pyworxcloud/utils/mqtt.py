@@ -148,8 +148,7 @@ class MQTT(mqtt.Client, LDict):
                         qos=message["qos"],
                         retain=message["retain"],
                     )
-            else:
-                await asyncio.sleep(0.01)
+            await asyncio.sleep(0.01)
 
     @limits(calls=PUBLISH_CALLS_LIMIT, period=PUBLISH_LIMIT_PERIOD)
     def __send(
