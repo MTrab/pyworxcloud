@@ -130,7 +130,7 @@ class MQTT(mqtt.Client, LDict):
             topic_out = MQTT_OUT.format(device.mainboard.code, device.mac_address)
             self.topics.update({name: MQTTTopics(topic_in, topic_out)})
 
-        queue_loop = asyncio.get_event_loop()
+        queue_loop = asyncio.new_event_loop()
         queue_loop.run_in_executor(None, self.__async_handle_queue)
         # queue_loop.run_forever()
 
@@ -138,7 +138,7 @@ class MQTT(mqtt.Client, LDict):
         """Handle the MQTT queue."""
         while 1:
             if isinstance(self.queue.retry_at, int):
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.01)
                 continue
 
             if self.queue.retry_at < datetime.now() and len(self.queue.items) > 0:
