@@ -1,5 +1,8 @@
 """MQTT information class."""
 from __future__ import annotations
+import asyncio
+from datetime import datetime, timedelta
+import math
 
 import re
 from typing import Any
@@ -29,6 +32,29 @@ class MQTTMsgType(LDict):
 
         self["in"] = 0
         self["out"] = 0
+
+
+class MQTTMessageItem(LDict):
+    """Defines a MQTT message for Landroid Cloud."""
+
+    def __init__(
+        self, device: str, data: str = "{}", qos: int = 0, retain: bool = False
+    ) -> dict:
+        super().__init__()
+
+        self["device"] = device
+        self["data"] = data
+        self["qos"] = qos
+        self["retain"] = retain
+
+
+class MQTTQueue:
+    """Class for handling queue."""
+
+    def __init__(self):
+        """Initialize queue object."""
+        self.retry_at = datetime.now()
+        self.items = list(MQTTMessageItem)
 
 
 class MQTTMessages(LDict):
@@ -97,11 +123,30 @@ class MQTT(mqtt.Client, LDict):
         self.endpoint = None
         self.connected = False
 
+        self.queue = MQTTQueue()
         self.topics = {}
         for name, device in devices.items():
             topic_in = MQTT_IN.format(device.mainboard.code, device.mac_address)
             topic_out = MQTT_OUT.format(device.mainboard.code, device.mac_address)
             self.topics.update({name: MQTTTopics(topic_in, topic_out)})
+
+        queue_loop = asyncio.new_event_loop()
+        asyncio.ensure_future(self.__async_handle_queue)
+        queue_loop.run_forever()
+
+    async def __async_handle_queue(self) -> None:
+        """Handle the MQTT queue."""
+        while 1:
+            if self.queue.retry_at < datetime.now():
+                for entry in self.queue.items:
+                    message = self.queue.items.pop(entry)
+                    _LOGGER.debug("Trying queue item %s", entry)
+                    self.send(
+                        device=message["device"],
+                        data=message["data"],
+                        qos=message["qos"],
+                        retain=message["retain"],
+                    )
 
     @limits(calls=PUBLISH_CALLS_LIMIT, period=PUBLISH_LIMIT_PERIOD)
     def __send(
@@ -139,6 +184,8 @@ class MQTT(mqtt.Client, LDict):
             )
             raise MQTTException("MQTT not connected")
 
+        message = MQTTMessageItem(device, data, qos, retain)
+
         try:
             status = self.__send(topic, data, qos, retain)
             _LOGGER.debug(
@@ -165,7 +212,13 @@ class MQTT(mqtt.Client, LDict):
                 exc,
             )
         except RateLimitException as exc:
-            msg = f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {exc.period_remaining} before trying again"
+            _LOGGER.debug("Adding '%s' to message queue.", message)
+            self.queue.retry_at = datetime.now() + timedelta(
+                seconds=math.ceil(exc.period_remaining)
+            )
+            self.queue.items.append(message)
+
+            msg = f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {math.ceil(exc.period_remaining)} seconds before trying again"
             raise RateLimit(
                 message=msg,
                 limit=PUBLISH_CALLS_LIMIT,

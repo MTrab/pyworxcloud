@@ -46,7 +46,7 @@ class WorxCloud(dict):
     There are no public available API documentation available.
     """
 
-    __device: str | None = None
+    # __device: str | None = None
 
     def __init__(
         self,
