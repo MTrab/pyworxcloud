@@ -54,7 +54,7 @@ class MQTTQueue:
     def __init__(self):
         """Initialize queue object."""
         self.retry_at = datetime.now()
-        self.items = list(MQTTMessageItem)
+        self.items = list[MQTTMessageItem]
 
 
 class MQTTMessages(LDict):
