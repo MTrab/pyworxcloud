@@ -134,7 +134,7 @@ class MQTT(mqtt.Client, LDict):
         asyncio.ensure_future(self.__async_handle_queue)
         queue_loop.run_forever()
 
-    async def __async_handle_queue(self):
+    async def __async_handle_queue(self) -> asyncio.coroutine[Any]:
         """Handle the MQTT queue."""
         while 1:
             if self.queue.retry_at < datetime.now():
