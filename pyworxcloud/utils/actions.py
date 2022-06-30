@@ -183,7 +183,7 @@ class Actions:
             if not isinstance(zone, int):
                 zone = int(zone)
 
-            current = self.zone_probability
+            current = self.zone["indicies"]
             new_zones = current
             while not new_zones[self.mowing_zone] == zone:
                 tmp = []
