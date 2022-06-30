@@ -96,6 +96,8 @@ class Command:
 class MQTT(mqtt.Client, LDict):
     """Full MQTT handler class."""
 
+    __loop: asyncio.AbstractEventLoop | None = None
+
     def __init__(
         self,
         devices: Any | None = None,
@@ -130,9 +132,15 @@ class MQTT(mqtt.Client, LDict):
             topic_out = MQTT_OUT.format(device.mainboard.code, device.mac_address)
             self.topics.update({name: MQTTTopics(topic_in, topic_out)})
 
-        queue_loop = asyncio.new_event_loop()
-        queue_loop.run_in_executor(None, self.__async_handle_queue)
+        if isinstance(self.__loop, type(None)):
+            self.__loop = asyncio.get_event_loop()
+
+        self.__loop.run_in_executor(None, self.__async_handle_queue)
         # queue_loop.run_forever()
+
+    def set_eventloop(self, eventloop: Any) -> None:
+        """Set eventloop to be used ny queue handler."""
+        self.__loop = eventloop
 
     async def __async_handle_queue(self):
         """Handle the MQTT queue."""
