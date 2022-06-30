@@ -132,15 +132,17 @@ class MQTT(mqtt.Client, LDict):
             topic_out = MQTT_OUT.format(device.mainboard.code, device.mac_address)
             self.topics.update({name: MQTTTopics(topic_in, topic_out)})
 
-        if isinstance(self.__loop, type(None)):
+        try:
             self.__loop = asyncio.get_event_loop()
-
-        self.__loop.run_in_executor(None, self.__async_handle_queue)
+            self.__loop.run_in_executor(None, self.__async_handle_queue)
+        except RuntimeError:
+            return
         # queue_loop.run_forever()
 
     def set_eventloop(self, eventloop: Any) -> None:
         """Set eventloop to be used ny queue handler."""
         self.__loop = eventloop
+        self.__loop.run_in_executor(None, self.__async_handle_queue)
 
     async def __async_handle_queue(self):
         """Handle the MQTT queue."""
