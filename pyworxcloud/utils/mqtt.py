@@ -54,7 +54,7 @@ class MQTTQueue:
     def __init__(self):
         """Initialize queue object."""
         self.retry_at = datetime.now()
-        self.items = list[MQTTMessageItem]
+        self.items = list[MQTTMessageItem]()
 
 
 class MQTTMessages(LDict):
@@ -130,25 +130,27 @@ class MQTT(mqtt.Client, LDict):
             topic_out = MQTT_OUT.format(device.mainboard.code, device.mac_address)
             self.topics.update({name: MQTTTopics(topic_in, topic_out)})
 
-        queue_loop = asyncio.new_event_loop()
-        asyncio.ensure_future(self.__async_handle_queue)
-        queue_loop.run_forever()
+        queue_loop = asyncio.get_event_loop()
+        queue_loop.run_in_executor(None, self.__async_handle_queue)
+        # queue_loop.run_forever()
 
     async def __async_handle_queue(self):
         """Handle the MQTT queue."""
         while 1:
-            if self.queue.retry_at < datetime.now():
+            if isinstance(self.queue.retry_at, int):
+                await asyncio.sleep(1)
+                continue
+
+            if self.queue.retry_at < datetime.now() and len(self.queue.items) > 0:
                 for entry in self.queue.items:
                     message = self.queue.items.pop(entry)
                     _LOGGER.debug("Trying queue item %s", entry)
-                    await asyncio.get_event_loop().run_in_executor(
-                        self.send,
+                    self.send(
                         device=message["device"],
                         data=message["data"],
                         qos=message["qos"],
                         retain=message["retain"],
                     )
-            await asyncio.sleep(0.01)
 
     @limits(calls=PUBLISH_CALLS_LIMIT, period=PUBLISH_LIMIT_PERIOD)
     def __send(
