@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
+import logging
 from typing import Any
 
 
@@ -25,6 +26,9 @@ def check_syntax(args: dict[str, Any], objs: list[str], expected_type: Any) -> b
             return False
 
     return True
+
+
+_LOGGER = logging.getLogger("pyworxcloud.events")
 
 
 class EventHandler:
@@ -51,6 +55,9 @@ class EventHandler:
 
         if LandroidEvent.DATA_RECEIVED == event:
             if not check_syntax(kwargs, ["name", "device"], str):
+                _LOGGER.warning(
+                    "requirements for attributes was not fulfilled, not sending event!"
+                )
                 return False
 
             self.__events[event](name=kwargs["name"], device=kwargs["device"])
