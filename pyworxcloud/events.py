@@ -6,6 +6,8 @@ from enum import IntEnum
 import logging
 from typing import Any
 
+from pyworxcloud.utils.devices import DeviceHandler
+
 
 class LandroidEvent(IntEnum):
     """Enum for Landroid event types."""
@@ -59,7 +61,9 @@ class EventHandler:
             return False
 
         if LandroidEvent.DATA_RECEIVED == event:
-            if not check_syntax(kwargs, ["name", "device"], str):
+            if not check_syntax(kwargs, ["name"], str) or not check_syntax(
+                kwargs, ["device"], DeviceHandler
+            ):
                 _LOGGER.warning(
                     "requirements for attributes was not fulfilled, not sending event!"
                 )
