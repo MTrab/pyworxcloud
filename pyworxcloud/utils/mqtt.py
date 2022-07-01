@@ -190,7 +190,7 @@ class MQTT(mqtt.Client, LDict):
         qos: int = 0,
         retain: bool = False,
         force: bool = False,
-    ) -> MQTTMessageInfo:
+    ) -> MQTTMessageInfo | str:
         """Send Landroid cloud message to API endpoint."""
         from .devices import DeviceHandler
 
@@ -242,13 +242,7 @@ class MQTT(mqtt.Client, LDict):
             )
             self.queue.items.append(message)
 
-            msg = f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {math.ceil(exc.period_remaining)} seconds before trying again"
-            raise RateLimit(
-                message=msg,
-                limit=PUBLISH_CALLS_LIMIT,
-                period=PUBLISH_LIMIT_PERIOD,
-                remaining=exc.period_remaining,
-            ) from exc
+            return f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {math.ceil(exc.period_remaining)} seconds before trying again"
         except Exception as exc:
             _LOGGER.error(
                 "MQTT error sending '%s' to '%s'",
