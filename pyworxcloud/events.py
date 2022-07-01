@@ -15,6 +15,25 @@ class LandroidEvent(IntEnum):
     MQTT_PUBLISH = 3
 
 
+def check_syntax(
+    args: dict[str, Any], objs: str | list[str], expected_type: Any
+) -> bool:
+    """Check if the object is of the expected type."""
+
+    if not objs in args:
+        return False
+
+    if isinstance(objs, list):
+        for obj in objs:
+            if not isinstance(args[obj], expected_type):
+                return False
+    else:
+        if not isinstance(args[objs], expected_type):
+            return False
+
+    return True
+
+
 class EventHandler:
     """Event handler for Landroid Cloud."""
 
@@ -38,47 +57,31 @@ class EventHandler:
             return
 
         if LandroidEvent.DATA_RECEIVED == event:
+            if not check_syntax(kwargs, ["name", "device"], str):
+                return False
+
             self.__events[event](name=kwargs["name"], device=kwargs["device"])
             return True
         elif LandroidEvent.MQTT_CONNECTION == event:
-            if not "state" in kwargs:
-                # Invalid event call, state is required.
-                return False
-            if not isinstance(kwargs["state"], bool):
-                # Invalid event call, state is required to be a boolean.
+            if not check_syntax(kwargs, "state", bool):
                 return False
 
             self.__events[event](state=kwargs["state"])
             return True
         elif LandroidEvent.MQTT_RATELIMIT == event:
-            if not "message" in kwargs:
-                # Invalid event call, message is required
-                return False
-
-            if not isinstance(kwargs["message"], str):
-                # Invalid event call, message is required to be a string.
+            if not check_syntax(kwargs, "message", str):
                 return False
 
             self.__events[event](message=kwargs["message"])
             return True
         elif LandroidEvent.MQTT_PUBLISH == event:
-            if not kwargs in ["message", "qos", "retain", "device", "topic"]:
-                # Invalid event call, missing one or more of the required arguments
+            if not check_syntax(kwargs, ["message", "device", "topic"], str):
                 return False
 
-            if (
-                not isinstance(kwargs["message"], str)
-                and not isinstance(kwargs["device"], str)
-                and not isinstance(kwargs["topic"], str)
-            ):
-                # Invalid event call, one or more of the arguments required to be a string but was not.
+            if not check_syntax(kwargs, "qos", int):
                 return False
 
-            if not isinstance(kwargs["qos"], int):
-                # Invalid event call, one or more of the arguments required to be an integer but was not.
-                return False
-            if not isinstance(kwargs["retain"], False):
-                # Invalid event call, one or more of the arguments required to be a bool but was not.
+            if not check_syntax(kwargs, "retain", bool):
                 return False
 
             self.__events[event](
