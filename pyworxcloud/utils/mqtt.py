@@ -207,7 +207,8 @@ class MQTT(mqtt.Client, LDict):
         recipient: DeviceHandler = self.devices[device]
         topic = self.topics[device]["in"]
 
-        if not re.match("^\{[A-ZÆØÅa-zæøå0-9:,\[\]'\"{} \n]*\}$", data):
+        data = data.replace("'", '"')
+        if not re.match('^\{[A-ZÆØÅa-zæøå0-9:,\[\]"{} \n]*\}$', data):
             data = "{" + data + "}"
 
         log_msg = f'Sending "{data}" to "{recipient.name}" on "{topic}"'
