@@ -48,4 +48,4 @@ if __name__ == "__main__":
         pprint(vars(device))
     # print(cloud.mqttdata)
 
-    # cloud.disconnect()
+    cloud.disconnect()
