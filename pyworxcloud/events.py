@@ -91,7 +91,7 @@ class EventHandler:
 
             self.__events[event](
                 message=kwargs["message"],
-                qos=kwargs["level"],
+                level=kwargs["level"],
             )
             return True
         else:
