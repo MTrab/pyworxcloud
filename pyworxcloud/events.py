@@ -15,20 +15,12 @@ class LandroidEvent(IntEnum):
     MQTT_PUBLISH = 3
 
 
-def check_syntax(
-    args: dict[str, Any], objs: str | list[str], expected_type: Any
-) -> bool:
+def check_syntax(args: dict[str, Any], objs: list[str], expected_type: Any) -> bool:
     """Check if the object is of the expected type."""
-
-    if not objs in args:
-        return False
-
-    if isinstance(objs, list):
-        for obj in objs:
-            if not isinstance(args[obj], expected_type):
-                return False
-    else:
-        if not isinstance(args[objs], expected_type):
+    for obj in objs:
+        if not obj in args:
+            return False
+        if not isinstance(args[obj], expected_type):
             return False
 
     return True
@@ -63,13 +55,13 @@ class EventHandler:
             self.__events[event](name=kwargs["name"], device=kwargs["device"])
             return True
         elif LandroidEvent.MQTT_CONNECTION == event:
-            if not check_syntax(kwargs, "state", bool):
+            if not check_syntax(kwargs, ["state"], bool):
                 return False
 
             self.__events[event](state=kwargs["state"])
             return True
         elif LandroidEvent.MQTT_RATELIMIT == event:
-            if not check_syntax(kwargs, "message", str):
+            if not check_syntax(kwargs, ["message"], str):
                 return False
 
             self.__events[event](message=kwargs["message"])
@@ -78,10 +70,10 @@ class EventHandler:
             if not check_syntax(kwargs, ["message", "device", "topic"], str):
                 return False
 
-            if not check_syntax(kwargs, "qos", int):
+            if not check_syntax(kwargs, ["qos"], int):
                 return False
 
-            if not check_syntax(kwargs, "retain", bool):
+            if not check_syntax(kwargs, ["retain"], bool):
                 return False
 
             self.__events[event](
