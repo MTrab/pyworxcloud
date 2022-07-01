@@ -162,7 +162,7 @@ class Actions:
                 runtime = int(runtime)
 
             msg = {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}}
-            self.mqtt.send(self.name, str(msg))
+            self.mqtt.send(self.name, str(msg).replace("'", '"'))
         elif not self.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE):
             raise NoOneTimeScheduleError(
                 "This device does not support Edgecut-on-demand"
