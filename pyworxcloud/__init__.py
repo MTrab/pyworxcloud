@@ -551,8 +551,6 @@ class WorxCloud(dict):
                     mqp = device.mqtt.send(name, force=True)
                     if isinstance(mqp, type(None)):
                         raise MQTTException("Couldn't send request to MQTT server.")
-                    elif isinstance(mqp,str):
-                        raise RateLimit(message=mqp)
 
                     while not mqp.is_published:
                         pass
@@ -561,6 +559,7 @@ class WorxCloud(dict):
             logger.debug("Setting MQTT connected flag TRUE")
             self.mqtt.connected = True
             self._events.call(LandroidEvent.MQTT_CONNECTION, state=self.mqtt.connected)
+
         else:
             logger.debug("Setting MQTT connected flag FALSE")
             self.mqtt.connected = False
