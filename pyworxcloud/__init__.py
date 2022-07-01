@@ -302,6 +302,8 @@ class WorxCloud(dict):
         """MQTT callback method definition."""
         logger = self._log.getChild("mqtt.message_received")
         topic = message.topic
+        device: DeviceHandler = self.devices[name]
+
         for name, topics in self.mqtt.topics.items():
             if topics["out"] == topic:
                 break
@@ -312,19 +314,18 @@ class WorxCloud(dict):
             message.payload.decode("utf-8"),
         )
 
-        # self._fetch()
-        # self._mqtt_data = message.payload.decode("utf-8")
-
         while not self.devices[name].is_decoded:
             pass  # Await last dataset to be handled before sending a new into the handler
 
         msg = message.payload.decode("utf-8")
-        if self.devices[name].raw_data == msg:
+        if device.raw_data == msg:
             self._log.debug("Data was already present and not changed.")
             return  # Data was identical, update was not needed
 
-        self.devices[name].raw_data = msg
+        device.raw_data = msg
         self._decode_data(self.devices[name])
+        device.capabilities.ready = True
+        
         self._events.call(
             LandroidEvent.DATA_RECEIVED, name=name, device=self.devices[name]
         )

@@ -31,6 +31,7 @@ class Capability(int):
         """Initialize an empty capability list."""
         super().__init__()
         self.__int__ = 0
+        self.ready = False
 
     def add(self, capability: DeviceCapability) -> None:
         """Add capability to the list."""
