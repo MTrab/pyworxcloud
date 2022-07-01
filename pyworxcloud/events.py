@@ -17,18 +17,23 @@ class LandroidEvent(IntEnum):
     LOG = 4
 
 
+_LOGGER = logging.getLogger("pyworxcloud.events")
+
+
 def check_syntax(args: dict[str, Any], objs: list[str], expected_type: Any) -> bool:
     """Check if the object is of the expected type."""
+    _LOGGER.debug("Checking %s against %s", objs, args)
     for obj in objs:
         if not obj in args:
+            _LOGGER.debug("%s was not found in %s", obj, args)
             return False
         if not isinstance(args[obj], expected_type):
+            _LOGGER.debug(
+                "%s was of type %s and not as expected", obj, type(obj), expected_type
+            )
             return False
 
     return True
-
-
-_LOGGER = logging.getLogger("pyworxcloud.events")
 
 
 class EventHandler:
