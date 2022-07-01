@@ -54,6 +54,7 @@ class MQTTQueue:
 
     def __init__(self):
         """Initialize queue object."""
+        self.callback: Any | None = None
         self.retry_at = datetime.now()
         self.items = list[MQTTMessageItem]()
 
@@ -141,13 +142,15 @@ class MQTT(mqtt.Client, LDict):
             return
         # queue_loop.run_forever()
 
-    def set_eventloop(self, eventloop: Any) -> None:
+    def set_eventloop(self, eventloop: Any, callback: Any | None = None) -> None:
         """Set eventloop to be used ny queue handler."""
+        self.queue.callback = callback
         self.__loop = eventloop
         self.__loop.run_in_executor(None, self.__handle_queue)
 
     def stop_queuehandler(self) -> None:
         """Stops the eventloop for the queue handler."""
+        self.queue.callback = None
         self.__loop_allow = False
 
     def disconnect(self, reasoncode=None, properties=None):
@@ -244,8 +247,12 @@ class MQTT(mqtt.Client, LDict):
                 seconds=math.ceil(exc.period_remaining)
             )
             self.queue.items.append(message)
-
-            return f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {math.ceil(exc.period_remaining)} seconds before trying again"
+            if not isinstance(self.queue.callback, type(None)):
+                self.queue.callback(
+                    message=f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Message '{message['data']}' to '{message['device']}' added to message queue."
+                )
+            else:
+                return f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {math.ceil(exc.period_remaining)} seconds before trying again"
         except Exception as exc:
             _LOGGER.error(
                 "MQTT error sending '%s' to '%s'",
