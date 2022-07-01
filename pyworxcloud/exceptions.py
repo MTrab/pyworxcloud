@@ -37,13 +37,10 @@ class MQTTException(Exception):
 class RateLimit(Exception):
     """Defines a ratelimit exception."""
 
-    def __init__(self, message, limit, period, remaining):
+    def __init__(self, message):
         """Custom ratelimit exception class"""
         super(RateLimit, self).__init__(message)
         self.message = message
-        self.limit = limit
-        self.period = period
-        self.remaining = remaining
 
 
 # Exception classes for URL requests
