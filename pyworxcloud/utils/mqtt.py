@@ -142,7 +142,6 @@ class MQTT(mqtt.Client, LDict):
             self.__loop.run_in_executor(None, self.__handle_queue)
         except RuntimeError:
             return
-        # queue_loop.run_forever()
 
     def set_eventloop(self, eventloop: Any) -> None:
         """Set eventloop to be used ny queue handler."""

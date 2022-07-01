@@ -161,8 +161,7 @@ class Actions:
             if not isinstance(runtime, int):
                 runtime = int(runtime)
 
-            raw = {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}}
-            self.mqtt.send(self.name, json.dumps(raw))
+            self.mqtt.send(self.name, f'"sc": {"ots": {"bc": {int(boundary)}, "wtm": {runtime}}}')
         elif not self.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE):
             raise NoOneTimeScheduleError(
                 "This device does not support Edgecut-on-demand"
@@ -192,8 +191,7 @@ class Actions:
                     tmp.append(new_zones[i])
                 new_zones = tmp
 
-            raw = {"mzv": new_zones}
-            self.mqtt.send(self.name, json.dumps(raw))
+            self.mqtt.send(self.name, f'"mzv": {new_zones}')
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 

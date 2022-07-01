@@ -17,7 +17,7 @@ from .api import LandroidCloudAPI
 from .clouds import CloudType
 from .day_map import DAY_MAP
 from .events import EventHandler, LandroidEvent
-from .exceptions import AuthorizationError, MQTTException, RateLimit
+from .exceptions import AuthorizationError, MQTTException
 from .helpers import convert_to_time, get_logger
 from .utils import (
     MQTT,
