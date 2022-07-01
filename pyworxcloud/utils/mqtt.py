@@ -1,5 +1,6 @@
 """MQTT information class."""
 from __future__ import annotations
+
 import asyncio
 from datetime import datetime, timedelta
 import math
@@ -162,9 +163,11 @@ class MQTT(mqtt.Client, LDict):
                 continue
 
             if self.queue.retry_at < datetime.now() and len(self.queue.items) > 0:
-                for entry in self.queue.items:
-                    message = self.queue.items.pop(entry)
-                    _LOGGER.debug("Trying queue item %s", entry)
+                queue_list = list(reversed(self.queue.items))
+                self.queue.items.clear()
+                while queue_list:
+                    message = queue_list.pop()
+                    _LOGGER.debug("Trying message %s from the message queue", message)
                     self.send(
                         device=message["device"],
                         data=message["data"],
