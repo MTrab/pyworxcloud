@@ -221,6 +221,15 @@ class MQTT(mqtt.Client, LDict):
 
         message = MQTTMessageItem(device, data, qos, retain)
 
+        self._events.call(
+            LandroidEvent.MQTT_PUBLISH,
+            message=data,
+            device=device,
+            topic=topic,
+            qos=qos,
+            retain=retain,
+        )
+
         try:
             status = self.__send(topic, data, qos, retain)
             _LOGGER.debug(
