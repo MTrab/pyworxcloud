@@ -171,7 +171,7 @@ class MQTT(mqtt.Client, LDict):
                 self.queue.items.clear()
                 while queue_list:
                     message = queue_list.pop()
-                    log_msg = f"Trying message '{message}' from the message queue"
+                    log_msg = f'Trying message "{message}" from the message queue'
                     if not self._events.call(
                         LandroidEvent.MQTT_RATELIMIT, message=log_msg
                     ):

@@ -12,6 +12,7 @@ class LandroidEvent(IntEnum):
     DATA_RECEIVED = 0
     MQTT_CONNECTION = 1
     MQTT_RATELIMIT = 2
+    MQTT_PUBLISH = 3
 
 
 class EventHandler:
@@ -59,6 +60,34 @@ class EventHandler:
                 return False
 
             self.__events[event](message=kwargs["message"])
+            return True
+        elif LandroidEvent.MQTT_PUBLISH == event:
+            if not kwargs in ["message", "qos", "retain", "device", "topic"]:
+                # Invalid event call, missing one or more of the required arguments
+                return False
+
+            if (
+                not isinstance(kwargs["message"], str)
+                and not isinstance(kwargs["device"], str)
+                and not isinstance(kwargs["topic"], str)
+            ):
+                # Invalid event call, one or more of the arguments required to be a string but was not.
+                return False
+
+            if not isinstance(kwargs["qos"], int):
+                # Invalid event call, one or more of the arguments required to be an integer but was not.
+                return False
+            if not isinstance(kwargs["retain"], False):
+                # Invalid event call, one or more of the arguments required to be a bool but was not.
+                return False
+
+            self.__events[event](
+                message=kwargs["message"],
+                qos=kwargs["qos"],
+                retain=kwargs["retain"],
+                device=kwargs["device"],
+                topic=kwargs["topic"],
+            )
             return True
         else:
             # Not a valid LandroidEvent
