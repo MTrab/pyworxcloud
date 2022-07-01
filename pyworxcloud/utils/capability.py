@@ -23,8 +23,6 @@ CAPABILITY_TO_TEXT = {
     DeviceCapability.TORQUE: "Motor Torque",
 }
 
-_LOGGER = logging.getLogger("pyworxcloud.capability_handler")
-
 
 class Capability(int):
     """Class for handling device capabilities."""
@@ -33,19 +31,10 @@ class Capability(int):
         """Initialize an empty capability list."""
         super().__init__()
         self.__int__ = 0
-        self._events = EventHandler()
 
     def add(self, capability: DeviceCapability) -> None:
         """Add capability to the list."""
-        log_msg = f"Testing for capability '{CAPABILITY_TO_TEXT[capability]}': '{capability & self.__int__}'"
-        if not self._events.call(LandroidEvent.LOG, message=log_msg, level="debug"):
-            _LOGGER.debug(log_msg)
-
         if capability & self.__int__ == 0:
-            log_msg = f"Adding '{CAPABILITY_TO_TEXT[capability]}' to capabilities"
-            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="debug"):
-                _LOGGER.debug(log_msg)
-            _LOGGER.debug(log_msg)
             self.__int__ = self.__int__ | capability
 
     def check(self, capability: DeviceCapability) -> bool:
