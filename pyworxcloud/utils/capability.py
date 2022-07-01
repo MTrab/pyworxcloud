@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
+import logging
 
 
 class DeviceCapability(IntEnum):
@@ -20,6 +21,8 @@ CAPABILITY_TO_TEXT = {
     DeviceCapability.TORQUE: "Motor Torque",
 }
 
+_LOGGER = logging.getLogger("pyworxcloud.capability_handler")
+
 
 class Capability(int):
     """Class for handling device capabilities."""
@@ -31,7 +34,9 @@ class Capability(int):
 
     def add(self, capability: DeviceCapability) -> None:
         """Add capability to the list."""
+        _LOGGER.debug("Testing %s: %s",CAPABILITY_TO_TEXT[capability],capability & self.__int__)
         if capability & self.__int__ == 0:
+            _LOGGER.debug("Adding %s to capabilities", CAPABILITY_TO_TEXT[capability])
             self.__int__ = self.__int__ | capability
 
     def check(self, capability: DeviceCapability) -> bool:

@@ -404,6 +404,7 @@ class WorxCloud(dict):
             if "sc" in data["cfg"]:
                 if "ots" in data["cfg"]["sc"]:
                     device.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                    device.capabilities.add(DeviceCapability.EDGE_CUT)
                 if "distm" in data["cfg"]["sc"]:
                     device.capabilities.add(DeviceCapability.PARTY_MODE)
 

@@ -211,7 +211,7 @@ class MQTT(mqtt.Client, LDict):
         if not re.match("^\{[A-ZÆØÅa-zæøå0-9:'\"{} \n]*\}$", data):
             data = "{" + data + "}"
 
-        log_msg = f'Sending "{data}" to "{recipient.name}" on "topic"'
+        log_msg = f'Sending "{data}" to "{recipient.name}" on "{topic}"'
         if not self._events.call(LandroidEvent.LOG, message=log_msg, level="debug"):
             _LOGGER.debug(log_msg)
 
