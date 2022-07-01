@@ -551,10 +551,9 @@ class WorxCloud(dict):
                     mqp = device.mqtt.send(name, force=True)
                     if isinstance(mqp, type(None)):
                         raise MQTTException("Couldn't send request to MQTT server.")
-
-                    while not mqp.is_published or not isinstance(mqp, str):
-                        pass
-                        # time.sleep(0.1)
+                    elif not isinstance(mqp, str):
+                        while not mqp.is_published:
+                            pass
 
             logger.debug("Setting MQTT connected flag TRUE")
             self.mqtt.connected = True
