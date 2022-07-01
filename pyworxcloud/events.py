@@ -11,6 +11,7 @@ class LandroidEvent(IntEnum):
 
     DATA_RECEIVED = 0
     MQTT_CONNECTION = 1
+    MQTT_RATELIMIT = 2
 
 
 class EventHandler:
@@ -29,7 +30,7 @@ class EventHandler:
         """Remove a handler for a LandroidEvent."""
         self.__events.pop(event)
 
-    def call(self, event: LandroidEvent, **kwargs) -> None:
+    def call(self, event: LandroidEvent, **kwargs) -> bool:
         """Call a handler if it was set."""
         if not event in self.__events:
             # Event was not set
@@ -37,12 +38,28 @@ class EventHandler:
 
         if LandroidEvent.DATA_RECEIVED == event:
             self.__events[event](name=kwargs["name"], device=kwargs["device"])
+            return True
         elif LandroidEvent.MQTT_CONNECTION == event:
             if not "state" in kwargs:
                 # Invalid event call, state is required.
-                return
+                return False
             if not isinstance(kwargs["state"], bool):
                 # Invalid event call, state is required to be a boolean.
-                return
+                return False
 
             self.__events[event](state=kwargs["state"])
+            return True
+        elif LandroidEvent.MQTT_RATELIMIT == event:
+            if not "message" in kwargs:
+                # Invalid event call, message is required
+                return False
+
+            if not isinstance(kwargs["message"], str):
+                # Invalid event call, message is required to be a string.
+                return False
+
+            self.__events[event](message=kwargs["message"])
+            return True
+        else:
+            # Not a valid LandroidEvent
+            return False

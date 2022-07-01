@@ -2,17 +2,17 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
 import math
-
 import re
+from datetime import datetime, timedelta
 from typing import Any
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
 from ratelimit import RateLimitException, limits
 
-from ..exceptions import MQTTException, RateLimit
+from ..events import EventHandler, LandroidEvent
+from ..exceptions import MQTTException
 from ..helpers import get_logger
 from .landroid_class import LDict
 
@@ -123,6 +123,8 @@ class MQTT(mqtt.Client, LDict):
             reconnect_on_failure,
         )
 
+        self._events = EventHandler()
+
         self.devices = devices
 
         self.endpoint = None
@@ -142,9 +144,8 @@ class MQTT(mqtt.Client, LDict):
             return
         # queue_loop.run_forever()
 
-    def set_eventloop(self, eventloop: Any, callback: Any | None = None) -> None:
+    def set_eventloop(self, eventloop: Any) -> None:
         """Set eventloop to be used ny queue handler."""
-        self.queue.callback = callback
         self.__loop = eventloop
         self.__loop.run_in_executor(None, self.__handle_queue)
 
@@ -170,7 +171,11 @@ class MQTT(mqtt.Client, LDict):
                 self.queue.items.clear()
                 while queue_list:
                     message = queue_list.pop()
-                    _LOGGER.debug("Trying message %s from the message queue", message)
+                    log_msg = f"Trying message '{message}' from the message queue"
+                    if not self._events.call(
+                        LandroidEvent.MQTT_RATELIMIT, message=log_msg
+                    ):
+                        _LOGGER.debug(log_msg)
                     self.send(
                         device=message["device"],
                         data=message["data"],
@@ -247,12 +252,11 @@ class MQTT(mqtt.Client, LDict):
                 seconds=math.ceil(exc.period_remaining)
             )
             self.queue.items.append(message)
-            if not isinstance(self.queue.callback, type(None)):
-                self.queue.callback(
-                    message=f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Message '{message['data']}' to '{message['device']}' added to message queue."
-                )
-            else:
-                return f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {math.ceil(exc.period_remaining)} seconds before trying again"
+            self._events.call(
+                LandroidEvent.MQTT_RATELIMIT,
+                message=f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Message '{message['data']}' to '{message['device']}' added to message queue.",
+            )
+            return f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {math.ceil(exc.period_remaining)} seconds before trying again"
         except Exception as exc:
             _LOGGER.error(
                 "MQTT error sending '%s' to '%s'",
