@@ -13,6 +13,7 @@ class LandroidEvent(IntEnum):
     MQTT_CONNECTION = 1
     MQTT_RATELIMIT = 2
     MQTT_PUBLISH = 3
+    LOG = 4
 
 
 def check_syntax(args: dict[str, Any], objs: list[str], expected_type: Any) -> bool:
@@ -46,7 +47,7 @@ class EventHandler:
         """Call a handler if it was set."""
         if not event in self.__events:
             # Event was not set
-            return
+            return False
 
         if LandroidEvent.DATA_RECEIVED == event:
             if not check_syntax(kwargs, ["name", "device"], str):
@@ -82,6 +83,15 @@ class EventHandler:
                 retain=kwargs["retain"],
                 device=kwargs["device"],
                 topic=kwargs["topic"],
+            )
+            return True
+        elif LandroidEvent.LOG == event:
+            if not check_syntax(kwargs, ["message", "level"], str):
+                return False
+
+            self.__events[event](
+                message=kwargs["message"],
+                qos=kwargs["level"],
             )
             return True
         else:

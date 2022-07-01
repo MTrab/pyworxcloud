@@ -211,12 +211,18 @@ class MQTT(mqtt.Client, LDict):
         if not re.match("^\{[A-ZÆØÅa-zæøå0-9:'\"{} \n]*\}$", data):
             data = "{" + data + "}"
 
-        _LOGGER.debug("Sending %s to %s on %s", data, recipient.name, topic)
+        log_msg = f'Sending "{data}" to "{recipient.name}" on "topic"'
+        if not self._events.call(LandroidEvent.LOG, message=log_msg, level="debug"):
+            _LOGGER.debug(log_msg)
+
         if not self.connected and not force:
-            _LOGGER.error(
-                "MQTT server was not connected, can't send message to %s",
-                recipient.name,
+            log_msg = (
+                f"MQTT server was not connected, can"
+                't send message to "{recipient.name}"'
             )
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="error"):
+                _LOGGER.error(log_msg)
+
             raise MQTTException("MQTT not connected")
 
         message = MQTTMessageItem(device, data, qos, retain)
@@ -232,29 +238,28 @@ class MQTT(mqtt.Client, LDict):
 
         try:
             status = self.__send(topic, data, qos, retain)
-            _LOGGER.debug(
-                "Awaiting message to be published to %s on %s", recipient.name, topic
+            log_msg = (
+                f'Awaiting message to be published to "{recipient.name}" on "{topic}"'
             )
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="debug"):
+                _LOGGER.debug(log_msg)
+
             while not status.is_published:
                 pass  # Await status to change to is_published
-                # time.sleep(0.1)
-            _LOGGER.debug(
-                "MQTT message was published to %s on %s", recipient.name, topic
-            )
+
+            log_msg = f'MQTT message was published to "{recipient.name}" on "{topic}"'
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="debug"):
+                _LOGGER.debug(log_msg)
+
             return status
         except ValueError as exc:
-            _LOGGER.error(
-                "MQTT queue for %s was full, message %s was not sent!",
-                recipient.name,
-                data,
-            )
+            log_msg = f'MQTT queue for "{recipient.name}" was full, message "{data}" was not sent!'
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="error"):
+                _LOGGER.error(log_msg)
         except RuntimeError as exc:
-            _LOGGER.error(
-                "MQTT error while sending message %s to %s.\n%s",
-                data,
-                recipient.name,
-                exc,
-            )
+            log_msg = f'MQTT error while sending message "{data}" to "{recipient.name}"\n{exc}'
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="error"):
+                _LOGGER.error(log_msg)
         except RateLimitException as exc:
             _LOGGER.debug("Adding '%s' to message queue.", message)
             self.queue.retry_at = datetime.now() + timedelta(
@@ -267,11 +272,9 @@ class MQTT(mqtt.Client, LDict):
             )
             return f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {math.ceil(exc.period_remaining)} seconds before trying again"
         except Exception as exc:
-            _LOGGER.error(
-                "MQTT error sending '%s' to '%s'",
-                data,
-                recipient.name,
-            )
+            log_msg = f'MQTT error sending "{data}" to "{recipient.name}"'
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="error"):
+                _LOGGER.error(log_msg)
 
     def command(self, device: str, action: Command) -> MQTTMessageInfo:
         """Send command to device."""
