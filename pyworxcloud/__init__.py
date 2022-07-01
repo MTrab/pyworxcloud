@@ -255,9 +255,6 @@ class WorxCloud(dict):
 
         # Convert time strings to objects.
         for name, device in self.devices.items():
-            while not device.capabilities.ready:
-                pass
-
             convert_to_time(
                 name, device, device.time_zone, callback=self.update_attribute
             )
