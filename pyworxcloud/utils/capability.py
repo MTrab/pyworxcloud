@@ -4,6 +4,8 @@ from __future__ import annotations
 from enum import IntEnum
 import logging
 
+from ..events import EventHandler, LandroidEvent
+
 
 class DeviceCapability(IntEnum):
     """Available device capabilities."""
@@ -31,12 +33,19 @@ class Capability(int):
         """Initialize an empty capability list."""
         super().__init__()
         self.__int__ = 0
+        self._events = EventHandler()
 
     def add(self, capability: DeviceCapability) -> None:
         """Add capability to the list."""
-        _LOGGER.debug("Testing %s: %s",CAPABILITY_TO_TEXT[capability],capability & self.__int__)
+        log_msg = f"Testing for capability '{CAPABILITY_TO_TEXT[capability]}': '{capability & self.__int__}'"
+        if not self._events.call(LandroidEvent.LOG,log_msg):
+            _LOGGER.debug(log_msg)
+
         if capability & self.__int__ == 0:
-            _LOGGER.debug("Adding %s to capabilities", CAPABILITY_TO_TEXT[capability])
+            log_msg = f"Adding '{CAPABILITY_TO_TEXT[capability]}' to capabilities"
+            if not self._events.call(LandroidEvent.LOG,log_msg):
+                _LOGGER.debug(log_msg)
+            _LOGGER.debug(log_msg)
             self.__int__ = self.__int__ | capability
 
     def check(self, capability: DeviceCapability) -> bool:
