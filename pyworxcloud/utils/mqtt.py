@@ -135,7 +135,7 @@ class MQTT(mqtt.Client, LDict):
 
         try:
             self.__loop = asyncio.get_event_loop()
-            self.__loop.run_in_executor(None, self.__async_handle_queue)
+            self.__loop.run_in_executor(None, self.__handle_queue)
         except RuntimeError:
             return
         # queue_loop.run_forever()
@@ -143,7 +143,7 @@ class MQTT(mqtt.Client, LDict):
     def set_eventloop(self, eventloop: Any) -> None:
         """Set eventloop to be used ny queue handler."""
         self.__loop = eventloop
-        self.__loop.run_in_executor(None, self.__async_handle_queue)
+        self.__loop.run_in_executor(None, self.__handle_queue)
 
     def stop_queuehandler(self) -> None:
         """Stops the eventloop for the queue handler."""
@@ -154,7 +154,7 @@ class MQTT(mqtt.Client, LDict):
         self.loop_stop()
         return super().disconnect(reasoncode, properties)
 
-    def __async_handle_queue(self):
+    def __handle_queue(self):
         """Handle the MQTT queue."""
         while self.__loop_allow:
             if isinstance(self.queue.retry_at, int):
