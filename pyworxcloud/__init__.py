@@ -552,7 +552,7 @@ class WorxCloud(dict):
                     if isinstance(mqp, type(None)):
                         raise MQTTException("Couldn't send request to MQTT server.")
 
-                    while not mqp.is_published:
+                    while not mqp.is_published or not isinstance(mqp, str):
                         pass
                         # time.sleep(0.1)
 
