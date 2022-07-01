@@ -6,8 +6,6 @@ from enum import IntEnum
 import logging
 from typing import Any
 
-from pyworxcloud.utils.devices import DeviceHandler
-
 
 class LandroidEvent(IntEnum):
     """Enum for Landroid event types."""
@@ -61,6 +59,8 @@ class EventHandler:
             return False
 
         if LandroidEvent.DATA_RECEIVED == event:
+            from .utils.devices import DeviceHandler
+
             if not check_syntax(kwargs, ["name"], str) or not check_syntax(
                 kwargs, ["device"], DeviceHandler
             ):
