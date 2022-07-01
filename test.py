@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     # Read latest states received from the device
     cloud.update()
-    time.sleep(5)  # Just to make sure we get some data from the API endpoint
+    # time.sleep(5)  # Just to make sure we get some data from the API endpoint
 
     # cloud._mqtt.publish("DB510/F0FE6B83B4A8/commandIn", '{}', 0, False)
     # cloud.mqtt.send()
@@ -46,7 +46,8 @@ if __name__ == "__main__":
         # time.sleep(5)
         # device.mqtt.send(name)
         # cloud.update()
-        pprint(vars(device))
+        pprint(vars(device.chassis))
+        pprint(vars(device.mainboard))
     # print(cloud.mqttdata)
 
     cloud.disconnect()

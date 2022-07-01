@@ -221,14 +221,18 @@ class WorxCloud(dict):
         Returns:
             bool: True if connection was successful, otherwise False.
         """
+        self._log.debug("Fetching basic API data")
         self._fetch()
+        self._log.debug("Done fetching basic API data")
 
+        self._log.debug("Setting up MQTT handler")
         # setup MQTT handler
         self.mqtt = MQTT(
             self.devices,
             self._worx_mqtt_client_id,
             protocol=mqtt.MQTTv311,
         )
+        self._log.debug("Done setting up MQTT handler, setting MQTT config.")
 
         self.mqtt.endpoint = self._endpoint
         self.mqtt.reconnect_delay_set(60, 300)
@@ -242,22 +246,31 @@ class WorxCloud(dict):
             self.mqtt.on_log = self._on_log
             self.mqtt.enable_logger(mqttlog)
             self.mqtt.logger = True
+        self._log.debug("Done setting MQTT config, fetching certificate.")
 
         with self._get_cert() as cert:
             self.mqtt.tls_set(certfile=cert)
+        self._log.debug("Done fetching certificate, setting TLS.")
 
         if not verify_ssl:
             self.mqtt.tls_insecure_set(True)
 
+        self._log.debug("Done setting TLS, beginning MQTT connect.")
+
         self.mqtt.connect(self.mqtt.endpoint, port=8883, keepalive=600)
+        self._log.debug("MQTT connect done, starting loop")
 
         self.mqtt.loop_start()
+        self._log.debug("MQTT loop started")
 
         # Convert time strings to objects.
+
+        self._log.debug("Converting date and time string")
         for name, device in self.devices.items():
             convert_to_time(
                 name, device, device.time_zone, callback=self.update_attribute
             )
+        self._log.debug("Connection tasks all done")
 
         return True
 
@@ -327,9 +340,7 @@ class WorxCloud(dict):
         self._decode_data(device)
         device.capabilities.ready = True
 
-        self._events.call(
-            LandroidEvent.DATA_RECEIVED, name=name, device=device
-        )
+        self._events.call(LandroidEvent.DATA_RECEIVED, name=name, device=device)
 
     def _decode_data(self, device: DeviceHandler) -> None:
         """Decode incoming JSON data."""
@@ -602,31 +613,11 @@ class WorxCloud(dict):
 
     def _fetch(self) -> None:
         """Fetch base API information."""
-        self._api.get_products()
+        products = self._api.get_products()
 
-        for product in self._api.data:
+        for product in products:
             device = DeviceHandler(self._api, product)
             self.devices.update({product["name"]: device})
-
-            # device["accessories"] = None
-            # for attr, val in product.items():
-            # if attr == "accessories":
-            #     device["accessories"] = val
-            # else:
-            #     setattr(device, str(attr), val)
-
-    def enumerate(self) -> int:
-        """Fetch number of devices connected to the account.
-
-        Returns:
-            int: Represents the number of available devices in the account, starting from 0 as the first devices associated with the account.
-        """
-        self._api.get_products()
-        products = self._api.data
-        self._log.debug(
-            "Enumeration found %s devices on account %s", len(products), self._username
-        )
-        return len(products)
 
     def update(self) -> None:
         """Retrive current device status."""
