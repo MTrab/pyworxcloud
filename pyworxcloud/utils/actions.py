@@ -100,8 +100,8 @@ class Actions:
         if self.online:
             if not isinstance(rain_delay, str):
                 rain_delay = str(rain_delay)
-            msg = "{" + f'"rd": {rain_delay}' + "}"
-            self.mqtt.send(self.name, msg)
+            msg = {"rd": rain_delay}
+            self.mqtt.send(self.name, str(msg))
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -116,11 +116,11 @@ class Actions:
         """
         if self.online:
             if enable:
-                msg = '{"sc": {"m": 1}}'
+                msg = {"sc": {"m": 1}}
             else:
-                msg = '{"sc": {"m": 0}}'
+                msg = {"sc": {"m": 0}}
 
-            self.mqtt.send(self.name, msg)
+            self.mqtt.send(self.name, str(msg))
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -136,11 +136,11 @@ class Actions:
         """
         if self.online and self.capabilities.check(DeviceCapability.PARTY_MODE):
             if enabled:
-                msg = '{"sc": {"m": 2, "distm": 0}}'
+                msg = {"sc": {"m": 2, "distm": 0}}
             else:
-                msg = '{"sc": {"m": 1, "distm": 0}}'
+                msg = {"sc": {"m": 1, "distm": 0}}
 
-            self.mqtt.send(self.name, msg)
+            self.mqtt.send(self.name, str(msg))
         elif not self.capabilities.check(DeviceCapability.PARTY_MODE):
             raise NoPartymodeError("This device does not support Partymode")
         elif not self.online:
@@ -161,8 +161,8 @@ class Actions:
             if not isinstance(runtime, int):
                 runtime = int(runtime)
 
-            raw = {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}}
-            self.mqtt.send(self.name, json.dumps(raw))
+            msg = {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}}
+            self.mqtt.send(self.name, str(msg))
         elif not self.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE):
             raise NoOneTimeScheduleError(
                 "This device does not support Edgecut-on-demand"
@@ -192,8 +192,8 @@ class Actions:
                     tmp.append(new_zones[i])
                 new_zones = tmp
 
-            raw = {"mzv": new_zones}
-            self.mqtt.send(self.name, json.dumps(raw))
+            msg = {"mzv": new_zones}
+            self.mqtt.send(self.name, str(msg))
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 

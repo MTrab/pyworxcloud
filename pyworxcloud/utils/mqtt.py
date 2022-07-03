@@ -1,14 +1,18 @@
 """MQTT information class."""
 from __future__ import annotations
 
+import asyncio
+import math
 import re
+from datetime import datetime, timedelta
 from typing import Any
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
 from ratelimit import RateLimitException, limits
 
-from ..exceptions import MQTTException, RateLimit
+from ..events import EventHandler, LandroidEvent
+from ..exceptions import MQTTException
 from ..helpers import get_logger
 from .landroid_class import LDict
 
@@ -29,6 +33,30 @@ class MQTTMsgType(LDict):
 
         self["in"] = 0
         self["out"] = 0
+
+
+class MQTTMessageItem(LDict):
+    """Defines a MQTT message for Landroid Cloud."""
+
+    def __init__(
+        self, device: str, data: str = "{}", qos: int = 0, retain: bool = False
+    ) -> dict:
+        super().__init__()
+
+        self["device"] = device
+        self["data"] = data
+        self["qos"] = qos
+        self["retain"] = retain
+
+
+class MQTTQueue:
+    """Class for handling queue."""
+
+    def __init__(self):
+        """Initialize queue object."""
+        self.callback: Any | None = None
+        self.retry_at = datetime.now()
+        self.items = list[MQTTMessageItem]()
 
 
 class MQTTMessages(LDict):
@@ -70,6 +98,9 @@ class Command:
 class MQTT(mqtt.Client, LDict):
     """Full MQTT handler class."""
 
+    __loop: asyncio.AbstractEventLoop | None = None
+    __loop_allow: bool = True
+
     def __init__(
         self,
         devices: Any | None = None,
@@ -92,16 +123,64 @@ class MQTT(mqtt.Client, LDict):
             reconnect_on_failure,
         )
 
+        self._events = EventHandler()
+
         self.devices = devices
 
         self.endpoint = None
         self.connected = False
 
+        self.queue = MQTTQueue()
         self.topics = {}
         for name, device in devices.items():
             topic_in = MQTT_IN.format(device.mainboard.code, device.mac_address)
             topic_out = MQTT_OUT.format(device.mainboard.code, device.mac_address)
             self.topics.update({name: MQTTTopics(topic_in, topic_out)})
+
+        # try:
+        #     self.__loop = asyncio.get_event_loop()
+        #     self.__loop.run_in_executor(None, self.__handle_queue)
+        # except RuntimeError:
+        #     return
+
+    def set_eventloop(self, eventloop: Any) -> None:
+        """Set eventloop to be used ny queue handler."""
+        self.__loop = eventloop
+        self.__loop.run_in_executor(None, self.__handle_queue)
+
+    def stop_queuehandler(self) -> None:
+        """Stops the eventloop for the queue handler."""
+        self.queue.callback = None
+        self.__loop_allow = False
+
+    def disconnect(self, reasoncode=None, properties=None):
+        self.__loop_allow = False
+        self.loop_stop()
+        return super().disconnect(reasoncode, properties)
+
+    def __handle_queue(self):
+        """Handle the MQTT queue."""
+        while self.__loop_allow:
+            if isinstance(self.queue.retry_at, int):
+                # await asyncio.sleep(0.01)
+                continue
+
+            if self.queue.retry_at < datetime.now() and len(self.queue.items) > 0:
+                queue_list = list(reversed(self.queue.items))
+                self.queue.items.clear()
+                while queue_list:
+                    message = queue_list.pop()
+                    log_msg = f'Trying message "{message}" from the message queue'
+                    if not self._events.call(
+                        LandroidEvent.MQTT_RATELIMIT, message=log_msg
+                    ):
+                        _LOGGER.debug(log_msg)
+                    self.send(
+                        device=message["device"],
+                        data=message["data"],
+                        qos=message["qos"],
+                        retain=message["retain"],
+                    )
 
     @limits(calls=PUBLISH_CALLS_LIMIT, period=PUBLISH_LIMIT_PERIOD)
     def __send(
@@ -121,63 +200,81 @@ class MQTT(mqtt.Client, LDict):
         qos: int = 0,
         retain: bool = False,
         force: bool = False,
-    ) -> MQTTMessageInfo:
+    ) -> MQTTMessageInfo | str:
         """Send Landroid cloud message to API endpoint."""
         from .devices import DeviceHandler
 
         recipient: DeviceHandler = self.devices[device]
         topic = self.topics[device]["in"]
 
-        if not re.match("^\{[A-ZÆØÅa-zæøå0-9:'\"{} \n]*\}$", data):
+        data = data.replace("'", '"')
+        if not re.match('^\{[A-ZÆØÅa-zæøå0-9:,\[\]"{} \n]*\}$', data):
             data = "{" + data + "}"
 
-        _LOGGER.debug("Sending %s to %s on %s", data, recipient.name, topic)
+        log_msg = f'Sending "{data}" to "{recipient.name}" on "{topic}"'
+        if not self._events.call(LandroidEvent.LOG, message=log_msg, level="debug"):
+            _LOGGER.debug(log_msg)
+
         if not self.connected and not force:
-            _LOGGER.error(
-                "MQTT server was not connected, can't send message to %s",
-                recipient.name,
+            log_msg = (
+                f"MQTT server was not connected, can"
+                't send message to "{recipient.name}"'
             )
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="error"):
+                _LOGGER.error(log_msg)
+
             raise MQTTException("MQTT not connected")
+
+        message = MQTTMessageItem(device, data, qos, retain)
+
+        self._events.call(
+            LandroidEvent.MQTT_PUBLISH,
+            message=data,
+            device=device,
+            topic=topic,
+            qos=qos,
+            retain=retain,
+        )
 
         try:
             status = self.__send(topic, data, qos, retain)
-            _LOGGER.debug(
-                "Awaiting message to be published to %s on %s", recipient.name, topic
+            log_msg = (
+                f'Awaiting message to be published to "{recipient.name}" on "{topic}"'
             )
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="debug"):
+                _LOGGER.debug(log_msg)
+
             while not status.is_published:
                 pass  # Await status to change to is_published
-                # time.sleep(0.1)
-            _LOGGER.debug(
-                "MQTT message was published to %s on %s", recipient.name, topic
-            )
+
+            log_msg = f'MQTT message was published to "{recipient.name}" on "{topic}"'
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="debug"):
+                _LOGGER.debug(log_msg)
+
             return status
         except ValueError as exc:
-            _LOGGER.error(
-                "MQTT queue for %s was full, message %s was not sent!",
-                recipient.name,
-                data,
-            )
+            log_msg = f'MQTT queue for "{recipient.name}" was full, message "{data}" was not sent!'
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="error"):
+                _LOGGER.error(log_msg)
         except RuntimeError as exc:
-            _LOGGER.error(
-                "MQTT error while sending message %s to %s.\n%s",
-                data,
-                recipient.name,
-                exc,
-            )
+            log_msg = f'MQTT error while sending message "{data}" to "{recipient.name}"\n{exc}'
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="error"):
+                _LOGGER.error(log_msg)
         except RateLimitException as exc:
-            msg = f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {exc.period_remaining} before trying again"
-            raise RateLimit(
-                message=msg,
-                limit=PUBLISH_CALLS_LIMIT,
-                period=PUBLISH_LIMIT_PERIOD,
-                remaining=exc.period_remaining,
-            ) from exc
-        except Exception as exc:
-            _LOGGER.error(
-                "MQTT error sending '%s' to '%s'",
-                data,
-                recipient.name,
+            _LOGGER.debug("Adding '%s' to message queue.", message)
+            self.queue.retry_at = datetime.now() + timedelta(
+                seconds=math.ceil(exc.period_remaining)
             )
+            self.queue.items.append(message)
+            self._events.call(
+                LandroidEvent.MQTT_RATELIMIT,
+                message=f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Message '{message['data']}' to '{message['device']}' added to message queue.",
+            )
+            return f"Ratelimit of {PUBLISH_CALLS_LIMIT} messages in {PUBLISH_LIMIT_PERIOD} seconds exceeded. Wait {math.ceil(exc.period_remaining)} seconds before trying again"
+        except Exception as exc:
+            log_msg = f'MQTT error sending "{data}" to "{recipient.name}"'
+            if not self._events.call(LandroidEvent.LOG, message=log_msg, level="error"):
+                _LOGGER.error(log_msg)
 
     def command(self, device: str, action: Command) -> MQTTMessageInfo:
         """Send command to device."""

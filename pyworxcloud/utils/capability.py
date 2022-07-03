@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from enum import IntEnum
+import logging
+
+from ..events import EventHandler, LandroidEvent
 
 
 class DeviceCapability(IntEnum):
@@ -28,6 +31,7 @@ class Capability(int):
         """Initialize an empty capability list."""
         super().__init__()
         self.__int__ = 0
+        self.ready = False
 
     def add(self, capability: DeviceCapability) -> None:
         """Add capability to the list."""

@@ -46,7 +46,7 @@ class WorxCloud(dict):
     There are no public available API documentation available.
     """
 
-    __device: str | None = None
+    # __device: str | None = None
 
     def __init__(
         self,
@@ -202,10 +202,10 @@ class WorxCloud(dict):
     def disconnect(self) -> None:
         """Close API connections."""
         if self.mqtt.connected:
-            topic = self.mqtt.topics["out"]
-            self.mqtt.unsubscribe(topic)
+            # topic = self.mqtt.topics["out"]
+            # self.mqtt.unsubscribe(topic)
             self.mqtt.disconnect()
-            self.mqtt.loop_stop()
+            # self.mqtt.loop_stop()
 
     def connect(
         self,
@@ -221,14 +221,18 @@ class WorxCloud(dict):
         Returns:
             bool: True if connection was successful, otherwise False.
         """
+        self._log.debug("Fetching basic API data")
         self._fetch()
+        self._log.debug("Done fetching basic API data")
 
+        self._log.debug("Setting up MQTT handler")
         # setup MQTT handler
         self.mqtt = MQTT(
             self.devices,
             self._worx_mqtt_client_id,
             protocol=mqtt.MQTTv311,
         )
+        self._log.debug("Done setting up MQTT handler, setting MQTT config.")
 
         self.mqtt.endpoint = self._endpoint
         self.mqtt.reconnect_delay_set(60, 300)
@@ -242,22 +246,31 @@ class WorxCloud(dict):
             self.mqtt.on_log = self._on_log
             self.mqtt.enable_logger(mqttlog)
             self.mqtt.logger = True
+        self._log.debug("Done setting MQTT config, fetching certificate.")
 
         with self._get_cert() as cert:
             self.mqtt.tls_set(certfile=cert)
+        self._log.debug("Done fetching certificate, setting TLS.")
 
         if not verify_ssl:
             self.mqtt.tls_insecure_set(True)
 
+        self._log.debug("Done setting TLS, beginning MQTT connect.")
+
         self.mqtt.connect(self.mqtt.endpoint, port=8883, keepalive=600)
+        self._log.debug("MQTT connect done, starting loop")
 
         self.mqtt.loop_start()
+        self._log.debug("MQTT loop started")
 
         # Convert time strings to objects.
+
+        self._log.debug("Converting date and time string")
         for name, device in self.devices.items():
             convert_to_time(
                 name, device, device.time_zone, callback=self.update_attribute
             )
+        self._log.debug("Connection tasks all done")
 
         return True
 
@@ -302,9 +315,12 @@ class WorxCloud(dict):
         """MQTT callback method definition."""
         logger = self._log.getChild("mqtt.message_received")
         topic = message.topic
+
         for name, topics in self.mqtt.topics.items():
             if topics["out"] == topic:
                 break
+
+        device: DeviceHandler = self.devices[name]
 
         logger.debug(
             "Received MQTT message for %s - processing data %s",
@@ -312,22 +328,19 @@ class WorxCloud(dict):
             message.payload.decode("utf-8"),
         )
 
-        # self._fetch()
-        # self._mqtt_data = message.payload.decode("utf-8")
-
-        while not self.devices[name].is_decoded:
+        while not device.is_decoded:
             pass  # Await last dataset to be handled before sending a new into the handler
 
         msg = message.payload.decode("utf-8")
-        if self.devices[name].raw_data == msg:
+        if device.raw_data == msg:
             self._log.debug("Data was already present and not changed.")
             return  # Data was identical, update was not needed
 
-        self.devices[name].raw_data = msg
-        self._decode_data(self.devices[name])
-        self._events.call(
-            LandroidEvent.DATA_RECEIVED, name=name, device=self.devices[name]
-        )
+        device.raw_data = msg
+        self._decode_data(device)
+        device.capabilities.ready = True
+
+        self._events.call(LandroidEvent.DATA_RECEIVED, name=name, device=device)
 
     def _decode_data(self, device: DeviceHandler) -> None:
         """Decode incoming JSON data."""
@@ -404,6 +417,7 @@ class WorxCloud(dict):
             if "sc" in data["cfg"]:
                 if "ots" in data["cfg"]["sc"]:
                     device.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                    device.capabilities.add(DeviceCapability.EDGE_CUT)
                 if "distm" in data["cfg"]["sc"]:
                     device.capabilities.add(DeviceCapability.PARTY_MODE)
 
@@ -551,14 +565,14 @@ class WorxCloud(dict):
                     mqp = device.mqtt.send(name, force=True)
                     if isinstance(mqp, type(None)):
                         raise MQTTException("Couldn't send request to MQTT server.")
-
-                    while not mqp.is_published:
-                        pass
-                        # time.sleep(0.1)
+                    elif not isinstance(mqp, str):
+                        while not mqp.is_published:
+                            pass
 
             logger.debug("Setting MQTT connected flag TRUE")
             self.mqtt.connected = True
             self._events.call(LandroidEvent.MQTT_CONNECTION, state=self.mqtt.connected)
+
         else:
             logger.debug("Setting MQTT connected flag FALSE")
             self.mqtt.connected = False
@@ -599,35 +613,11 @@ class WorxCloud(dict):
 
     def _fetch(self) -> None:
         """Fetch base API information."""
-        self._api.get_products()
+        products = self._api.get_products()
 
-        for product in self._api.data:
-            if self.__device:
-                if product["name"] != self.__device:
-                    continue
-
+        for product in products:
             device = DeviceHandler(self._api, product)
             self.devices.update({product["name"]: device})
-
-            # device["accessories"] = None
-            # for attr, val in product.items():
-            # if attr == "accessories":
-            #     device["accessories"] = val
-            # else:
-            #     setattr(device, str(attr), val)
-
-    def enumerate(self) -> int:
-        """Fetch number of devices connected to the account.
-
-        Returns:
-            int: Represents the number of available devices in the account, starting from 0 as the first devices associated with the account.
-        """
-        self._api.get_products()
-        products = self._api.data
-        self._log.debug(
-            "Enumeration found %s devices on account %s", len(products), self._username
-        )
-        return len(products)
 
     def update(self) -> None:
         """Retrive current device status."""
