@@ -31,7 +31,7 @@ def string_to_time(dt_string: str, tz: str = "UTC") -> datetime | str:
     Returns:
         datetime: datatime object
     """
-    timezone = pytz.timezone(tz)
+    timezone = pytz.timezone(tz) if not isinstance(tz,type(None)) else pytz.timezone("UTC")
     for format in DATE_FORMATS:
         try:
             dt_object = timezone.localize(datetime.strptime(dt_string, format))
