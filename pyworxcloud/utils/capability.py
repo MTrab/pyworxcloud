@@ -1,8 +1,8 @@
 """Device capabilities."""
 from __future__ import annotations
 
-from enum import IntEnum
 import logging
+from enum import IntEnum
 
 from ..events import EventHandler, LandroidEvent
 
