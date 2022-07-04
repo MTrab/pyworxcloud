@@ -185,7 +185,7 @@ class Actions:
 
             current = self.zone["indicies"]
             new_zones = current
-            while not new_zones[self.mowing_zone] == zone:
+            while not new_zones[self.zone.current] == zone:
                 tmp = []
                 tmp.append(new_zones[9])
                 for i in range(0, 9):
