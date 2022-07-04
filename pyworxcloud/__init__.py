@@ -354,7 +354,7 @@ class WorxCloud(dict):
             data = device.json_data
         elif device.raw_data:
             logger.debug("Found raw data: %s", device.raw_data)
-            data = json.loads(device._mqtt_data)
+            data = json.loads(device.raw_data)
         else:
             device.is_decoded = True
             logger.debug("No valid data was found, skipping update for %s", device.name)
