@@ -3,7 +3,12 @@ from __future__ import annotations
 
 import json
 
-from ..exceptions import NoOneTimeScheduleError, NoPartymodeError, OfflineError
+from ..exceptions import (
+    NoOneTimeScheduleError,
+    NoPartymodeError,
+    OfflineError,
+    RequestException,
+)
 from ..helpers import get_logger
 from .capability import DeviceCapability
 from .mqtt import Command
@@ -182,6 +187,9 @@ class Actions:
         if self.online:
             if not isinstance(zone, int):
                 zone = int(zone)
+
+            if self.zone["starting_point"][zone] == 0:
+                raise RequestException("Cannot request this zone as it is not defined.")
 
             current = self.zone["indicies"]
             new_zones = current
