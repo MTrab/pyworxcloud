@@ -416,6 +416,13 @@ class WorxCloud(dict):
                 # Map current zone to zone index
                 device.zone.current = device.zone.indicies[device.zone.index]
 
+                # Map next zone to zone index
+                device.zone.next = (
+                    device.zone.indicies[device.zone.index + 1]
+                    if device.zone.index < 9
+                    else 0
+                )
+
             # Fetch main schedule
             if "sc" in data["cfg"]:
                 if "ots" in data["cfg"]["sc"]:
