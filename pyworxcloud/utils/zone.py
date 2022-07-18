@@ -33,7 +33,7 @@ class Zone(LDict):
         return self["next"]
 
     @next.setter
-    def current(self, value: int) -> None:
+    def next(self, value: int) -> None:
         """Set next zone property."""
         self["next"] = value
 
