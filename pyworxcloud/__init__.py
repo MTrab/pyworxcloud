@@ -379,6 +379,9 @@ class WorxCloud(dict):
             if "st" in data["dat"]:
                 device.statistics = Statistic(data["dat"]["st"])
 
+                if len(device.blades) != 0:
+                    device.blades.set_data(data["dat"]["st"])
+
             # Get orientation if available.
             if "dmp" in data["dat"]:
                 device.orientation = Orientation(data["dat"]["dmp"])
