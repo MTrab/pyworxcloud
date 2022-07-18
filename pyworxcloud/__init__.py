@@ -13,8 +13,6 @@ import OpenSSL.crypto
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import connack_string, error_string
 
-from pyworxcloud.utils.mqtt import PUBLISH_CALLS_LIMIT, PUBLISH_LIMIT_PERIOD
-
 from .api import LandroidCloudAPI
 from .clouds import CloudType
 from .day_map import DAY_MAP
@@ -32,6 +30,7 @@ from .utils import (
     Statistic,
     Weekdays,
 )
+from .utils.mqtt import PUBLISH_CALLS_LIMIT, PUBLISH_LIMIT_PERIOD
 from .utils.schedules import TYPE_TO_STRING
 
 if sys.version_info < (3, 9, 0):
@@ -234,7 +233,7 @@ class WorxCloud(dict):
             self._worx_mqtt_client_id,
             protocol=mqtt.MQTTv311,
         )
-        
+
         if len(self.devices) > 3:
             # Raising the ratelimit as we have more devices to handle
             # !! This has potential to get you banned !!
