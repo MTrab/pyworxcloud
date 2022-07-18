@@ -170,7 +170,7 @@ class Actions:
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    def setzone(self, zone: str) -> None:
+    def setzone(self, zone: str | int) -> None:
         """Set zone to be mowed when next mowing task is started.
 
         Args:
