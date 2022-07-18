@@ -9,7 +9,7 @@ from typing import Any
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
-from ratelimit import RateLimitException, limits, rate_limited
+from ratelimit import RateLimitException, rate_limited
 
 from ..events import EventHandler, LandroidEvent
 from ..exceptions import MQTTException
