@@ -9,7 +9,7 @@ from typing import Any
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import MQTTMessageInfo
-from ratelimit import RateLimitException, limits
+from ratelimit import RateLimitException, limits, rate_limited
 
 from ..events import EventHandler, LandroidEvent
 from ..exceptions import MQTTException
@@ -125,6 +125,10 @@ class MQTT(mqtt.Client, LDict):
 
         self._events = EventHandler()
 
+        self.rl_send = rate_limited(PUBLISH_CALLS_LIMIT, PUBLISH_LIMIT_PERIOD)(
+            self.__send
+        )
+
         self.devices = devices
 
         self.endpoint = None
@@ -162,7 +166,6 @@ class MQTT(mqtt.Client, LDict):
         """Handle the MQTT queue."""
         while self.__loop_allow:
             if isinstance(self.queue.retry_at, int):
-                # await asyncio.sleep(0.01)
                 continue
 
             if self.queue.retry_at < datetime.now() and len(self.queue.items) > 0:
@@ -182,7 +185,6 @@ class MQTT(mqtt.Client, LDict):
                         retain=message["retain"],
                     )
 
-    @limits(calls=PUBLISH_CALLS_LIMIT, period=PUBLISH_LIMIT_PERIOD)
     def __send(
         self,
         topic: str,
@@ -237,7 +239,8 @@ class MQTT(mqtt.Client, LDict):
         )
 
         try:
-            status = self.__send(topic, data, qos, retain)
+
+            status = self.rl_send(topic, data, qos, retain)
             log_msg = (
                 f'Awaiting message to be published to "{recipient.name}" on "{topic}"'
             )
@@ -275,6 +278,14 @@ class MQTT(mqtt.Client, LDict):
             log_msg = f'MQTT error sending "{data}" to "{recipient.name}"'
             if not self._events.call(LandroidEvent.LOG, message=log_msg, level="error"):
                 _LOGGER.error(log_msg)
+
+    def set_ratelimit(self, messages: int, seconds: int) -> None:
+        """Set ratelimits.
+
+        messages (int): Number of messages before ratelimiting
+        seconds (int): Number of seconds the ratelimit is counting towards
+        """
+        self.rl_send = rate_limited(messages, seconds)(self.__send)
 
     def command(self, device: str, action: Command) -> MQTTMessageInfo:
         """Send command to device."""
