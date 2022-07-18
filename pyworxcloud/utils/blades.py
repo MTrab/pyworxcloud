@@ -50,6 +50,18 @@ class Blades(LDict):
         else:
             self["reset_time"] = None
 
+        self._calculate_current_on()
+
+    def set_data(self, indata: list):
+        """Update data on existing dataset."""
+        if "b" in indata:
+            self["total_on"] = indata["b"]
+
+        self._calculate_current_on()
+
+    def _calculate_current_on(self) -> None:
+        """Calculate current_on attribute."""
+
         # Calculate blade data since reset, if possible
         if self["reset_at"] and self["total_on"]:
             # Blade time since last reset
