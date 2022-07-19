@@ -442,7 +442,9 @@ class WorxCloud(dict):
 
                 device.partymode_enabled = bool(str(data["cfg"]["sc"]["m"]) == "2")
 
-                device.schedules["active"] = bool(str(data["cfg"]["sc"]["m"]) == "1")
+                device.schedules["active"] = bool(
+                    str(data["cfg"]["sc"]["m"]) in ["1", "2"]
+                )
                 device.schedules["time_extension"] = data["cfg"]["sc"]["p"]
 
                 sch_type = ScheduleType.PRIMARY
