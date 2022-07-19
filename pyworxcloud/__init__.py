@@ -30,7 +30,8 @@ from .utils import (
     Statistic,
     Weekdays,
 )
-from .utils.schedules import TYPE_TO_STRING, ScheduleInfo
+from .utils.mqtt import PUBLISH_CALLS_LIMIT, PUBLISH_LIMIT_PERIOD
+from .utils.schedules import TYPE_TO_STRING
 
 if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
@@ -232,6 +233,14 @@ class WorxCloud(dict):
             self._worx_mqtt_client_id,
             protocol=mqtt.MQTTv311,
         )
+
+        if len(self.devices) > 3:
+            # Raising the ratelimit as we have more devices to handle
+            # !! This has potential to get you banned !!
+            self.mqtt.set_ratelimit(
+                PUBLISH_CALLS_LIMIT * len(self.devices), PUBLISH_LIMIT_PERIOD
+            )
+
         self._log.debug("Done setting up MQTT handler, setting MQTT config.")
 
         self.mqtt.endpoint = self._endpoint
