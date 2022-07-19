@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     # Connect to device with index 0 (devices are enumerated 0, 1, 2 ...) and do
     # not verify SSL (False)
-    cloud.connect(verify_ssl=False, pahologger=True)
+    cloud.connect(verify_ssl=False, pahologger=False)
 
     # Wait for MQTT connection
     while not cloud.mqtt.connected:
@@ -34,20 +34,10 @@ if __name__ == "__main__":
 
     # Read latest states received from the device
     cloud.update()
-    # time.sleep(5)  # Just to make sure we get some data from the API endpoint
+    time.sleep(5)  # Just to make sure we get some data from the API endpoint
 
-    # cloud._mqtt.publish("DB510/F0FE6B83B4A8/commandIn", '{}', 0, False)
-    # cloud.mqtt.send()
-    # cloud.home()
     # Print all vars and attributes of the cloud object
     for index, (name, device) in enumerate(cloud.devices.items()):
-        # device.start()
-        # device.raindelay(30)
-        # time.sleep(5)
-        # device.mqtt.send(name)
-        # cloud.update()
-        pprint(vars(device.chassis))
-        pprint(vars(device.mainboard))
-    # print(cloud.mqttdata)
+        pprint(vars(device))
 
     cloud.disconnect()

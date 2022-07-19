@@ -30,7 +30,7 @@ from .utils import (
     Statistic,
     Weekdays,
 )
-from .utils.schedules import TYPE_TO_STRING
+from .utils.schedules import TYPE_TO_STRING, ScheduleInfo
 
 if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
@@ -527,6 +527,8 @@ class WorxCloud(dict):
                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                         "end"
                     ] = end_time.time().strftime("%H:%M")
+
+            device.schedules.update_progress_and_next()
 
         convert_to_time(
             device.name, device, device.time_zone, callback=self.update_attribute
