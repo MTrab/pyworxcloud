@@ -136,7 +136,7 @@ class ScheduleInfo:
             primary, secondary, date = self._get_schedules(date + timedelta(days=1))
             cnt += 1
 
-        start = string_to_time(f"{self.__today} {primary['start']}:00", self._tz)
+        start = string_to_time(f"{date.strftime('%d/%m/%Y')} {primary['start']}:00", self._tz)
 
         if self.__now < start:
             next = start
