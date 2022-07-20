@@ -195,7 +195,7 @@ class Actions:
             new_zones = current
 
             next_index = self.zone["index"] + 1 if self.zone["index"] < 9 else 0
-            while not new_zones[next_index] == zone:
+            while not new_zones[self.zone["index"]] == zone:
                 tmp = []
                 for i in range(1, 10):
                     tmp.append(new_zones[i])
