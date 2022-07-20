@@ -2,4 +2,3 @@ paho-mqtt==1.6.1
 pyOpenSSL==22.0.0
 ratelimit==2.2.1
 requests==2.28.1
-pytz==2022.1
