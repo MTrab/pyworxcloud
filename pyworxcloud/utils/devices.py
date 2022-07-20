@@ -77,6 +77,9 @@ class DeviceHandler(LDict, Actions):
         for attr, val in data.items():
             setattr(self, str(attr), val)
 
+        if not "time_zone" in data:
+            data["time_zone"] = "UTC"
+
         self.battery = Battery(data)
         self.blades = Blades(data)
         self.chassis = ProductInfo(InfoType.MOWER, api, data["product_id"])

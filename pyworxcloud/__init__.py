@@ -30,7 +30,7 @@ from .utils import (
     Statistic,
     Weekdays,
 )
-from .utils.mqtt import PUBLISH_CALLS_LIMIT, PUBLISH_LIMIT_PERIOD
+from .utils.mqtt import PUBLISH_CALLS_LIMIT, PUBLISH_LIMIT_PERIOD, MQTTTopics
 from .utils.schedules import TYPE_TO_STRING
 
 if sys.version_info < (3, 9, 0):
@@ -243,7 +243,19 @@ class WorxCloud(dict):
 
         self._log.debug("Done setting up MQTT handler, setting MQTT config.")
 
-        self.mqtt.endpoint = self._endpoint
+        self.mqtt.endpoint = (
+            self._api._data[0]["mqtt_endpoint"]
+            if "mqtt_endpoint" in self._api._data[0]
+            else self._endpoint
+        )
+        self.mqtt.topics.update(
+            {
+                self._api._data[0]["name"]: MQTTTopics(
+                    self._api._data[0]["mqtt_topics"]["command_in"],
+                    self._api._data[0]["mqtt_topics"]["command_out"],
+                )
+            }
+        )
         self.mqtt.reconnect_delay_set(60, 300)
 
         self.mqtt.on_message = self._forward_on_message
