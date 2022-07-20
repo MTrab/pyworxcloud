@@ -4,8 +4,7 @@ from __future__ import annotations
 import calendar
 from datetime import datetime, timedelta
 from enum import IntEnum
-
-import pytz
+from dateutil.tz import gettz
 
 from ..day_map import DAY_MAP
 from .landroid_class import LDict
@@ -56,11 +55,7 @@ class ScheduleInfo:
         """Initialize the ScheduleInfo object and set values."""
         self.__schedule = schedule
         now = datetime.now()
-        timezone = (
-            pytz.timezone(tz)
-            if not isinstance(tz, type(None))
-            else pytz.timezone("UTC")
-        )
+        timezone = gettz(tz) if not isinstance(tz, type(None)) else gettz("UTC")
         self._tz = tz
         self.__now = now.astimezone(timezone)
         self.__today = self.__now.strftime("%d/%m/%Y")
