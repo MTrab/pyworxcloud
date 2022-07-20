@@ -113,7 +113,7 @@ class ScheduleInfo:
         pct = (has_run / total_run) * 100
         return int(round(pct))
 
-    def next_schedule(self) -> datetime:
+    def next_schedule(self) -> str:
         """Find next schedule starting point."""
         primary, secondary, date = self._get_schedules(self.__now)
         next = None
@@ -152,7 +152,7 @@ class ScheduleInfo:
                 f"{date.strftime('%d/%m/%Y')} {primary['start']}", "%d/%m/%Y %H:%M"
             )
 
-        return next
+        return next.strftime("%Y-%m-%d %H:%M:%S")
 
 
 class Schedule(LDict):
