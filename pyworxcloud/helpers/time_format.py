@@ -4,8 +4,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from typing import Any
-
-import pytz
+from zoneinfo import ZoneInfo
 
 from pyworxcloud.utils.schedules import Schedule
 
@@ -34,11 +33,11 @@ def string_to_time(dt_string: str, tz: str = "UTC") -> datetime | str:
         datetime: datatime object
     """
     timezone = (
-        pytz.timezone(tz) if not isinstance(tz, type(None)) else pytz.timezone("UTC")
+        ZoneInfo(tz) if not isinstance(tz, type(None)) else ZoneInfo("UTC")
     )
     for format in DATE_FORMATS:
         try:
-            dt_object = timezone.localize(datetime.strptime(dt_string, format))
+            dt_object = datetime.strptime(dt_string, format).replace(tzinfo=timezone) #.astimezone(timezone)
             break
         except ValueError:
             pass
@@ -63,7 +62,7 @@ def convert_to_time(
         expression or r"\d{2,4}[-\/]\d{1,2}[-\/]\d{1,4} \d{1,2}:\d{1,2}:\d{1,2}"
     )
     if hasattr(data, "__dict__"):
-        if isinstance(data,Schedule):
+        if isinstance(data, Schedule):
             pass
         data = data.__dict__ if len(data.__dict__) > 0 else data
 

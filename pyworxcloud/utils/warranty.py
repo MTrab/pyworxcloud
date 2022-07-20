@@ -4,8 +4,6 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-import pytz
-
 from .landroid_class import LDict
 
 
@@ -22,10 +20,7 @@ class Warranty(LDict):
         )
         self["registered"] = data["warranty_registered"]
         self["expired"] = (
-            bool(
-                self["expires_at"]
-                < datetime.now().astimezone(pytz.timezone(data["time_zone"]))
-            )
+            bool(self["expires_at"] < datetime.now().astimezone())
             if not isinstance(self["expires_at"], type(None))
             else None
         )

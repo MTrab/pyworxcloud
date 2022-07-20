@@ -28,6 +28,5 @@ setuptools.setup(
         "pyOpenSSL>=22.0.0",
         "ratelimit>=2.2.1",
         "requests>=2.26.0",
-        "pytz>=2022.1",
     ],
 )

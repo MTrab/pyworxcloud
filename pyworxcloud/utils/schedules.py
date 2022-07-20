@@ -4,6 +4,7 @@ from __future__ import annotations
 import calendar
 from datetime import datetime, timedelta
 from enum import IntEnum
+from zoneinfo import ZoneInfo
 
 from ..day_map import DAY_MAP
 from .landroid_class import LDict
@@ -50,11 +51,14 @@ class Weekdays(LDict):
 class ScheduleInfo:
     """Used for calculate the current schedule progress and show next schedule start."""
 
-    def __init__(self, schedule: Schedule) -> None:
+    def __init__(self, schedule: Schedule, tz: str | None = None) -> None:
         """Initialize the ScheduleInfo object and set values."""
         self.__schedule = schedule
-        self.__now = datetime.now()
-        self.__today = datetime.now().strftime("%d/%m/%Y")
+        now = datetime.now()
+        timezone = ZoneInfo(tz) if not isinstance(tz, type(None)) else ZoneInfo("UTC")
+        self._tz = tz
+        self.__now = now.astimezone(timezone)
+        self.__today = self.__now.strftime("%d/%m/%Y")
 
     def _get_schedules(
         self, date: datetime, next: bool = False, add_offset: bool = False
@@ -79,15 +83,15 @@ class ScheduleInfo:
 
     def calculate_progress(self) -> int:
         """Calculate and return current progress in percent."""
+        from ..helpers.time_format import string_to_time
+
         primary, secondary, date = self._get_schedules(self.__now)
 
         if isinstance(primary, type(None)) and isinstance(secondary, type(None)):
             return 100
 
-        start = datetime.strptime(
-            f"{self.__today} {primary['start']}", "%d/%m/%Y %H:%M"
-        )
-        end = datetime.strptime(f"{self.__today} {primary['end']}", "%d/%m/%Y %H:%M")
+        start = string_to_time(f"{self.__today} {primary['start']}:00", self._tz)
+        end = string_to_time(f"{self.__today} {primary['end']}:00", self._tz)
 
         total_run = primary["duration"]
         has_run = 0
@@ -119,6 +123,8 @@ class ScheduleInfo:
 
     def next_schedule(self) -> str:
         """Find next schedule starting point."""
+        from ..helpers.time_format import string_to_time
+
         primary, secondary, date = self._get_schedules(self.__now)
         next = None
         cnt = 0
@@ -130,30 +136,26 @@ class ScheduleInfo:
             primary, secondary, date = self._get_schedules(date + timedelta(days=1))
             cnt += 1
 
-        start = datetime.strptime(
-            f"{date.strftime('%d/%m/%Y')} {primary['start']}", "%d/%m/%Y %H:%M"
-        )
+        start = string_to_time(f"{self.__today} {primary['start']}:00", self._tz)
 
         if self.__now < start:
             next = start
         elif (
             (not isinstance(secondary, type(None)))
             and start
-            < datetime.strptime(
-                f"{date.strftime('%d/%m/%Y')} {secondary['start']}", "%d/%m/%Y %H:%M"
+            < string_to_time(
+                f"{date.strftime('%d/%m/%Y')} {secondary['start']}:00", self._tz
             )
             and secondary["duration"] > 0
         ):
-            next = datetime.strptime(
-                f"{date.strftime('%d/%m/%Y')} {secondary['start']}", "%d/%m/%Y %H:%M"
-            )
+            next = f"{date.strftime('%d/%m/%Y')} {secondary['start']}:00"
 
         if isinstance(next, type(None)):
             primary, secondary, date = self._get_schedules(date + timedelta(days=1))
             while isinstance(primary, type(None)):
                 primary, secondary, date = self._get_schedules(date + timedelta(days=1))
-            next = datetime.strptime(
-                f"{date.strftime('%d/%m/%Y')} {primary['start']}", "%d/%m/%Y %H:%M"
+            next = string_to_time(
+                f"{date.strftime('%d/%m/%Y')} {primary['start']}:00", self._tz
             )
 
         return next.strftime("%Y-%m-%d %H:%M:%S")
@@ -185,9 +187,9 @@ class Schedule(LDict):
             "enabled": auto_schedule_enabled,
         }
 
-    def update_progress_and_next(self) -> None:
+    def update_progress_and_next(self, tz: str | None = None) -> None:
         """Update progress and next scheduled start properties."""
 
-        info = ScheduleInfo(self)
+        info = ScheduleInfo(self, tz)
         self["daily_progress"] = info.calculate_progress()
         self["next_schedule_start"] = info.next_schedule()
