@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import time
 from os import environ
 from pprint import pprint
@@ -9,6 +10,8 @@ EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
 TYPE = "worx"
 
+tz = datetime.datetime.now().astimezone().tzinfo.tzname(None)
+
 
 async def main():
     loop = asyncio.get_running_loop()
@@ -16,7 +19,7 @@ async def main():
 
 
 def worx_test():
-    cloud = WorxCloud(EMAIL, PASS, TYPE)
+    cloud = WorxCloud(EMAIL, PASS, TYPE, tz=tz)
 
     # Initialize connection
     auth = cloud.authenticate()

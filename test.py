@@ -1,3 +1,4 @@
+import datetime
 import time
 from os import environ
 from pprint import pprint
@@ -8,13 +9,14 @@ EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
 TYPE = environ["TYPE"]
 
+tz = datetime.datetime.now().astimezone().tzinfo.tzname(None)
 
 if __name__ == "__main__":
     # Clear the screen for better visibility when debugging
     print("\033c", end="")
 
     # Initialize the class
-    cloud = WorxCloud(EMAIL, PASS, TYPE)
+    cloud = WorxCloud(EMAIL, PASS, TYPE, tz=tz)
 
     # Initialize connection
     auth = cloud.authenticate()
