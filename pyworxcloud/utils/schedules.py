@@ -66,9 +66,13 @@ class ScheduleInfo:
         if primary["duration"] == 0:
             return None, None, date
 
-        secondary = self.__schedule[TYPE_TO_STRING[ScheduleType.SECONDARY]][day]
+        secondary = (
+            self.__schedule[TYPE_TO_STRING[ScheduleType.SECONDARY]][day]
+            if TYPE_TO_STRING[ScheduleType.SECONDARY] in self.__schedule
+            else None
+        )
 
-        if secondary["duration"] == 0:
+        if (not isinstance(secondary, type(None))) and secondary["duration"] == 0:
             secondary = None
 
         return primary, secondary, date

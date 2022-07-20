@@ -7,6 +7,8 @@ from typing import Any
 
 import pytz
 
+from pyworxcloud.utils.schedules import Schedule
+
 try:
     from ..utils import __all__ as all_utils
 except:
@@ -61,7 +63,9 @@ def convert_to_time(
         expression or r"\d{2,4}[-\/]\d{1,2}[-\/]\d{1,4} \d{1,2}:\d{1,2}:\d{1,2}"
     )
     if hasattr(data, "__dict__"):
-        data = data.__dict__
+        if isinstance(data,Schedule):
+            pass
+        data = data.__dict__ if len(data.__dict__) > 0 else data
 
     if isinstance(subkey, type(None)):
         parent = subkey
