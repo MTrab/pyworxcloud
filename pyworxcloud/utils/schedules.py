@@ -148,7 +148,9 @@ class ScheduleInfo:
             )
             and secondary["duration"] > 0
         ):
-            next = f"{date.strftime('%d/%m/%Y')} {secondary['start']}:00"
+            next = string_to_time(
+                f"{date.strftime('%d/%m/%Y')} {secondary['start']}:00", self._tz
+            )
 
         if isinstance(next, type(None)):
             primary, secondary, date = self._get_schedules(date + timedelta(days=1))
