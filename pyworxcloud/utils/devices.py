@@ -29,10 +29,13 @@ class DeviceHandler(LDict, Actions):
     __raw_data: str = None
     __json_data: str = None
 
-    def __init__(self, api: Any = None, product: Any = None) -> dict:
+    def __init__(
+        self, api: Any = None, product: Any = None, tz: str | None = None
+    ) -> dict:
         """Initialize the object."""
         super().__init__()
 
+        self._tz = tz
         if not isinstance(product, type(None)) and not isinstance(api, type(None)):
             self.__mapinfo(api, product)
 

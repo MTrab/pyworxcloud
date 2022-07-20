@@ -40,6 +40,7 @@ class LandroidCloudAPI:
         | CloudType.KRESS
         | CloudType.LANDXCAPE
         | CloudType.FERREX = CloudType.WORX,
+        tz: str | None = None,  # pylint: disable=invalid-name
     ) -> None:
         """Initialize a new instance of the API broker.
 
@@ -55,6 +56,7 @@ class LandroidCloudAPI:
         self.uuid = None
         self._api_host = None
         self._data = None
+        self._tz = tz
 
         self.api_url = cloud.URL
         self.api_key = cloud.KEY

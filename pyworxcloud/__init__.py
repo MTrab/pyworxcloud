@@ -59,6 +59,7 @@ class WorxCloud(dict):
         | CloudType.FERREX
         | str = CloudType.WORX,
         verify_ssl: bool = True,
+        tz: str | None = None,  # pylint: disable=invalid-name
     ) -> None:
         """
         Initialize :class:WorxCloud class and set default attribute values.
@@ -138,6 +139,7 @@ class WorxCloud(dict):
         self._auth_result = False
         self._log = get_logger("pyworxcloud")
         self._raw = None
+        self._tz = tz
 
         self._save_zones = None
         self._verify_ssl = verify_ssl
@@ -551,7 +553,7 @@ class WorxCloud(dict):
                         "end"
                     ] = end_time.time().strftime("%H:%M")
 
-            device.schedules.update_progress_and_next()
+            device.schedules.update_progress_and_next(tz=self._tz)
 
         convert_to_time(
             device.name, device, device.time_zone, callback=self.update_attribute
