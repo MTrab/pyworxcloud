@@ -553,7 +553,11 @@ class WorxCloud(dict):
                         "end"
                     ] = end_time.time().strftime("%H:%M")
 
-            device.schedules.update_progress_and_next(tz=self._tz)
+            device.schedules.update_progress_and_next(
+                tz=self._tz
+                if not isinstance(self._tz, type(None))
+                else device.time_zone
+            )
 
         convert_to_time(
             device.name, device, device.time_zone, callback=self.update_attribute

@@ -19,7 +19,7 @@ async def main():
 
 
 def worx_test():
-    cloud = WorxCloud(EMAIL, PASS, TYPE, tz=tz)
+    cloud = WorxCloud(EMAIL, PASS, TYPE)
 
     # Initialize connection
     auth = cloud.authenticate()

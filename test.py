@@ -16,7 +16,7 @@ if __name__ == "__main__":
     print("\033c", end="")
 
     # Initialize the class
-    cloud = WorxCloud(EMAIL, PASS, TYPE, tz=tz)
+    cloud = WorxCloud(EMAIL, PASS, TYPE)
 
     # Initialize connection
     auth = cloud.authenticate()
