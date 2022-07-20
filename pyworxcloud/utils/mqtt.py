@@ -147,6 +147,10 @@ class MQTT(mqtt.Client, LDict):
         # except RuntimeError:
         #     return
 
+    def set_topics(self, name: str, commandIn: str, commandOut: str) -> None:
+        """Set the MQTT topics."""
+        self.topics.update({name: MQTTTopics(commandIn, commandOut)})
+
     def set_eventloop(self, eventloop: Any) -> None:
         """Set eventloop to be used ny queue handler."""
         self.__loop = eventloop
