@@ -64,11 +64,11 @@ class ScheduleInfo:
 
         primary = self.__schedule[TYPE_TO_STRING[ScheduleType.PRIMARY]][day]
         if primary["duration"] == 0:
-            primary = None
+            return None, None, date
 
         secondary = self.__schedule[TYPE_TO_STRING[ScheduleType.SECONDARY]][day]
 
-        if primary["duration"] == 0:
+        if secondary["duration"] == 0:
             secondary = None
 
         return primary, secondary, date
@@ -76,6 +76,9 @@ class ScheduleInfo:
     def calculate_progress(self) -> int:
         """Calculate and return current progress in percent."""
         primary, secondary, date = self._get_schedules(self.__now)
+
+        if isinstance(primary, type(None)) and isinstance(secondary, type(None)):
+            return 100
 
         start = datetime.strptime(
             f"{self.__today} {primary['start']}", "%d/%m/%Y %H:%M"
