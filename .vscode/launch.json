@@ -27,6 +27,14 @@
             "program": "${workspaceFolder}/test_async.py",
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Set zone debugger",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/zone_debug.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
     ]
 }

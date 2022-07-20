@@ -175,7 +175,7 @@ class Actions:
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    def setzone(self, zone: str | int) -> None:
+    def setzone(self, zone: str | int, debug: bool = False) -> None:
         """Set zone to be mowed when next mowing task is started.
 
         Args:
@@ -197,13 +197,16 @@ class Actions:
             next_index = self.zone["index"] + 1 if self.zone["index"] < 9 else 0
             while not new_zones[next_index] == zone:
                 tmp = []
-                tmp.append(new_zones[9])
-                for i in range(0, 9):
+                for i in range(1, 10):
                     tmp.append(new_zones[i])
+                tmp.append(new_zones[0])
                 new_zones = tmp
 
-            msg = {"mzv": new_zones}
-            self.mqtt.send(self.name, str(msg))
+            if not debug:
+                msg = {"mzv": new_zones}
+                self.mqtt.send(self.name, str(msg))
+            else:
+                return current, new_zones, self.zone["index"], next_index
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 

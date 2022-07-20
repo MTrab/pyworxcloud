@@ -55,85 +55,83 @@ class ScheduleInfo:
         self.__schedule = schedule
         self.__now = datetime.now()
         self.__today = datetime.now().strftime("%d/%m/%Y")
-        self.__tomorrow = (datetime.now() + timedelta(days=1)).strftime("%d/%m/%Y")
 
-    def _get_schedules(self, next: bool = False) -> WeekdaySettings | None:
+    def _get_schedules(
+        self, date: datetime, next: bool = False, add_offset: bool = False
+    ) -> WeekdaySettings | None:
         """Get primary and secondary schedule for today or tomorrow."""
-        day = DAY_MAP[
-            int(
-                self.__now.strftime("%w")
-                if not next
-                else (self.__now + timedelta(days=1)).strftime("%w")
-            )
-        ]
+        day = DAY_MAP[int(date.strftime("%w"))]
 
         primary = self.__schedule[TYPE_TO_STRING[ScheduleType.PRIMARY]][day]
-        if (
-            TYPE_TO_STRING[ScheduleType.SECONDARY] in self.__schedule
-        ) and self.__schedule[TYPE_TO_STRING[ScheduleType.SECONDARY]][day][
-            "duration"
-        ] > 0:
-            secondary = self.__schedule[TYPE_TO_STRING[ScheduleType.SECONDARY]][day]
-        else:
+        if primary["duration"] == 0:
+            return None, None, date
+
+        secondary = (
+            self.__schedule[TYPE_TO_STRING[ScheduleType.SECONDARY]][day]
+            if TYPE_TO_STRING[ScheduleType.SECONDARY] in self.__schedule
+            else None
+        )
+
+        if (not isinstance(secondary, type(None))) and secondary["duration"] == 0:
             secondary = None
 
-        return primary, secondary
+        return primary, secondary, date
 
     def calculate_progress(self) -> int:
         """Calculate and return current progress in percent."""
-        primary, secondary = self._get_schedules()
-        progress_pri = 0
-        progress_sec = 0
-        progress_final = 0
+        primary, secondary, date = self._get_schedules(self.__now)
 
-        def do_calc(day: WeekdaySettings) -> int:
-            """Do the calculation."""
-            start = datetime.strptime(
-                f"{self.__today} {day['start']}", "%d/%m/%Y %H:%M"
-            )
-            start_diff = (self.__now-start).total_seconds() / 60
-            total_duration = day["duration"]
-            pct = (start_diff / total_duration) * 100
-            return int(round(pct))
+        if isinstance(primary, type(None)) and isinstance(secondary, type(None)):
+            return 100
 
         start = datetime.strptime(
             f"{self.__today} {primary['start']}", "%d/%m/%Y %H:%M"
         )
         end = datetime.strptime(f"{self.__today} {primary['end']}", "%d/%m/%Y %H:%M")
 
-        if self.__now >= start and self.__now <= end:
-            progress_pri = do_calc(primary)
-        elif self.__now < start:
-            progress_pri = 0
-        else:
-            progress_pri = 100
-        progress_final = progress_pri
+        total_run = primary["duration"]
+        has_run = 0
 
-        if not isinstance(secondary, type(None)):
+        if self.__now >= start and self.__now < end:
+            has_run = (self.__now - start).total_seconds() / 60
+        elif self.__now < start:
+            has_run = 0
+        else:
+            has_run = primary["duration"]
+
+        if (not isinstance(secondary, type(None))) and secondary["duration"] > 0:
             start = datetime.strptime(
                 f"{self.__today} {secondary['start']}", "%d/%m/%Y %H:%M"
             )
             end = datetime.strptime(
                 f"{self.__today} {secondary['end']}", "%d/%m/%Y %H:%M"
             )
-            if self.__now >= start and self.__now <= end:
-                progress_pri = do_calc(secondary)
+            total_run += secondary["duration"]
+            if self.__now >= start and self.__now < end:
+                has_run += (self.__now - start).total_seconds() / 60
             elif self.__now < start:
-                progress_pri = 0
+                has_run += 0
             else:
-                progress_pri = 100
+                has_run += primary["duration"]
 
-            progress_final = (progress_pri + progress_sec) / 2
+        pct = (has_run / total_run) * 100
+        return int(round(pct))
 
-        return progress_final
-
-    def next_schedule(self) -> datetime:
+    def next_schedule(self) -> str:
         """Find next schedule starting point."""
-        primary, secondary = self._get_schedules()
+        primary, secondary, date = self._get_schedules(self.__now)
         next = None
+        cnt = 0
+        while isinstance(primary, type(None)):
+            if cnt == 7:
+                # No schedule active for any weekday, return None
+                return None
+
+            primary, secondary, date = self._get_schedules(date + timedelta(days=1))
+            cnt += 1
 
         start = datetime.strptime(
-            f"{self.__today} {primary['start']}", "%d/%m/%Y %H:%M"
+            f"{date.strftime('%d/%m/%Y')} {primary['start']}", "%d/%m/%Y %H:%M"
         )
 
         if self.__now < start:
@@ -142,34 +140,23 @@ class ScheduleInfo:
             (not isinstance(secondary, type(None)))
             and start
             < datetime.strptime(
-                f"{self.__today} {secondary['start']}", "%d/%m/%Y %H:%M"
+                f"{date.strftime('%d/%m/%Y')} {secondary['start']}", "%d/%m/%Y %H:%M"
             )
             and secondary["duration"] > 0
         ):
             next = datetime.strptime(
-                f"{self.__today} {secondary['start']}", "%d/%m/%Y %H:%M"
-            )
-        else:
-            primary, secondary = self._get_schedules(True)
-            start = datetime.strptime(
-                f"{self.__tomorrow} {primary['start']}", "%d/%m/%Y %H:%M"
+                f"{date.strftime('%d/%m/%Y')} {secondary['start']}", "%d/%m/%Y %H:%M"
             )
 
-            if self.__now < start:
-                next = start
-            elif (
-                (not isinstance(secondary, type(None)))
-                and start
-                < datetime.strptime(
-                    f"{self.__tomorrow} {secondary['start']}", "%d/%m/%Y %H:%M"
-                )
-                and secondary["duration"] > 0
-            ):
-                next = datetime.strptime(
-                    f"{self.__tomorrow} {secondary['start']}", "%d/%m/%Y %H:%M"
-                )
+        if isinstance(next, type(None)):
+            primary, secondary, date = self._get_schedules(date + timedelta(days=1))
+            while isinstance(primary, type(None)):
+                primary, secondary, date = self._get_schedules(date + timedelta(days=1))
+            next = datetime.strptime(
+                f"{date.strftime('%d/%m/%Y')} {primary['start']}", "%d/%m/%Y %H:%M"
+            )
 
-        return next
+        return next.strftime("%Y-%m-%d %H:%M:%S")
 
 
 class Schedule(LDict):
