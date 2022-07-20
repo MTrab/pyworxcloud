@@ -32,12 +32,12 @@ def string_to_time(dt_string: str, tz: str = "UTC") -> datetime | str:
     Returns:
         datetime: datatime object
     """
-    timezone = (
-        ZoneInfo(tz) if not isinstance(tz, type(None)) else ZoneInfo("UTC")
-    )
+    timezone = ZoneInfo(tz) if not isinstance(tz, type(None)) else ZoneInfo("UTC")
     for format in DATE_FORMATS:
         try:
-            dt_object = datetime.strptime(dt_string, format).replace(tzinfo=timezone) #.astimezone(timezone)
+            dt_object = datetime.strptime(dt_string, format).replace(
+                tzinfo=timezone
+            )  # .astimezone(timezone)
             break
         except ValueError:
             pass
