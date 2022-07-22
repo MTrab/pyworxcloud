@@ -81,7 +81,6 @@ class LandroidCloudAPI:
         """
         self._token_type = token_type
 
-
     def _get_headers(self) -> dict:
         """Create header object for communication packets."""
         header_data = {}
@@ -107,7 +106,7 @@ class LandroidCloudAPI:
         payload_data["grant_type"] = "password"
         payload_data["client_id"] = 1
         payload_data["type"] = "app"
-        payload_data["client_secret"] = self._token
+        payload_data["client_secret"] = self.api_key
         payload_data["scope"] = "*"
 
         payload = json.dumps(payload_data)
