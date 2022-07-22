@@ -12,7 +12,6 @@ class Zone(LDict):
         super().__init__()
 
         self["current"] = None
-        self["next"] = None
         self["index"] = None
         self["indicies"] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self["starting_point"] = [0, 0, 0, 0]
@@ -26,16 +25,6 @@ class Zone(LDict):
     def current(self, value: int) -> None:
         """Set current zone property."""
         self["current"] = value
-
-    @property
-    def next(self) -> int:
-        """Get next zone."""
-        return self["next"]
-
-    @next.setter
-    def next(self, value: int) -> None:
-        """Set next zone property."""
-        self["next"] = value
 
     @property
     def index(self) -> int:
