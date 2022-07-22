@@ -2,10 +2,7 @@
 # pylint: disable=unnecessary-lambda
 from __future__ import annotations
 
-import functools
 import json
-import operator
-import re
 import time
 import uuid
 from typing import Any
@@ -84,29 +81,6 @@ class LandroidCloudAPI:
         """
         self._token_type = token_type
 
-    def _generate_identify_token(self, seed_token: str) -> str:
-        """Generate identify token."""
-        text_to_char = [ord(c) for c in self.api_url]
-
-        step_one = re.findall(r".{1,2}", seed_token)
-        step_two = list(map((lambda hex: int(hex, 16)), step_one))
-
-        step_three = list(
-            map(
-                (
-                    lambda foo: functools.reduce(
-                        (lambda x, y: operator.xor(x, y)),
-                        text_to_char,
-                        foo,
-                    )
-                ),
-                step_two,
-            )
-        )
-        step_four = list(map(chr, step_three))
-
-        final = "".join(step_four)
-        return final
 
     def _get_headers(self) -> dict:
         """Create header object for communication packets."""
@@ -125,7 +99,7 @@ class LandroidCloudAPI:
         self.uuid = str(uuid.uuid1())
         self._api_host = (API_BASE).format(self.api_url)
 
-        self._token = self._generate_identify_token(self.api_key)
+        self._token = self.api_key
 
         payload_data = {}
         payload_data["username"] = self.username
