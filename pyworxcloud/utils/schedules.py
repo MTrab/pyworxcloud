@@ -104,12 +104,8 @@ class ScheduleInfo:
             has_run = primary["duration"]
 
         if (not isinstance(secondary, type(None))) and secondary["duration"] > 0:
-            start = datetime.strptime(
-                f"{self.__today} {secondary['start']}", "%d/%m/%Y %H:%M"
-            )
-            end = datetime.strptime(
-                f"{self.__today} {secondary['end']}", "%d/%m/%Y %H:%M"
-            )
+            start = string_to_time(f"{self.__today} {secondary['start']}:00", self._tz)
+            end = string_to_time(f"{self.__today} {secondary['end']}:00", self._tz)
             total_run += secondary["duration"]
             if self.__now >= start and self.__now < end:
                 has_run += (self.__now - start).total_seconds() / 60
@@ -136,7 +132,9 @@ class ScheduleInfo:
             primary, secondary, date = self._get_schedules(date + timedelta(days=1))
             cnt += 1
 
-        start = string_to_time(f"{date.strftime('%d/%m/%Y')} {primary['start']}:00", self._tz)
+        start = string_to_time(
+            f"{date.strftime('%d/%m/%Y')} {primary['start']}:00", self._tz
+        )
 
         if self.__now < start:
             next = start
