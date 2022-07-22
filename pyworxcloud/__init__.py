@@ -205,10 +205,7 @@ class WorxCloud(dict):
     def disconnect(self) -> None:
         """Close API connections."""
         if self.mqtt.connected:
-            # topic = self.mqtt.topics["out"]
-            # self.mqtt.unsubscribe(topic)
             self.mqtt.disconnect()
-            # self.mqtt.loop_stop()
 
     def connect(
         self,
@@ -287,7 +284,6 @@ class WorxCloud(dict):
         self._log.debug("MQTT loop started")
 
         # Convert time strings to objects.
-
         self._log.debug("Converting date and time string")
         for name, device in self.devices.items():
             convert_to_time(

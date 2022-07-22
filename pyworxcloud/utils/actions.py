@@ -1,8 +1,6 @@
 """Defines actions for the devices."""
 from __future__ import annotations
 
-import json
-
 from ..exceptions import (
     NoOneTimeScheduleError,
     NoPartymodeError,
@@ -194,7 +192,6 @@ class Actions:
             current = self.zone["indicies"]
             new_zones = current
 
-            next_index = self.zone["index"] + 1 if self.zone["index"] < 9 else 0
             while not new_zones[self.zone["index"]] == zone:
                 tmp = []
                 for i in range(1, 10):
@@ -206,7 +203,7 @@ class Actions:
                 msg = {"mzv": new_zones}
                 self.mqtt.send(self.name, str(msg))
             else:
-                return current, new_zones, self.zone["index"], next_index
+                return current, new_zones, self.zone["index"]
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 

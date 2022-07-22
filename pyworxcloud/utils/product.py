@@ -55,19 +55,3 @@ class ProductInfo(LDict):
 
         for attr, val in api_prod.items():
             setattr(self, str(attr), val)
-
-    # def __iter__(self) -> Iterator[dict[str, Any]]:
-    #     for key, val in self.items():
-    #         if key.startswith("_"):
-    #             continue
-
-    #         yield (key, val)
-
-    # def __dict__(self) -> dict[str, Any]:
-    #     attrs = {}
-    #     for key, val in self.items():
-    #         if key.startswith("_"):
-    #             continue
-    #         attrs.update({key:val})
-    #         # yield (key, val)
-    #     return attrs
