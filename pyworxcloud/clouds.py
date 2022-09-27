@@ -26,26 +26,26 @@ class CloudType(object):
         """Settings for Worx devices."""
 
         URL: str = "api.worxlandroid.com"
-
+        TOKEN: str = "id.eu.worx.com"
         KEY: str = "nCH3A0WvMYn66vGorjSrnGZ2YtjQWDiCvjg7jNxK"
 
     class KRESS(str):
         """Settings for Kress devices."""
 
         URL: str = "api.kress-robotik.com"
-
+        TOKEN: str = "id.eu.kress.com"
         KEY: str = "t2ANJxvWuVoAZSTw4gdrD2cy37dEwqtQSUxxY02q"
 
     class LANDXCAPE(str):
         """Settings for Landxcape devices."""
 
         URL: str = "api.landxcape-services.com"
-
+        TOKEN: str = "id.eu.landxcape.com"
         KEY: str = "UKDRabKqJFNZYBAHW3GJDfgrDcZEQNYwkNHE8XSP"
 
     class FERREX(str):
         """Settings for Aldi Ferrex devices."""
 
         URL: str = "api.watermelon.smartmower.cloud"
-
+        TOKEN: str = "api.watermelon.smartmower.cloud"
         KEY: str = "xZY9IAxGAqe1wpMRKA39M9gRkLfX6IW5zbgwCi0E"

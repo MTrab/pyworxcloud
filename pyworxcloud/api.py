@@ -57,6 +57,7 @@ class LandroidCloudAPI:
 
         self.api_url = cloud.URL
         self.api_key = cloud.KEY
+        self.token_url = cloud.TOKEN
         self.username = username
         self.password = password
 
@@ -111,7 +112,9 @@ class LandroidCloudAPI:
 
         payload = json.dumps(payload_data)
 
-        calldata = self._call("/oauth/token", payload, checktoken=False)
+        calldata = self._call(
+            "/oauth/token", payload=payload, checktoken=False, generatetoken=True
+        )
 
         return calldata
 
@@ -189,7 +192,12 @@ class LandroidCloudAPI:
         return calldata
 
     def _call(
-        self, path: str, payload: str | None = None, checktoken: bool = True
+        self,
+        path: str | None = None,
+        payload: str | None = None,
+        checktoken: bool = True,
+        generatetoken: bool = False,
+        post: bool = False,
     ) -> str:
         """Do the actual call to the device."""
         # Check if token needs refreshing
@@ -207,17 +215,20 @@ class LandroidCloudAPI:
                 raise TokenError("Error refreshing authentication token") from ex
 
         try:
-            if payload:
+            url = (
+                (self._api_host + path)
+                if not generatetoken
+                else ("https://" + self.token_url + path)
+            )
+            if payload or post:
                 req = requests.post(
-                    self._api_host + path,
+                    url,
                     data=payload,
                     headers=self._get_headers(),
                     timeout=30,
                 )
             else:
-                req = requests.get(
-                    self._api_host + path, headers=self._get_headers(), timeout=30
-                )
+                req = requests.get(url, headers=self._get_headers(), timeout=30)
 
             req.raise_for_status()
         except requests.exceptions.HTTPError as err:
