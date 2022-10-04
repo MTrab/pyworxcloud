@@ -33,10 +33,7 @@ class LandroidCloudAPI:
         self,
         username: str,
         password: str,
-        cloud: CloudType.WORX
-        | CloudType.KRESS
-        | CloudType.LANDXCAPE
-        | CloudType.FERREX = CloudType.WORX,
+        cloud: CloudType.WORX | CloudType.KRESS | CloudType.LANDXCAPE,
         tz: str | None = None,  # pylint: disable=invalid-name
     ) -> None:
         """Initialize a new instance of the API broker.
@@ -48,8 +45,9 @@ class LandroidCloudAPI:
         """
         self.cloud: CloudType = cloud
         self._token_type = "app"
-        self._token = None
-        self._tokenrefresh = 0
+        self._access_token = None
+        self._refresh_token = None
+        self._token_expire = 0
         self.uuid = None
         self._api_host = None
         self._data = None
@@ -57,22 +55,22 @@ class LandroidCloudAPI:
 
         self.api_url = cloud.URL
         self.api_key = cloud.KEY
-        self.token_url = cloud.TOKEN
+        self.token_url = cloud.TOKEN_URL
         self.username = username
         self.password = password
 
-    def set_token(self, token: str, now: int = -1) -> None:
+    def set_token(self, access_token: str, expires_in: int, refresh_token: str) -> None:
         """Set the API token to be used
 
         Args:
-            token (str): Token from authentication.
-            now (int, optional): When was the token last refreshed. Defaults to -1 which will force a token refresh.
+            access_token (str): Token from authentication.
+            expires_in (int): Seconds to token expire.
+            refresh_token (str): Token to use when refreshing access_token
         """
-        if now == -1:
-            now = int(time.time())
-
-        self._tokenrefresh = now
-        self._token = token
+        now = int(time.time())
+        self._token_expire = now + expires_in
+        self._access_token = access_token
+        self._refresh_token = refresh_token
 
     def set_token_type(self, token_type: str) -> None:
         """Set token type.
@@ -82,15 +80,18 @@ class LandroidCloudAPI:
         """
         self._token_type = token_type
 
-    def _get_headers(self) -> dict:
+    def _get_headers(self, tokenheaders: bool = False) -> dict:
         """Create header object for communication packets."""
         header_data = {}
-        header_data["Content-Type"] = "application/json"
-        header_data["Authorization"] = self._token_type + " " + self._token
+        if tokenheaders:
+            header_data["Content-Type"] = "application/x-www-form-urlencoded"
+        else:
+            header_data["Content-Type"] = "application/json"
+            header_data["Authorization"] = self._token_type + " " + self._access_token
 
         return header_data
 
-    def auth(self) -> str:
+    def auth(self, refresh: bool = False) -> str:
         """Authenticate against API endpoint
 
         Returns:
@@ -99,21 +100,22 @@ class LandroidCloudAPI:
         self.uuid = str(uuid.uuid1())
         self._api_host = (API_BASE).format(self.api_url)
 
-        self._token = self.api_key
+        # self._token = self.api_key
 
         payload_data = {}
-        payload_data["username"] = self.username
-        payload_data["password"] = self.password
+        if not refresh:
+            payload_data["username"] = self.username
+            payload_data["password"] = self.password
+        else:
+            payload_data["refresh_token"] = self._refresh_token
         payload_data["grant_type"] = "password"
-        payload_data["client_id"] = 1
-        payload_data["type"] = "app"
-        payload_data["client_secret"] = self.api_key
+        payload_data["client_id"] = self.api_key
         payload_data["scope"] = "*"
 
         payload = json.dumps(payload_data)
 
         calldata = self._call(
-            "/oauth/token", payload=payload, checktoken=False, generatetoken=True
+            "/oauth/token", payload=payload_data, checktoken=False, generatetoken=True
         )
 
         return calldata
@@ -178,18 +180,24 @@ class LandroidCloudAPI:
         except:
             return None
 
-    def get_status(self, serial: str) -> str:
+    def get_status(self, serial: str) -> str | bool:
         """Get device status
 
         Args:
             serial (str): Serialnumber for the device to get status for.
 
         Returns:
-            str: JSON object containing the device status.
+            str: JSON object containing the device status if found.
+            bool: Returns false if no device was found.
         """
-        callstr = f"/product-items/{serial}/status"
+        callstr = f"/product-items?status=1"
         calldata = self._call(callstr)
-        return calldata
+
+        for mower in calldata:
+            if mower["serial_number"] == serial:
+                return json.dumps(mower, indent=4)
+
+        return False
 
     def _call(
         self,
@@ -202,14 +210,18 @@ class LandroidCloudAPI:
         """Do the actual call to the device."""
         # Check if token needs refreshing
         now = int(time.time())  # Current time in unix timestamp format
-        if checktoken and ((self._tokenrefresh + 3000) < now):
+        if checktoken and ((self._token_expire - 300) < now):
             try:
                 auth_data = self.auth()
 
                 if "return_code" in auth_data:
                     return
 
-                self.set_token(auth_data["access_token"], now)
+                self.set_token(
+                    auth_data["access_token"],
+                    auth_data["expires_in"],
+                    auth_data["refresh_token"],
+                )
                 self.set_token_type(auth_data["token_type"])
             except Exception as ex:  # pylint: disable=bare-except
                 raise TokenError("Error refreshing authentication token") from ex
@@ -224,7 +236,7 @@ class LandroidCloudAPI:
                 req = requests.post(
                     url,
                     data=payload,
-                    headers=self._get_headers(),
+                    headers=self._get_headers(generatetoken),
                     timeout=30,
                 )
             else:

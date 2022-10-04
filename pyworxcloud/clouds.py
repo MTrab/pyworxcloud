@@ -1,13 +1,9 @@
 """Supported cloud endpoints."""
 from __future__ import annotations
 
-from enum import Enum
-from typing import Dict
-
 WORX = "worx"
 KRESS = "kress"
 LANDXCAPE = "landxcape"
-FERREX = "ferrex"
 
 
 class CloudType(object):
@@ -18,34 +14,25 @@ class CloudType(object):
     CloudType.KRESS: For Kress devices.
 
     CloudType.LANDXCAPE: For Landxcape devices.
-
-    CloudType.FERREX: For Aldi Ferrex devices.
     """
 
     class WORX(str):
         """Settings for Worx devices."""
 
         URL: str = "api.worxlandroid.com"
-        TOKEN: str = "id.eu.worx.com"
-        KEY: str = "nCH3A0WvMYn66vGorjSrnGZ2YtjQWDiCvjg7jNxK"
+        TOKEN_URL: str = "id.eu.worx.com"
+        KEY: str = "150da4d2-bb44-433b-9429-3773adc70a2a"
 
-    class KRESS(str):
-        """Settings for Kress devices."""
+    # class KRESS(str):
+    #     """Settings for Kress devices."""
 
-        URL: str = "api.kress-robotik.com"
-        TOKEN: str = "id.eu.kress.com"
-        KEY: str = "t2ANJxvWuVoAZSTw4gdrD2cy37dEwqtQSUxxY02q"
+    #     URL: str = "api.kress-robotik.com"
+    #     TOKEN_URL: str = "id.eu.kress.com"
+    #     KEY: str = "62FA25FB-3509-4778-A835-D5C50F4E5D88"
 
-    class LANDXCAPE(str):
-        """Settings for Landxcape devices."""
+    # class LANDXCAPE(str):
+    #     """Settings for Landxcape devices."""
 
-        URL: str = "api.landxcape-services.com"
-        TOKEN: str = "id.eu.landxcape.com"
-        KEY: str = "UKDRabKqJFNZYBAHW3GJDfgrDcZEQNYwkNHE8XSP"
-
-    class FERREX(str):
-        """Settings for Aldi Ferrex devices."""
-
-        URL: str = "api.watermelon.smartmower.cloud"
-        TOKEN: str = "api.watermelon.smartmower.cloud"
-        KEY: str = "xZY9IAxGAqe1wpMRKA39M9gRkLfX6IW5zbgwCi0E"
+    #     URL: str = "api.landxcape-services.com"
+    #     TOKEN_URL: str = "id.eu.landxcape.com"
+    #     KEY: str = "4F1B89F0-230F-410A-8436-D9610103A2A4"
