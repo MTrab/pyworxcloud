@@ -41,7 +41,7 @@ class LandroidCloudAPI:
         Args:
             username (str): Email for the user account.
             password (str): Password for the user account.
-            cloud (CloudType.WORX | CloudType.KRESS | CloudType.LANDXCAPE | CloudType.FERREX, optional): CloudType representing the device. Defaults to CloudType.WORX.
+            cloud (CloudType.WORX | CloudType.KRESS | CloudType.LANDXCAPE , optional): CloudType representing the device. Defaults to CloudType.WORX.
         """
         self.cloud: CloudType = cloud
         self._token_type = "app"

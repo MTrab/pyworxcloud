@@ -120,16 +120,16 @@ class WorxCloud(dict):
             cloud,
             (
                 type(CloudType.WORX),
+                type(CloudType.LANDXCAPE),
                 # Currently disabled as API for these is not yet documented
                 # type(CloudType.KRESS),
-                # type(CloudType.LANDXCAPE),
             ),
         ):
             try:
                 cloud = getattr(CloudType, cloud.upper())
             except AttributeError:
                 raise TypeError(
-                    "Wrong type specified, valid types are: worx" #, landxcape and kress"
+                    "Wrong type specified, valid types are: worx, landxcape" # and kress"
                 )
 
         self._api = LandroidCloudAPI(username, password, cloud)
