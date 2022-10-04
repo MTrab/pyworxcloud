@@ -107,7 +107,7 @@ class WorxCloud(dict):
         Args:
             username (str): Email used for logging into the app for your device.
             password (str): Password for your account.
-            cloud (CloudType.WORX | CloudType.KRESS | CloudType.LANDXCAPE | CloudType.FERREX | str, optional): The CloudType matching your device. Defaults to CloudType.WORX.
+            cloud (CloudType.WORX | CloudType.KRESS | CloudType.LANDXCAPE | str, optional): The CloudType matching your device. Defaults to CloudType.WORX.
             index (int, optional): Device number if more than one is connected to your account (starting from 0 representing the first added device). Defaults to 0.
             verify_ssl (bool, optional): Should this module verify the API endpoint SSL certificate? Defaults to True.
 
@@ -120,16 +120,16 @@ class WorxCloud(dict):
             cloud,
             (
                 type(CloudType.WORX),
-                type(CloudType.KRESS),
-                type(CloudType.LANDXCAPE),
-                type(CloudType.FERREX),
+                # Currently disabled as API for these is not yet documented
+                # type(CloudType.KRESS),
+                # type(CloudType.LANDXCAPE),
             ),
         ):
             try:
                 cloud = getattr(CloudType, cloud.upper())
             except AttributeError:
                 raise TypeError(
-                    "Wrong type specified, valid types are: worx, landxcape, kress, ferrex"
+                    "Wrong type specified, valid types are: worx" #, landxcape and kress"
                 )
 
         self._api = LandroidCloudAPI(username, password, cloud)
@@ -302,18 +302,22 @@ class WorxCloud(dict):
         """Authenticate the user."""
         auth_data = self._api.auth()
 
-        try:
-            self._api.set_token(auth_data["access_token"])
-            self._api.set_token_type(auth_data["token_type"])
+        # try:
+        self._api.set_token(
+            auth_data["access_token"],
+            auth_data["expires_in"],
+            auth_data["refresh_token"],
+        )
+        self._api.set_token_type(auth_data["token_type"])
 
-            self._api.get_profile()
-            profile = self._api.data
-            if profile is None:
-                return False
-            self._endpoint = profile["mqtt_endpoint"]
-            self._worx_mqtt_client_id = "android-" + self._api.uuid
-        except:  # pylint: disable=bare-except
+        self._api.get_profile()
+        profile = self._api.data
+        if profile is None:
             return False
+        self._endpoint = profile["mqtt_endpoint"]
+        self._worx_mqtt_client_id = "android-" + self._api.uuid
+        # except:  # pylint: disable=bare-except
+        #     return False
 
     @contextlib.contextmanager
     def _get_cert(self):
