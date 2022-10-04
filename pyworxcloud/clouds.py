@@ -30,9 +30,9 @@ class CloudType(object):
     #     TOKEN_URL: str = "id.eu.kress.com"
     #     KEY: str = "62FA25FB-3509-4778-A835-D5C50F4E5D88"
 
-    # class LANDXCAPE(str):
-    #     """Settings for Landxcape devices."""
+    class LANDXCAPE(str):
+        """Settings for Landxcape devices."""
 
-    #     URL: str = "api.landxcape-services.com"
-    #     TOKEN_URL: str = "id.eu.landxcape.com"
-    #     KEY: str = "4F1B89F0-230F-410A-8436-D9610103A2A4"
+        URL: str = "api.landxcape-services.com"
+        TOKEN_URL: str = "id.landxcape-services.com"
+        KEY: str = "4F1B89F0-230F-410A-8436-D9610103A2A4"
