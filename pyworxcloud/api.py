@@ -100,8 +100,6 @@ class LandroidCloudAPI:
         self.uuid = str(uuid.uuid1())
         self._api_host = (API_BASE).format(self.api_url)
 
-        # self._token = self.api_key
-
         payload_data = {}
         if not refresh:
             payload_data["username"] = self.username
@@ -111,8 +109,6 @@ class LandroidCloudAPI:
         payload_data["grant_type"] = "password"
         payload_data["client_id"] = self.api_key
         payload_data["scope"] = "*"
-
-        payload = json.dumps(payload_data)
 
         calldata = self._call(
             "/oauth/token", payload=payload_data, checktoken=False, generatetoken=True

@@ -23,12 +23,12 @@ class CloudType(object):
         TOKEN_URL: str = "id.eu.worx.com"
         KEY: str = "150da4d2-bb44-433b-9429-3773adc70a2a"
 
-    # class KRESS(str):
-    #     """Settings for Kress devices."""
+    class KRESS(str):
+        """Settings for Kress devices."""
 
-    #     URL: str = "api.kress-robotik.com"
-    #     TOKEN_URL: str = "id.eu.kress.com"
-    #     KEY: str = "62FA25FB-3509-4778-A835-D5C50F4E5D88"
+        URL: str = "api.kress-robotik.com"
+        TOKEN_URL: str = "id.eu.kress.com"
+        KEY: str = "931d4bc4-3192-405a-be78-98e43486dc59"
 
     class LANDXCAPE(str):
         """Settings for Landxcape devices."""
