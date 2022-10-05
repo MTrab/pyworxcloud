@@ -133,13 +133,14 @@ class WorxCloud(dict):
         self._api = LandroidCloudAPI(username, password, cloud)
 
         self._username = username
-        self._cloud = cloud
+        self._cloud: CloudType = cloud
         self._auth_result = False
         self._log = get_logger("pyworxcloud")
         self._raw = None
         self._tz = tz
 
         self._save_zones = None
+        self._user_id = None
         self._verify_ssl = verify_ssl
         self._events = EventHandler()
 
@@ -300,22 +301,25 @@ class WorxCloud(dict):
         """Authenticate the user."""
         auth_data = self._api.auth()
 
-        # try:
-        self._api.set_token(
-            auth_data["access_token"],
-            auth_data["expires_in"],
-            auth_data["refresh_token"],
-        )
-        self._api.set_token_type(auth_data["token_type"])
+        try:
+            self._api.set_token(
+                auth_data["access_token"],
+                auth_data["expires_in"],
+                auth_data["refresh_token"],
+            )
+            self._api.set_token_type(auth_data["token_type"])
 
-        self._api.get_profile()
-        profile = self._api.data
-        if profile is None:
+            self._api.get_profile()
+            profile = self._api.data
+            if profile is None:
+                return False
+            self._endpoint = profile["mqtt_endpoint"]
+            self._user_id = profile["id"]
+            self._mqtt_client_id = (
+                f"{self._cloud.PREFIX}/USER/{self._user_id}/home-assistant/{self._api.uuid}"
+            )
+        except:  # pylint: disable=bare-except
             return False
-        self._endpoint = profile["mqtt_endpoint"]
-        self._worx_mqtt_client_id = "android-" + self._api.uuid
-        # except:  # pylint: disable=bare-except
-        #     return False
 
     @contextlib.contextmanager
     def _get_cert(self):
