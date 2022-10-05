@@ -141,12 +141,6 @@ class MQTT(mqtt.Client, LDict):
             topic_out = MQTT_OUT.format(device.mainboard.code, device.mac_address)
             self.topics.update({name: MQTTTopics(topic_in, topic_out)})
 
-        # try:
-        #     self.__loop = asyncio.get_event_loop()
-        #     self.__loop.run_in_executor(None, self.__handle_queue)
-        # except RuntimeError:
-        #     return
-
     def set_topics(self, name: str, commandIn: str, commandOut: str) -> None:
         """Set the MQTT topics."""
         self.topics.update({name: MQTTTopics(commandIn, commandOut)})
