@@ -35,4 +35,4 @@ class CloudType(object):
 
         URL: str = "api.landxcape-services.com"
         TOKEN_URL: str = "id.landxcape-services.com"
-        KEY: str = "4F1B89F0-230F-410A-8436-D9610103A2A4"
+        KEY: str = "dec998a9-066f-433b-987a-f5fc54d3af7c"
