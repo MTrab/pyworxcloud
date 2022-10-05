@@ -316,7 +316,7 @@ class WorxCloud(dict):
             self._endpoint = profile["mqtt_endpoint"]
             self._user_id = profile["id"]
             self._mqtt_client_id = (
-                f"{self._cloud.PREFIX}/USER/{self._user_id}/home-assistant/{self._api.uuid}"
+                f"{self._cloud.PREFIX}/USER/{self._user_id}/pyworxcloud/{self._api.uuid}"
             )
         except:  # pylint: disable=bare-except
             return False
