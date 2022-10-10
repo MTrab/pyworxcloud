@@ -86,7 +86,6 @@ class DeviceHandler(LDict, Actions):
         self.battery = Battery(data)
         self.blades = Blades(data)
         self.chassis = ProductInfo(InfoType.MOWER, api, data["product_id"])
-        self.mainboard = ProductInfo(InfoType.BOARD, api, self.chassis.board_id)
         self.error = States(StateType.ERROR)
         self.orientation = Orientation([0, 0, 0])
         self.capabilities = Capability()
@@ -96,6 +95,8 @@ class DeviceHandler(LDict, Actions):
         self.warranty = Warranty(data)
         self.firmware = Firmware(data)
         self.schedules = Schedule()
+        self.in_topic = data["mqtt_topics"]["command_in"]
+        self.out_topic = data["mqtt_topics"]["command_out"]
 
         if data in ["lawn_perimeter", "lawn_size"]:
             self.lawn = Lawn(data["lawn_perimeter"], data["lawn_size"])

@@ -24,7 +24,6 @@ class WarrantyInfo(LDict):
 
 class InfoType(IntEnum):
     MOWER = 0
-    BOARD = 1
 
 
 class ProductInfo(LDict):
@@ -50,8 +49,6 @@ class ProductInfo(LDict):
         api_prod = None
         if info_type == InfoType.MOWER:
             api_prod = api.get_product_info(product_id)
-        elif info_type == InfoType.BOARD:
-            api_prod = api.get_board(product_id)
 
         for attr, val in api_prod.items():
             setattr(self, str(attr), val)
