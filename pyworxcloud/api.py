@@ -161,21 +161,6 @@ class LandroidCloudAPI:
         except:
             return None
 
-    def get_board(self, board_id: int) -> list:
-        """Get board info and features for a given baseboard.
-
-        Args:
-            board_code (str): Board_id to get information for.
-
-        Returns:
-            list | None: A list of attributes with board information.
-        """
-        boards = self._call("/boards")
-        try:
-            return [x for x in boards if x["id"] == board_id][0]
-        except:
-            return None
-
     def get_status(self, serial: str) -> str | bool:
         """Get device status
 
