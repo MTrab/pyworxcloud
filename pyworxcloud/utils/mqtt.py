@@ -137,9 +137,7 @@ class MQTT(mqtt.Client, LDict):
         self.queue = MQTTQueue()
         self.topics = {}
         for name, device in devices.items():
-            topic_in = MQTT_IN.format(device.mainboard.code, device.mac_address)
-            topic_out = MQTT_OUT.format(device.mainboard.code, device.mac_address)
-            self.topics.update({name: MQTTTopics(topic_in, topic_out)})
+            self.topics.update({name: MQTTTopics(device.in_topic, device.out_topic)})
 
     def set_topics(self, name: str, commandIn: str, commandOut: str) -> None:
         """Set the MQTT topics."""
