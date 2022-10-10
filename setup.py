@@ -25,7 +25,7 @@ setuptools.setup(
     },
     install_requires=[
         "paho-mqtt>=1.6.1",
-        "pyOpenSSL>=22.0.0",
+        "pyOpenSSL>=22.1.0",
         "ratelimit>=2.2.1",
         "requests>=2.26.0",
     ],
