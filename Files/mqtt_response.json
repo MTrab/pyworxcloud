@@ -1,0 +1,53 @@
+{
+    "cfg":{
+       "id":12345,                  // Random numbers
+       "lg":"it",                   // Language setting
+       "tm":"17:12:33",             // Time for last update
+       "dt":"13/11/2022",           // Date for last update
+       "sc":{                       // Schedule
+          "m":1,                    // Mower schedule active
+          "p":0,                    // Schedule time variation in %
+          "d":[                     // Days (Values pr. day: start, duration, do boundary)
+             [ "10:00", 300, 0 ],   // Sunday
+             [ "10:00", 300, 1 ],   // Monday
+             [ "10:00", 300, 0 ],   // Tuesday
+             [ "10:00", 300, 1 ],   // Wednesday
+             [ "10:00", 300, 0 ],   // Thursday
+             [ "10:00", 300, 1 ],   // Friday
+             [ "10:00", 300, 0 ]    // Saturday
+          ]
+       },
+       "cmd":0,                     // Command
+       "mz":[ 0, 0, 0, 0 ],         // Zones
+       "mzv":[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+       "rd":30,                     // Rain delay
+       "sn":"1234567890ABCDEFGHIJ"  // Serial number
+    },
+    "dat":{
+       "mac":"ABCDEF123456",        // MAC address
+       "fw":3.52,                   // Firmware
+       "bt":{                       // Battery states
+          "t":15.6,                 // Temperature
+          "v":20.47,                // Voltage
+          "p":99,                   // Charge percent
+          "nr":3014,                // Charge cycles
+          "c":1,                    // Charging
+          "m":1                     // ?
+       },
+       "dmp":[                      // blah
+          -3.5,                     // Roll
+          2.3,                      // Yaw
+          344.6                     // Picth
+       ],
+       "st":{                       // Statistics
+          "b":113287,               // Blade on time (minutes)
+          "d":2146986,              // Driven distance (meters)
+          "wt":129895               // Time mowing (minutes)
+       },
+       "ls":1,                      // Status code
+       "le":0,                      // Error code
+       "lz":9,                      // Current mowing zone index
+       "rsi":-74,                   // Wifi link quality
+       "lk":1                       // ?
+    }
+ }
