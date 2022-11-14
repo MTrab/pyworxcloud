@@ -1,0 +1,39 @@
+Status
+0 idle - Manual stop - mower cannot be started or sent home remotely
+1 home - The mower is at the charging station
+2 start sequence - The mower is starting
+3 leaving home - The mower is starting
+5 searching home - The mower is going home
+6 searching border
+7 cutting grass - The mower is cutting the grass
+8 lifted recovery - The mower is recovering automatically from a lifted condition
+9 trapped recovery - The mower is recovering automatically from a trap condition
+10 blade blocked recovery - The mower is recovering automatically from a blade blocked condition
+13 digital fence escape
+30 following border - going home
+31 following border - training
+32 following border - border cut
+33 following border - area search
+34 pause - The mower is paused and can be started again remotely. Automatic power off in 20 minutes.
+
+Error
+0 no error
+1 trapped
+2 lifted
+3 wire missing
+4 outside boundary
+5 raining
+6 close door to cut grass
+7 close door to go home
+8 blade motor fault
+9 wheel motor fault
+10 trapped timeout fault
+11 upside down
+12 battery low
+13 wire reversed
+14 battery charge error
+15 home search timeout
+16 wifi locked
+17 battery temperature out of range
+19 trunk open timeout
+20 wire signal out of sync
