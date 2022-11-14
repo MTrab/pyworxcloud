@@ -109,10 +109,4 @@ class WorxCloud:
     def on_update(self, topic, payload, dup, qos, retain, **kwargs):
         """Triggered when a MQTT message was received."""
         data = json.loads(payload)
-        # sn = payload["cfg"]["sn"]
-        # print(
-        #     "Received message from {} on topic '{}': {}".format(
-        #         data["cfg"]["sn"], topic, payload
-        #     )
-        # )
         self.write_data(data["cfg"]["sn"], data)
