@@ -1,13 +1,14 @@
 """IoT mower platform module - Positec/Worx/Kress/Landxcape."""
 from __future__ import annotations
+
 import json
 
+from .endpoints import CloudType
+from .exceptions import MowerNotFoundError, TokenError
 from .handlers.mqtt import MQTT
 from .handlers.requests import GET, HEADERS
-
-from .exceptions import MowerNotFoundError, TokenError
+from .status import WorxError, WorxStatus
 from .token import Token
-from .endpoints import CloudType
 
 
 class WorxCloud:
@@ -66,6 +67,10 @@ class WorxCloud:
             user_id,
             self.on_update,
         )
+
+    @property
+    def status(self) -> WorxStatus | WorxError:
+        """Return the status or error state."""
 
     def get_mower(self, serial_number: str) -> dict:
         """Get a specific mower."""

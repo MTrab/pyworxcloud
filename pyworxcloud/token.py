@@ -1,9 +1,8 @@
 """Login and get tokens."""
 from __future__ import annotations
 
-from .handlers.requests import POST, HEADERS
-
 from .endpoints import CloudType
+from .handlers.requests import HEADERS, POST
 
 
 class Token:

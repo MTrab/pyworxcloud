@@ -1,13 +1,12 @@
 """MQTT handler."""
 from __future__ import annotations
-from datetime import datetime
+
 import json
-
 import pathlib
-
 import random
-from uuid import uuid4
 import urllib.parse
+from datetime import datetime
+from uuid import uuid4
 
 from awsiot import mqtt, mqtt_connection_builder
 
