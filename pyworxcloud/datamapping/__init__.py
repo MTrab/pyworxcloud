@@ -10,41 +10,45 @@ _MAP = {
             "tm": {"name": "time"},
             "dt": {"name": "date"},
             "sc": {
-                "text": "schedule",
+                "name": "schedule",
                 "sub": {
-                    "m": "schedule_active",
-                    "p": "schedule_extension",
-                    "d": "schedule_primary",
-                    "dd": "schedule_secondary",
+                    "m": {"name": "schedule_active"},
+                    "p": {"name": "schedule_extension"},
+                    "d": {"name": "schedule_primary"},
+                    "dd": {"name": "schedule_secondary"},
                 },
             },
+            "cmd": {"name": "command"},
+            "mz": {"name": "zone"},
+            "mzv": {"name": "zone_indicator"},
+            "rd": {"name": "raindelay"},
+            # "sn": {"name": "serial_number"},
         },
     },
-    "cmd": {
-        "name": "command",
+    "dat": {
+        "name": "data",
         "sub": {
-            "mz": {"zone"},
-            "mzv": {"zone_indicator"},
-            "rd": {"raindelay"},
-            "sn": {"serial_number"},
-            "dat": {"data"},
-            "mac": {"mac"},
-            "fw": {"firmware_version"},
+            "mac": {"name": "mac"},
+            "fw": {"name": "firmware_version"},
             "bt": {
                 "name": "battery",
                 "sub": {
-                    "t": "temperature",
-                    "v": "voltage",
-                    "p": "charge_percent",
-                    "nr": "charge_cycles",
-                    "c": "is_charging",
-                    "m": "m",  # Naming?!
+                    "t": {"name": "temperature"},
+                    "v": {"name": "voltage"},
+                    "p": {"name": "charge_percent"},
+                    "nr": {"name": "charge_cycles"},
+                    "c": {"name": "is_charging"},
+                    "m": {"name": "m"},  # Naming?!
                 },
             },
             "dmp": {"name": "accelerometer"},
             "st": {
                 "name": "statistics",
-                "sub": {"b": "blade_on", "d": "distance", "wt": "time_mowing"},
+                "sub": {
+                    "b": {"name": "blade_on"},
+                    "d": {"name": "distance"},
+                    "wt": {"name": "time_mowing"},
+                },
             },
             "ls": {"name": "status_code"},
             "le": {"name": "error_code"},
@@ -56,6 +60,60 @@ _MAP = {
 }
 
 
-def DataMap(data: dict) -> dict:
+def _recursive(key: str, value: str, parent: dict) -> dict:
+    """Recursive mapping."""
+    okey = key
+    ovalue = value
+
+    dataset: dict = {}
+    for key, value in ovalue.items():
+        if isinstance(value, dict):
+            if key in parent["sub"]:
+                dataset.update(
+                    {
+                        parent["sub"][key]["name"]: _recursive(
+                            key, value, parent["sub"][key]
+                        )
+                    }
+                )
+            else:
+                dataset.update({key: value})
+        else:
+            if key in parent["sub"]:
+                dataset.update({parent["sub"][key]["name"]: value})
+            else:
+                dataset.update({key: value})
+
+    return dataset
+
+
+def DataMap(data: dict) -> dict | None:
     """Map data to properties."""
-    # for key,value in data.items():
+    dataset = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            if key in _MAP:
+                dataset.update({_MAP[key]["name"]: _recursive(key, value, _MAP[key])})
+            else:
+                dataset.update({key: value})
+        else:
+            if key in _MAP:
+                dataset.update({_MAP[key]["name"]: value})
+            else:
+                dataset.update({key: value})
+
+    if "last_status" in dataset:
+        data = dataset.pop("last_status")["payload"]
+        for key, value in data.items():
+            if isinstance(value, dict):
+                if key in _MAP:
+                    dataset.update({_MAP[key]["name"]: _recursive(key, value, _MAP[key])})
+                else:
+                    dataset.update({key: value})
+            else:
+                if key in _MAP:
+                    dataset.update({_MAP[key]["name"]: value})
+                else:
+                    dataset.update({key: value})
+
+    return dataset

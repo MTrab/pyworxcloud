@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import json
 
-from pyworxcloud.commands import WorxCommand
+from .commands import WorxCommand
+from .datamapping import DataMap
 
 from .endpoints import CloudType
 from .exceptions import MowerNotFoundError, TokenError
@@ -56,6 +57,7 @@ class WorxCloud:
         )
 
         for mower in self.mowers:
+            mower.update(DataMap(mower))
             mower.update({"has_data": False})
 
         mqtt_endpoint = self.mowers[0]["mqtt_endpoint"]
@@ -102,6 +104,11 @@ class WorxCloud:
 
     def write_data(self, serial_number: str, data: str) -> None:
         """Update mower data."""
+        data = DataMap(data)
+
+        if isinstance(data, type(None)):
+            return  # Exit if no data was present
+
         for mower in self.mowers:
             if mower["serial_number"] == serial_number:
                 mower.update(data)
@@ -115,4 +122,6 @@ class WorxCloud:
 
     def send_command(self, serial_number: str, command: WorxCommand) -> None:
         """Send a command to the mower."""
-        self.mqtt.publish(self.mqtt.format_message(serial_number, {"cmd": command.value}))
+        self.mqtt.publish(
+            self.mqtt.format_message(serial_number, {"cmd": command.value})
+        )
