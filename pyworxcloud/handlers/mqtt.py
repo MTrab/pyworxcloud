@@ -44,11 +44,11 @@ class MQTT:
 
     def subscribe(self, topic: str) -> None:
         """Subscribe to MQTT updates."""
-        # self._configuration.subscribe(
-        #     topic=topic,
-        #     qos=mqtt.QoS.AT_LEAST_ONCE,
-        #     callback=self.callback,
-        # )
+        self._configuration.subscribe(
+            topic=topic,
+            qos=mqtt.QoS.AT_LEAST_ONCE,
+            callback=self.callback,
+        )
 
     def connect(self) -> None:
         """Connect to the MQTT service."""

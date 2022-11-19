@@ -20,20 +20,30 @@ async def main():
 
 async def async_worx():
     # Clear the screen for better visibility when debugging
-    print("\033c", end="")
 
-    # Initialize the class
+    # Initialize the class and connect
     cloud = WorxCloud(EMAIL, PASS, TYPE)
     cloud.connect()
 
-    cloud.update(cloud.mowers[0]["serial_number"])
-
+    # Initialize a indicator for the last msg ID received from the API
+    last_id = None
     while 1:
-        print("\033c", end="")
-        print(json.dumps(cloud.mowers[0],indent=4))
+        # Only print new state if the msg ID was different than the last that was displayed
+        if not cloud.mowers[0]["last_message_id"] == last_id:
 
+            # Set last_id to the new msg ID
+            last_id = cloud.mowers[0]["last_message_id"]
+
+            # Clear the screen
+            print("\033c", end="")
+
+            # Print all attributes
+            print(json.dumps(cloud.mowers[0], indent=4, sort_keys=True, default=str))
+
+        # Let the thread sleep for 5 seconds as to not overload the computer.
         time.sleep(5)
 
+    # Self explanatory - disconnect from the cloud
     cloud.disconnect()
 
 

@@ -22,6 +22,26 @@ class WorxStatus(IntEnum):
     PAUSE = 34
 
 
+StatusMap = {
+    0: "Manual stop",
+    1: "Home",
+    2: "Starting",
+    3: "Leaving home",
+    5: "Searching border, going home",
+    6: "Searching border",
+    7: "Mowing",
+    8: "Recovering from being lifted",
+    9: "Recovering from being trapped",
+    10: "Recovering after blocked blades",
+    13: "Outside digital fence",
+    30: "Going home",
+    31: "Zonetraining",
+    32: "Mowing along border",
+    33: "Following border to zone start",
+    34: "Paused",
+}
+
+
 class WorxError(IntEnum):
     NO_ERROR = 0
     TRAPPED = 1
@@ -43,3 +63,27 @@ class WorxError(IntEnum):
     BATTERY_TEMPERETURE = 17
     DOOR_OPEN_TIMEOUT = 19
     BOUNDARY_WIRE_OUT_OF_SYNC = 20
+
+
+ErrorMap = {
+    0: "No error",
+    1: "Trapped",
+    2: "Lifted",
+    3: "Wire missing",
+    4: "Outside boundary",
+    5: "Rain delay",
+    6: "Close door to start mowing",
+    7: "Close door to go home",
+    8: "Blade motor error",
+    9: "Wheel motor error",
+    10: "Trapped timeout",
+    11: "Upside down",
+    12: "Battery low",
+    13: "Boundary wire reversed",
+    14: "Battery charge error",
+    15: "Timeout going home",
+    16: "Wifi locked",
+    17: "Battery temperature out of range",
+    19: "Door open timeout",
+    20: "Boundary wire signal out of sync",
+}

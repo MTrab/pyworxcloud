@@ -1,68 +1,20 @@
 """Datamapping module."""
 from __future__ import annotations
+from datetime import datetime
 
-_MAP = {
-    "cfg": {
-        "name": "configuration",
-        "sub": {
-            "id": {"name": "id"},
-            "lg": {"name": "language"},
-            "tm": {"name": "time"},
-            "dt": {"name": "date"},
-            "sc": {
-                "name": "schedule",
-                "sub": {
-                    "m": {"name": "schedule_active"},
-                    "p": {"name": "schedule_extension"},
-                    "d": {"name": "schedule_primary"},
-                    "dd": {"name": "schedule_secondary"},
-                },
-            },
-            "cmd": {"name": "command"},
-            "mz": {"name": "zone"},
-            "mzv": {"name": "zone_indicator"},
-            "rd": {"name": "raindelay"},
-            # "sn": {"name": "serial_number"},
-        },
-    },
-    "dat": {
-        "name": "data",
-        "sub": {
-            "mac": {"name": "mac"},
-            "fw": {"name": "firmware_version"},
-            "bt": {
-                "name": "battery",
-                "sub": {
-                    "t": {"name": "temperature"},
-                    "v": {"name": "voltage"},
-                    "p": {"name": "charge_percent"},
-                    "nr": {"name": "charge_cycles"},
-                    "c": {"name": "is_charging"},
-                    "m": {"name": "m"},  # Naming?!
-                },
-            },
-            "dmp": {"name": "accelerometer"},
-            "st": {
-                "name": "statistics",
-                "sub": {
-                    "b": {"name": "blade_on"},
-                    "d": {"name": "distance"},
-                    "wt": {"name": "time_mowing"},
-                },
-            },
-            "ls": {"name": "status_code"},
-            "le": {"name": "error_code"},
-            "lz": {"name": "next_zone"},
-            "rsi": {"name": "wifi_signal_strength"},
-            "lk": {"name": "lk"},  # Naming?!
-        },
-    },
-}
+from ..status import ErrorMap, StatusMap
+from .maps import MAP, TIMESTAMPS
+
+DATE_FORMATS = [
+    "%Y-%m-%d %H:%M:%S",
+    "%d-%m-%Y %H:%M:%S",
+    "%Y/%m/%d %H:%M:%S",
+    "%d/%m/%Y %H:%M:%S",
+]
 
 
-def _recursive(key: str, value: str, parent: dict) -> dict:
+def _recursive(key: str, value: str, parent: dict, debug: bool = False) -> dict:
     """Recursive mapping."""
-    okey = key
     ovalue = value
 
     dataset: dict = {}
@@ -72,48 +24,94 @@ def _recursive(key: str, value: str, parent: dict) -> dict:
                 dataset.update(
                     {
                         parent["sub"][key]["name"]: _recursive(
-                            key, value, parent["sub"][key]
+                            key, value, parent["sub"][key], debug
                         )
                     }
                 )
-            else:
+            elif debug:
                 dataset.update({key: value})
         else:
             if key in parent["sub"]:
                 dataset.update({parent["sub"][key]["name"]: value})
-            else:
+            elif debug:
                 dataset.update({key: value})
 
     return dataset
 
 
-def DataMap(data: dict) -> dict | None:
+def DataMap(data: dict, debug: bool = False) -> dict | None:
     """Map data to properties."""
     dataset = {}
+
+    if "last_status" in data:
+        last_data = data.pop("last_status")["payload"]
+        for key, value in last_data.items():
+            if isinstance(value, dict):
+                if key in MAP:
+                    if key in TIMESTAMPS:
+                        value = TimeStringToObject(value)
+                    dataset.update(_recursive(key, value, MAP[key]))
+                elif debug:
+                    dataset.update({key: value})
+            else:
+                if key in MAP:
+                    if key in TIMESTAMPS:
+                        value = TimeStringToObject(value)
+                    dataset.update({MAP[key]["name"]: value})
+                elif debug:
+                    dataset.update({key: value})
+
     for key, value in data.items():
         if isinstance(value, dict):
-            if key in _MAP:
-                dataset.update({_MAP[key]["name"]: _recursive(key, value, _MAP[key])})
-            else:
+            if key in MAP:
+                if key in TIMESTAMPS:
+                    value = TimeStringToObject(value)
+                if not "initial" in MAP[key]:
+                    dataset.update(_recursive(key, value, MAP[key], debug))
+                else:
+                    dataset.update({key: value})
+            elif debug:
                 dataset.update({key: value})
         else:
-            if key in _MAP:
-                dataset.update({_MAP[key]["name"]: value})
-            else:
+            if key in MAP:
+                if key in TIMESTAMPS:
+                    value = TimeStringToObject(value)
+                if not "initial" in MAP[key]:
+                    dataset.update({MAP[key]["name"]: value})
+                else:
+                    dataset.update({key: value})
+            elif debug:
                 dataset.update({key: value})
 
-    if "last_status" in dataset:
-        data = dataset.pop("last_status")["payload"]
-        for key, value in data.items():
-            if isinstance(value, dict):
-                if key in _MAP:
-                    dataset.update({_MAP[key]["name"]: _recursive(key, value, _MAP[key])})
-                else:
-                    dataset.update({key: value})
-            else:
-                if key in _MAP:
-                    dataset.update({_MAP[key]["name"]: value})
-                else:
-                    dataset.update({key: value})
-
+    dataset.update(
+        {
+            "last_update": TimeStringToObject(
+                f"{dataset.pop('date')} {dataset.pop('time')}"
+            )
+        }
+    )
+    dataset.update(
+        {
+            "status_description": StatusMap[dataset["status_code"]]
+            if dataset["status_code"] in StatusMap
+            else "Unknown",
+            "error_description": ErrorMap[dataset["error_code"]]
+            if dataset["error_code"] in ErrorMap
+            else "Unknown",
+        }
+    )
     return dataset
+
+
+def TimeStringToObject(time: str) -> datetime:
+    """Convert a time string to a datetime object."""
+    for format in DATE_FORMATS:
+        try:
+            dt_object = datetime.strptime(time, format)
+        except ValueError:
+            pass
+        except TypeError:
+            # Something wasn't right with the provided string, just return it as it was
+            dt_object = time
+
+    return dt_object

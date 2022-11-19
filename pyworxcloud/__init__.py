@@ -25,10 +25,12 @@ class WorxCloud:
         | CloudType.KRESS
         | CloudType.LANDXCAPE
         | str = CloudType.WORX,
+        debug: bool = False,
     ) -> None:
         """Initialize a WorxCloud object."""
         self._email = email
         self._password = password
+        self._do_debug = debug
 
         self.mowers = []
 
@@ -51,14 +53,24 @@ class WorxCloud:
             raise TokenError("Access or refresh token was not found")
 
         # Get all available mowers and convert them to a list of serial numbers
-        self.mowers = GET(
+        mowers = GET(
             f"https://{self._cloud.ENDPOINT}/api/v2/product-items?status=1",
             HEADERS(self.token.access_token),
         )
 
-        for mower in self.mowers:
-            mower.update(DataMap(mower))
-            mower.update({"has_data": False})
+        self.mowers = []
+        for mower in mowers:
+            new_mower = {}
+            data = DataMap(mower, self._do_debug)
+            if not isinstance(data, type(None)):
+                new_mower.update(data)
+            else:
+                for key in mower:
+                    if key in ["serial_number","user_id","mqtt_endpoint","name","mqtt_topics"]:
+                        new_mower.update({key: mower[key]})
+
+            new_mower.update({"has_data": False})
+            self.mowers.append(new_mower)
 
         mqtt_endpoint = self.mowers[0]["mqtt_endpoint"]
         user_id = self.mowers[0]["user_id"]
@@ -75,6 +87,10 @@ class WorxCloud:
     @property
     def status(self) -> WorxStatus | WorxError:
         """Return the status or error state."""
+
+    def do_debug(self, should_debug: bool) -> None:
+        """Enables/disables some debug in the results, including unknown keys from the API."""
+        self._do_debug = should_debug
 
     def get_mower(self, serial_number: str) -> dict:
         """Get a specific mower."""
@@ -104,7 +120,7 @@ class WorxCloud:
 
     def write_data(self, serial_number: str, data: str) -> None:
         """Update mower data."""
-        data = DataMap(data)
+        data = DataMap(data, self._do_debug)
 
         if isinstance(data, type(None)):
             return  # Exit if no data was present
