@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 
+from pyworxcloud.commands import WorxCommand
+
 from .endpoints import CloudType
 from .exceptions import MowerNotFoundError, TokenError
 from .handlers.mqtt import MQTT
@@ -110,3 +112,7 @@ class WorxCloud:
         """Triggered when a MQTT message was received."""
         data = json.loads(payload)
         self.write_data(data["cfg"]["sn"], data)
+
+    def send_command(self, serial_number: str, command: WorxCommand) -> None:
+        """Send a command to the mower."""
+        self.mqtt.publish(self.mqtt.format_message(serial_number, {"cmd": command.value}))

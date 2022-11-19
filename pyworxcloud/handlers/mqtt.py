@@ -10,6 +10,8 @@ from uuid import uuid4
 
 from awsiot import mqtt, mqtt_connection_builder
 
+from ..commands import WorxCommand
+
 
 class MQTT:
     """Class of MQTT commands."""
@@ -74,3 +76,18 @@ class MQTT:
     def publish(self, serial_number: str, topic: str, message: str) -> None:
         """Publish message to the mower."""
         self._configuration.publish(topic, json.dumps(message), mqtt.QoS.AT_LEAST_ONCE)
+
+    def format_message(self, serial_number: str, message: dict) -> str:
+        """
+        Format a message.
+        Message is expected to be a dict like this: {"cmd": 1}
+        """
+        now = datetime.now()
+        msg = {
+            "id": random.randint(1024, 65535),
+            "sn": serial_number,
+            "tm": now.strftime("%H:%M:%S"),
+            "dt": now.strftime("%d/%m/%Y"),
+        }
+        msg.update(message)
+        return msg
