@@ -6,8 +6,7 @@ This is a PyPI module for communicating with Worx Cloud mowers, primarily develo
 <br/>
 The module are compatible with cloud enabled devices from [these vendors](https://github.com/MTrab/pyworxcloud/wiki#current-supported-brands--vendors)
 
-The module was developed without API documentation - this have been made accessible to me, so future versions will be adapted to correctly use the API for better functionality.
-
 ## Documentation
 
-The documentation have been moved to the [Wiki](https://github.com/MTrab/pyworxcloud/wiki)
+The documentation have been moved to the [Wiki](https://github.com/MTrab/pyworxcloud/wiki)<br/>
+This is unfortunately a little out-of-date due to the huge changes in version 3.
