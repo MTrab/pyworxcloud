@@ -1,0 +1,10 @@
+0 no command
+1 start
+2 pause
+3 go home
+4 follow border for training
+5 enable wi-fi lock
+6 disable wi-fi lock
+7 reset log
+8 pause over border
+9 safe go home

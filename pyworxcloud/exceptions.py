@@ -2,71 +2,41 @@
 from __future__ import annotations
 
 
-class NoPartymodeError(Exception):
-    """Define an error when partymode is not supported."""
-
-
-class NoOneTimeScheduleError(Exception):
-    """Define an error when OTS is not supported."""
-
-
-class OfflineError(Exception):
-    """Define an offline error."""
-
-
 class TokenError(Exception):
-    """Define an token error."""
+    """Error raised when no auth or refresh token is found."""
 
 
-class APIException(Exception):
-    """Define an error when communicating with the API."""
-
-
-class TimeoutException(Exception):
-    """Define a timeout error."""
-
-
-class RequestException(Exception):
-    """Define a request exception."""
-
-
-class MQTTException(Exception):
-    """Define a MQTT exception."""
-
-
-class RateLimit(Exception):
-    """Defines a ratelimit exception."""
-
-    def __init__(self, message):
-        """Custom ratelimit exception class"""
-        super(RateLimit, self).__init__(message)
-        self.message = message
-
-
-# Exception classes for URL requests
 class RequestError(Exception):
-    """Define a bad request error (400)."""
+    """Error representing a request error."""
 
 
 class AuthorizationError(Exception):
-    """Represents an authorization error (401)."""
+    """Error representing an authorization error."""
 
 
 class ForbiddenError(Exception):
-    """Represents an access forbidden error (403)."""
+    """Error representing an access forbidden error."""
 
 
 class NotFoundError(Exception):
-    """Represents a not found error (404)."""
+    """Error representing an endpoint not found error."""
 
 
 class TooManyRequestsError(Exception):
-    """Represents a error when request quota have been exceeded (429)."""
+    """Error representing a too many redirects error."""
 
 
 class InternalServerError(Exception):
-    """Represents an internal server error (500)."""
+    """Error representing an internal server error."""
 
 
 class ServiceUnavailableError(Exception):
-    """Represents a service unavailable error (503)."""
+    """Error representing a service unavailable error."""
+
+
+class APIError(Exception):
+    """Error representing a generic API error."""
+
+
+class MowerNotFoundError(Exception):
+    """Error raised when a specific requested mower was not found in the result."""

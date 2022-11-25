@@ -5,36 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Single run - Basic",
+            "name": "test.py",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/test.py",
             "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": true,
+            "subProcess": true
         },
         {
-            "name": "Single run - With",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/test_with.py",
-            "console": "integratedTerminal",
-            "justMyCode": true
-        },
-        {
-            "name": "Async run",
+            "name": "test_async.py",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/test_async.py",
             "console": "integratedTerminal",
-            "justMyCode": true
-        },
-        {
-            "name": "Set zone debugger",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/zone_debug.py",
-            "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": true,
+            "subProcess": true
         }
     ]
 }

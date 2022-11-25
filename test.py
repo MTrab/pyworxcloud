@@ -1,7 +1,7 @@
+import asyncio
 import datetime
-import time
 from os import environ
-from pprint import pprint
+import time
 
 from pyworxcloud import WorxCloud
 
@@ -11,35 +11,25 @@ TYPE = environ["TYPE"]
 
 tz = datetime.datetime.now().astimezone().tzinfo.tzname(None)
 
-if __name__ == "__main__":
-    # Clear the screen for better visibility when debugging
-    print("\033c", end="")
+# Clear the screen for better visibility when debugging
+print("\033c", end="")
 
-    # Initialize the class
-    cloud = WorxCloud(EMAIL, PASS, TYPE)
+# Initialize the class
+cloud = WorxCloud(EMAIL, PASS, TYPE)
+cloud.connect()
 
-    # Initialize connection
-    auth = cloud.authenticate()
+cloud.update(cloud.mowers[0]["serial_number"])
 
-    if not auth:
-        # If invalid credentials are used, or something happend during
-        # authorize, then exit
-        exit(0)
+# has_data = False
+# while 1:
+#     print("\033c", end="")
+#     for mower in cloud.mowers:
+#         if not mower["has_data"]:
+#             print(f"{mower['name']} has not reported any state")
+#         else:
+#             print(
+#                 f"{mower['name']} was last updated at {mower['cfg']['tm']} {mower['cfg']['dt']}"
+#             )
 
-    # Connect to device with index 0 (devices are enumerated 0, 1, 2 ...) and do
-    # not verify SSL (False)
-    cloud.connect(verify_ssl=False, pahologger=False)
-
-    # Wait for MQTT connection
-    while not cloud.mqtt.connected:
-        pass
-
-    # Read latest states received from the device
-    cloud.update()
-    time.sleep(5)  # Just to make sure we get some data from the API endpoint
-
-    # Print all vars and attributes of the cloud object
-    for index, (name, device) in enumerate(cloud.devices.items()):
-        pprint(vars(device))
-
-    cloud.disconnect()
+time.sleep(10)
+cloud.disconnect()
