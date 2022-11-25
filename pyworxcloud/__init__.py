@@ -5,7 +5,6 @@ import json
 
 from .commands import WorxCommand
 from .datamapping import DataMap
-
 from .endpoints import CloudType
 from .exceptions import MowerNotFoundError, TokenError
 from .handlers.mqtt import MQTT
@@ -66,7 +65,13 @@ class WorxCloud:
                 new_mower.update(data)
             else:
                 for key in mower:
-                    if key in ["serial_number","user_id","mqtt_endpoint","name","mqtt_topics"]:
+                    if key in [
+                        "serial_number",
+                        "user_id",
+                        "mqtt_endpoint",
+                        "name",
+                        "mqtt_topics",
+                    ]:
                         new_mower.update({key: mower[key]})
 
             new_mower.update({"has_data": False})
