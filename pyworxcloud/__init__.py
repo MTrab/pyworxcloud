@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from .commands import WorxCommand
 from .datamapping import DataMap
@@ -30,6 +31,7 @@ class WorxCloud:
         self._email = email
         self._password = password
         self._do_debug = debug
+        self._callback: Any = None
 
         self.mowers = []
 
@@ -140,9 +142,15 @@ class WorxCloud:
         """Triggered when a MQTT message was received."""
         data = json.loads(payload)
         self.write_data(data["cfg"]["sn"], data)
+        if not self._callback is None:
+            self._callback()
 
     def send_command(self, serial_number: str, command: WorxCommand) -> None:
         """Send a command to the mower."""
         self.mqtt.publish(
             self.mqtt.format_message(serial_number, {"cmd": command.value})
         )
+
+    def on_receive_callback(self, func: Any) -> None:
+        """Callback function for when data is received from the API."""
+        self._callback = func
