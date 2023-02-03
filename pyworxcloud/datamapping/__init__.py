@@ -1,4 +1,5 @@
 """Datamapping module."""
+# pylint: disable=invalid-name
 from __future__ import annotations
 
 import logging
@@ -15,6 +16,7 @@ DATE_FORMATS = [
 ]
 
 _LOGGER = logging.getLogger(__name__)
+
 
 def _recursive(key: str, value: str, parent: dict, debug: bool = False) -> dict:
     """Recursive mapping."""
@@ -48,7 +50,11 @@ def DataMap(data: dict, debug: bool = False) -> dict | None:
 
     if "last_status" in data:
         _LOGGER.debug(data)
-        last_data = data.pop("last_status")["payload"] if not isinstance(data["last_status"], type(None)) else {}
+        last_data = (
+            data.pop("last_status")["payload"]
+            if not isinstance(data["last_status"], type(None))
+            else {}
+        )
         for key, value in last_data.items():
             if isinstance(value, dict):
                 if key in MAP:
@@ -91,12 +97,16 @@ def DataMap(data: dict, debug: bool = False) -> dict | None:
         {
             "last_update": TimeStringToObject(
                 f"{dataset.pop('date')} {dataset.pop('time')}"
-            ) if "date" in dataset else None
+            )
+            if "date" in dataset
+            else None
         }
     )
 
-    if not "status_code" in dataset: dataset.update({"status_code":-1})
-    if not "error_code" in dataset: dataset.update({"error_code":-1})
+    if "status_code" not in dataset:
+        dataset.update({"status_code": -1})
+    if "error_code" not in dataset:
+        dataset.update({"error_code": -1})
 
     dataset.update(
         {
@@ -109,24 +119,27 @@ def DataMap(data: dict, debug: bool = False) -> dict | None:
         }
     )
 
-    if not "battery" in dataset: dataset.update({
-            "battery": {
-                "charge_percent": None,
-                "temperature": None,
-                "voltage": None,
-                "charge_cycles": None,
-                "is_charging": False,
+    if "battery" not in dataset:
+        dataset.update(
+            {
+                "battery": {
+                    "charge_percent": None,
+                    "temperature": None,
+                    "voltage": None,
+                    "charge_cycles": None,
+                    "is_charging": False,
+                }
             }
-        })
+        )
 
     return dataset
 
 
 def TimeStringToObject(time: str) -> datetime:
     """Convert a time string to a datetime object."""
-    for format in DATE_FORMATS:
+    for dtformat in DATE_FORMATS:
         try:
-            dt_object = datetime.strptime(time, format)
+            dt_object = datetime.strptime(time, dtformat)
         except ValueError:
             pass
         except TypeError:
