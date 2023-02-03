@@ -1,6 +1,7 @@
 """Datamapping module."""
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 from ..status import ErrorMap, StatusMap
@@ -13,6 +14,7 @@ DATE_FORMATS = [
     "%d/%m/%Y %H:%M:%S",
 ]
 
+_LOGGER = logging.getLogger(__name__)
 
 def _recursive(key: str, value: str, parent: dict, debug: bool = False) -> dict:
     """Recursive mapping."""
@@ -45,7 +47,8 @@ def DataMap(data: dict, debug: bool = False) -> dict | None:
     dataset = {}
 
     if "last_status" in data:
-        last_data = data.pop("last_status")["payload"]
+        _LOGGER.debug(data)
+        last_data = data.pop("last_status")["payload"] if not isinstance(data["last_status"], type(None)) else {}
         for key, value in last_data.items():
             if isinstance(value, dict):
                 if key in MAP:
@@ -88,9 +91,13 @@ def DataMap(data: dict, debug: bool = False) -> dict | None:
         {
             "last_update": TimeStringToObject(
                 f"{dataset.pop('date')} {dataset.pop('time')}"
-            )
+            ) if "date" in dataset else None
         }
     )
+
+    if not "status_code" in dataset: dataset.update({"status_code":-1})
+    if not "error_code" in dataset: dataset.update({"error_code":-1})
+
     dataset.update(
         {
             "status_description": StatusMap[dataset["status_code"]]
@@ -101,6 +108,17 @@ def DataMap(data: dict, debug: bool = False) -> dict | None:
             else "Unknown",
         }
     )
+
+    if not "battery" in dataset: dataset.update({
+            "battery": {
+                "charge_percent": None,
+                "temperature": None,
+                "voltage": None,
+                "charge_cycles": None,
+                "is_charging": False,
+            }
+        })
+
     return dataset
 
 
