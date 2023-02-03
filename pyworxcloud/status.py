@@ -5,6 +5,7 @@ from enum import IntEnum
 
 
 class WorxStatus(IntEnum):
+    UNKNOWN = -1
     STOPPED = 0
     HOME = 1
     START_SEQUENCE = 2
@@ -24,6 +25,7 @@ class WorxStatus(IntEnum):
 
 
 StatusMap = {
+    -1: "Offline",
     0: "Manual stop",
     1: "Home",
     2: "Starting",
@@ -44,6 +46,7 @@ StatusMap = {
 
 
 class WorxError(IntEnum):
+    OFFLINE = -1
     NO_ERROR = 0
     TRAPPED = 1
     LIFTED = 2
@@ -67,6 +70,7 @@ class WorxError(IntEnum):
 
 
 ErrorMap = {
+    -1: None,
     0: "No error",
     1: "Trapped",
     2: "Lifted",
