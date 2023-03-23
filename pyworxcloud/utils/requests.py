@@ -1,6 +1,8 @@
 """For handling HTTP/HTTPS requests."""
 from __future__ import annotations
 
+# pylint: disable=invalid-name
+
 import requests
 
 from ..exceptions import (

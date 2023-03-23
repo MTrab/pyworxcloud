@@ -4,8 +4,8 @@ import sys
 
 import setuptools
 
-if sys.version_info < (3, 9, 0):
-    sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
+if sys.version_info < (3, 10, 0):
+    sys.exit("The pyWorxcloud module requires Python 3.10.0 or later")
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -24,7 +24,7 @@ setuptools.setup(
         "Bug Tracker": "https://github.com/mtrab/pyworxcloud/issues",
     },
     install_requires=[
-        "awsiotsdk>=1.11.9",
+        "awsiot>=0.1.3",
         "urllib3>=1.26.10",
         "requests>=2.26.0",
     ],
