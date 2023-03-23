@@ -30,7 +30,6 @@ async def async_worx():
     while 1:
         # Only print new state if the msg ID was different than the last that was displayed
         if not cloud.mowers[0]["last_message_id"] == last_id:
-
             # Set last_id to the new msg ID
             last_id = cloud.mowers[0]["last_message_id"]
 

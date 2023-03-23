@@ -29,7 +29,10 @@ def check_syntax(args: dict[str, Any], objs: list[str], expected_type: Any) -> b
             return False
         if not isinstance(args[obj], expected_type):
             _LOGGER.debug(
-                "%s was of type %s and not as expected %s", obj, type(obj), expected_type
+                "%s was of type %s and not as expected %s",
+                obj,
+                type(obj),
+                expected_type,
             )
             return False
 

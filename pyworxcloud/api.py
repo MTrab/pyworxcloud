@@ -1,13 +1,12 @@
 """Landroid Cloud API implementation"""
 # pylint: disable=unnecessary-lambda
 from __future__ import annotations
-import logging
 
+import logging
 import time
 
 from .clouds import CloudType
-
-from .utils.requests import HEADERS, POST, GET
+from .utils.requests import GET, HEADERS, POST
 
 _LOGGER = logging.getLogger(__name__)
 

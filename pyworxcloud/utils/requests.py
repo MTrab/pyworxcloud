@@ -1,8 +1,6 @@
 """For handling HTTP/HTTPS requests."""
 from __future__ import annotations
 
-# pylint: disable=invalid-name
-
 import requests
 
 from ..exceptions import (
@@ -15,6 +13,8 @@ from ..exceptions import (
     ServiceUnavailableError,
     TooManyRequestsError,
 )
+
+# pylint: disable=invalid-name
 
 
 def HEADERS(access_token: str | None = None) -> dict:

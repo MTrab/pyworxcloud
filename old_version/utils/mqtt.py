@@ -235,7 +235,6 @@ class MQTT(mqtt.Client, LDict):
         )
 
         try:
-
             status = self.rl_send(topic, data, qos, retain)
             log_msg = (
                 f'Awaiting message to be published to "{recipient.name}" on "{topic}"'
