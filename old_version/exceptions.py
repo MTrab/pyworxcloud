@@ -30,6 +30,10 @@ class RequestException(Exception):
     """Define a request exception."""
 
 
+class MQTTException(Exception):
+    """Define a MQTT exception."""
+
+
 class RateLimit(Exception):
     """Defines a ratelimit exception."""
 
@@ -66,11 +70,3 @@ class InternalServerError(Exception):
 
 class ServiceUnavailableError(Exception):
     """Represents a service unavailable error (503)."""
-
-
-class APIError(Exception):
-    """Error representing a generic API error."""
-
-
-class MowerNotFoundError(Exception):
-    """Error raised when a specific requested mower was not found in the result."""
