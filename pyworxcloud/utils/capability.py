@@ -36,15 +36,21 @@ class Capability:
 
         _LOGGER.debug("Capability data: %s", device_data)
 
-        if "sc" in device_data["last_status"]["payload"]["cfg"]:
-            if "ots" in device_data["last_status"]["payload"]["cfg"]["sc"]:
-                self.add(DeviceCapability.ONE_TIME_SCHEDULE)
-                self.add(DeviceCapability.EDGE_CUT)
-            if "distm" in device_data["last_status"]["payload"]["cfg"]["sc"]:
-                self.add(DeviceCapability.PARTY_MODE)
+        try:
+            if "sc" in device_data["last_status"]["payload"]["cfg"]:
+                if "ots" in device_data["last_status"]["payload"]["cfg"]["sc"]:
+                    self.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                    self.add(DeviceCapability.EDGE_CUT)
+                if "distm" in device_data["last_status"]["payload"]["cfg"]["sc"]:
+                    self.add(DeviceCapability.PARTY_MODE)
+        except TypeError:
+            pass
 
-        if "tq" in device_data["last_status"]["payload"]["cfg"]:
-            self.add(DeviceCapability.TORQUE)
+        try:
+            if "tq" in device_data["last_status"]["payload"]["cfg"]:
+                self.add(DeviceCapability.TORQUE)
+        except TypeError:
+            pass
 
     def add(self, capability: DeviceCapability) -> None:
         """Add capability to the list."""
