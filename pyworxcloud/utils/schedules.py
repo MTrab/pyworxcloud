@@ -164,27 +164,17 @@ class ScheduleInfo:
 class Schedule(LDict):
     """Represents a schedule."""
 
-    def __init__(
-        self,
-        variation: int = 0,
-        active: bool = True,
-        auto_schedule_settings: dict = {},
-        auto_schedule_enabled: bool | None = None,
-    ) -> dict:
-        """Initialize an empty primary or secondary schedule.
-
-        Args:
-            schedule_type (ScheduleType): Which ScheduleType to initialize.
-        """
+    def __init__(self, data) -> None:
+        """Initialize a schedule."""
         super().__init__()
 
         self["daily_progress"] = None
         self["next_schedule_start"] = None
-        self["time_extension"] = variation
-        self["active"] = active
+        self["time_extension"] = 0
+        self["active"] = True
         self["auto_schedule"] = {
-            "settings": auto_schedule_settings,
-            "enabled": auto_schedule_enabled,
+            "settings": data["auto_schedule_settings"] if "auto_schedule_settings" in data else {},
+            "enabled": data["auto_schedule"] if "auto_schedule" in data else False,
         }
 
     def update_progress_and_next(self, tz: str | None = None) -> None:

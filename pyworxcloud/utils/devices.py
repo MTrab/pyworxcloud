@@ -100,16 +100,12 @@ class DeviceHandler(LDict):
         self.zone = Zone()
         self.warranty = Warranty(data)
         self.firmware = Firmware(data)
-        self.schedules = Schedule()
+        self.schedules = Schedule(data)
         self.in_topic = data["mqtt_topics"]["command_in"]
         self.out_topic = data["mqtt_topics"]["command_out"]
 
         if data in ["lawn_perimeter", "lawn_size"]:
             self.lawn = Lawn(data["lawn_perimeter"], data["lawn_size"])
-
-        if data in ["auto_schedule_settings", "auto_schedule"]:
-            self.schedules["auto_schedule"]["settings"] = data["auto_schedule_settings"]
-            self.schedules["auto_schedule"]["enabled"] = data["auto_schedule"]
 
         self.name = data["name"]
         self.model = "Model info not available in API"  # f"{self.chassis.default_name}{self.chassis.meters}"
