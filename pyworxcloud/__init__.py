@@ -603,8 +603,8 @@ class WorxCloud(dict):
         """
         mower = self.get_mower(serial_number)
         if mower["online"]:
-            if not isinstance(rain_delay, str):
-                rain_delay = str(rain_delay)
+            if not isinstance(rain_delay, int):
+                rain_delay = int(rain_delay)
             self.mqtt.publish(
                 serial_number,
                 mower["mqtt_topics"]["command_in"],
