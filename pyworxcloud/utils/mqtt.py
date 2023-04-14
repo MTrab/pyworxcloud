@@ -4,12 +4,10 @@ from __future__ import annotations
 import json
 import logging
 import random
-import time
 import urllib.parse
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
-from zoneinfo import ZoneInfo
 
 from awsiot import mqtt, mqtt_connection_builder
 
