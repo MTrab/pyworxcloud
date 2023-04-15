@@ -29,6 +29,9 @@ async def async_worx():
     cloud.connect()
     cloud.set_callback(LandroidEvent.DATA_RECEIVED, receive_data)
 
+    device = cloud.devices["Robert"]
+    cloud.update(device.serial_number)
+
     print("Listening for new data")
     while 1:
         pass
