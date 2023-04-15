@@ -40,10 +40,12 @@ async def async_worx():
     # Self explanatory - disconnect from the cloud
     cloud.disconnect()
 
+
 def receive_data(
-        name: str, device: DeviceHandler  # pylint: disable=unused-argument
-    ) -> None:
-        """Callback function when the MQTT broker sends new data."""
-        print("Got data on MQTT from " + name)
+    name: str, device: DeviceHandler  # pylint: disable=unused-argument
+) -> None:
+    """Callback function when the MQTT broker sends new data."""
+    print("Got data on MQTT from " + name)
+
 
 asyncio.run(main())
