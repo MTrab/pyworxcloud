@@ -34,7 +34,7 @@ from .utils import (
 from .utils.mqtt import Command
 from .utils.schedules import TYPE_TO_STRING
 
-if sys.version_info < (3, 10, 0):
+if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.10.0 or later")
 
 _LOGGER = logging.getLogger(__name__)
@@ -244,13 +244,17 @@ class WorxCloud(dict):
             self._cloud.BRAND_PREFIX,
             self._endpoint,
             self._user_id,
+            self._log,
             self._on_update,
         )
+
+        self.mqtt.connect()
+        while isinstance(self.mqtt.connected,type(None)):
+            pass
 
         for mower in self._mowers:
             self.mqtt.subscribe(mower["mqtt_topics"]["command_out"])
 
-        self.mqtt.connect()
         self._log.debug("MQTT connect done")
 
         # Convert time strings to objects.
@@ -268,11 +272,12 @@ class WorxCloud(dict):
         """Return current authentication result."""
         return self._auth_result
 
-    def _on_update(self, topic, payload, dup, qos, retain, **kwargs):
+    def _on_update(self, payload):  # , topic, payload, dup, qos, retain, **kwargs):
         """Triggered when a MQTT message was received."""
         data = json.loads(payload)
         logger = self._log.getChild("MQTT_data_in")
-        logger.debug("MQTT data received '%s' on topic '%s'", payload, topic)
+        logger.debug("MQTT data received")
+        # logger.debug("MQTT data received '%s' on topic '%s'", payload, topic)
 
         for mower in self._mowers:
             if mower["serial_number"] == data["cfg"]["sn"]:
