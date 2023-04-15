@@ -252,6 +252,9 @@ class WorxCloud(dict):
             self.mqtt.subscribe(mower["mqtt_topics"]["command_out"])
 
         self.mqtt.connect()
+        while isinstance(self.mqtt.connected,type(None)):
+            pass
+        
         self._log.debug("MQTT connect done")
 
         # Convert time strings to objects.

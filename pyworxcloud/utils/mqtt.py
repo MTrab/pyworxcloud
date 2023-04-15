@@ -98,6 +98,8 @@ class MQTT(LDict):
         self._endpoint = endpoint
         self._log = logger.getChild("MQTT")
 
+        self.connected: bool | None = None
+
         accesstokenparts = token.replace("_", "/").replace("-", "+").split(".")
 
         self._uuid = uuid4()
@@ -137,9 +139,7 @@ class MQTT(LDict):
 
     def connect(self) -> None:
         """Connect to the MQTT service."""
-        self._log.debug("Initiating MQTT connect ...")
         self.client.connect(self._endpoint, 443, 45)
-        self._log.debug("Starting MQTT loop ...")
         self.client.loop_start()
 
     def _on_connect(
@@ -153,8 +153,10 @@ class MQTT(LDict):
         """MQTT callback method."""
         self._log.debug(connack_string(rc))
         if rc == 0:
+            self.connected = True
             self._log.debug("MQTT connected")
         else:
+            self.connected = False
             self._log.debug("MQTT connection failed")
 
     def disconnect(
