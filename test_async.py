@@ -29,8 +29,9 @@ async def async_worx():
     cloud.connect()
     cloud.set_callback(LandroidEvent.DATA_RECEIVED, receive_data)
 
-    device = cloud.devices[environ["DEV_NAME"]]
-    cloud.update(device.serial_number)
+    ## Force an data update
+    # device = cloud.devices[environ["DEV_NAME"]]
+    # cloud.update(device.serial_number)
 
     print("Listening for new data")
     while 1:
@@ -40,7 +41,7 @@ async def async_worx():
     cloud.disconnect()
 
 def receive_data(
-        self, name: str, device: DeviceHandler  # pylint: disable=unused-argument
+        name: str, device: DeviceHandler  # pylint: disable=unused-argument
     ) -> None:
         """Callback function when the MQTT broker sends new data."""
         print("Got data on MQTT from " + name)
