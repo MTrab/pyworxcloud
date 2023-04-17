@@ -11,9 +11,11 @@ from typing import Any
 from uuid import uuid4
 
 import paho.mqtt.client as mqtt
-from paho.mqtt.client import connack_string
+from paho.mqtt.client import connack_string, error_string
 
-from ..events import EventHandler
+from ..exceptions import MQTTException
+
+from ..events import EventHandler, LandroidEvent
 from .landroid_class import LDict
 
 QOS_FLAG = 1
@@ -99,8 +101,8 @@ class MQTT(LDict):
         self._on_update = callback
         self._endpoint = endpoint
         self._log = logger.getChild("MQTT")
-
-        self.connected: bool | None = None
+        self._disconnected = False
+        self._topic: list = []
 
         accesstokenparts = token.replace("_", "/").replace("-", "+").split(".")
 
@@ -110,6 +112,7 @@ class MQTT(LDict):
             client_id=f"{brandprefix}/USER/{user_id}/bot/{self._uuid}",
             clean_session=False,
             userdata=None,
+            reconnect_on_failure=True,
         )
         self.client.username_pw_set(
             username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",
@@ -122,6 +125,12 @@ class MQTT(LDict):
 
         self.client.on_connect = self._on_connect
         self.client.on_message = self._forward_on_message
+        self.client.on_disconnect = self._on_disconnect
+
+    @property
+    def connected(self) -> bool:
+        """Returns the MQTT connection state."""
+        return self.client.is_connected()
 
     def _forward_on_message(
         self,
@@ -137,6 +146,7 @@ class MQTT(LDict):
 
     def subscribe(self, topic: str) -> None:
         """Subscribe to MQTT updates."""
+        self._topic.append(topic)
         self.client.subscribe(topic=topic, qos=QOS_FLAG)
 
     def connect(self) -> None:
@@ -155,16 +165,52 @@ class MQTT(LDict):
         """MQTT callback method."""
         self._log.debug(connack_string(rc))
         if rc == 0:
-            self.connected = True
+            self._disconnected = False
             self._log.debug("MQTT connected")
+            self._events.call(
+                LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
+            )
         else:
-            self.connected = False
             self._log.debug("MQTT connection failed")
+            self._events.call(
+                LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
+            )
+
+    def _on_disconnect(
+        self,
+        client: mqtt.Client | None,
+        userdata: Any | None,
+        rc: int | None,
+        properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
+    ) -> None:
+        """MQTT callback method."""
+        logger = self._log.getChild("mqtt.disconnected")
+        if rc > 0:
+            if rc == 7:
+                if not self.client.is_connected():
+                    raise MQTTException(
+                        "Unexpected MQTT disconnect - were you perhaps banned?"
+                    )
+            if self.client.is_connected():
+                logger.debug("MQTT connection was lost! (%s)", error_string(rc))
+
+            logger.debug(
+                "Setting MQTT connected flag FALSE and unsubscribing from topics"
+            )
+
+            self._events.call(
+                LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
+            )
+
+            for topic in self._topic:
+                client.unsubscribe(self._topic.pop(topic))
 
     def disconnect(
         self, reasoncode=None, properties=None  # pylint: disable=unused-argument
     ):
         """Disconnect from AWSIoT MQTT server."""
+        self._disconnected = True
+        self.client.loop_stop()
         self.client.disconnect()
 
     def ping(self, serial_number: str, topic: str) -> None:
