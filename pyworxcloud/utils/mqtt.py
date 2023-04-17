@@ -163,15 +163,16 @@ class MQTT(LDict):
         properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
     ) -> None:
         """MQTT callback method."""
-        self._log.debug(connack_string(rc))
+        logger = self._log.getChild("Conn_State")
+        logger.debug(connack_string(rc))
         if rc == 0:
             self._disconnected = False
-            self._log.debug("MQTT connected")
+            logger.debug("MQTT connected")
             self._events.call(
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
             )
         else:
-            self._log.debug("MQTT connection failed")
+            logger.debug("MQTT connection failed")
             self._events.call(
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
             )
@@ -184,26 +185,13 @@ class MQTT(LDict):
         properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
     ) -> None:
         """MQTT callback method."""
-        logger = self._log.getChild("mqtt.disconnected")
+        logger = self._log.getChild("Conn_State")
         if rc > 0:
-            if rc == 7:
-                if not self.client.is_connected():
-                    raise MQTTException(
-                        "Unexpected MQTT disconnect - were you perhaps banned?"
-                    )
-            if self.client.is_connected():
-                logger.debug("MQTT connection was lost! (%s)", error_string(rc))
-
             logger.debug(
-                "Setting MQTT connected flag FALSE and unsubscribing from topics"
+                "Unexpected MQTT disconnect (%s) - retrying", connack_string(rc)
             )
-
-            self._events.call(
-                LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
-            )
-
-            for topic in self._topic:
-                client.unsubscribe(self._topic.pop(topic))
+            self.client.reconnect_delay_set(min_delay=1, max_delay=120)
+            self.client.reconnect()
 
     def disconnect(
         self, reasoncode=None, properties=None  # pylint: disable=unused-argument
