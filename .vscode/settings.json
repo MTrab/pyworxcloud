@@ -1,13 +1,16 @@
 {
-    "python.envFile": "${workspaceFolder}/.env",
-    "files.eol": "\n",
-    "editor.tabSize": 4,
-    "python.analysis.autoSearchPaths": false,
-    "python.linting.pylintEnabled": true,
-    "python.linting.enabled": true,
-    "python.formatting.provider": "black",
-    "editor.formatOnPaste": false,
-    "editor.formatOnSave": true,
-    "editor.formatOnType": true,
-    "files.trimTrailingWhitespace": true
+  "python.envFile": "${workspaceFolder}/.env",
+  "files.eol": "\n",
+  "editor.tabSize": 4,
+  "python.analysis.autoSearchPaths": false,
+  "python.linting.pylintEnabled": true,
+  "python.linting.enabled": true,
+  "python.formatting.provider": "none",
+  "editor.formatOnPaste": false,
+  "editor.formatOnSave": true,
+  "editor.formatOnType": true,
+  "files.trimTrailingWhitespace": true,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  }
 }
