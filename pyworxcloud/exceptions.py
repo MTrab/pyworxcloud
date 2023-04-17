@@ -39,6 +39,10 @@ class RateLimit(Exception):
         self.message = message
 
 
+class MQTTException(Exception):
+    """Defines a MQTT exception."""
+
+
 # Exception classes for URL requests
 class RequestError(Exception):
     """Define a bad request error (400)."""
