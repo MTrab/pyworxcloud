@@ -16,6 +16,8 @@ from paho.mqtt.client import connack_string
 from ..events import EventHandler
 from .landroid_class import LDict
 
+QOS_FLAG = 1
+
 
 class MQTTMsgType(LDict):
     """Define specific message type data."""
@@ -135,7 +137,7 @@ class MQTT(LDict):
 
     def subscribe(self, topic: str) -> None:
         """Subscribe to MQTT updates."""
-        self.client.subscribe(topic=topic)
+        self.client.subscribe(topic=topic, qos=QOS_FLAG)
 
     def connect(self) -> None:
         """Connect to the MQTT service."""
@@ -164,31 +166,25 @@ class MQTT(LDict):
     ):
         """Disconnect from AWSIoT MQTT server."""
         self.client.disconnect()
-        # self._configuration.disconnect()
 
     def ping(self, serial_number: str, topic: str) -> None:
         """Ping (update) the mower."""
         cmd = self.format_message(serial_number, {"cmd": Command.FORCE_REFRESH})
         self._log.debug("Sending '%s' on topic '%s'", cmd, topic)
-        self.client.publish(topic, cmd, 0)
-        # self._configuration.publish(topic, cmd, mqtt.QoS.AT_LEAST_ONCE)
+        self.client.publish(topic, cmd, QOS_FLAG)
 
     def command(self, serial_number: str, topic: str, action: Command) -> None:
         """Send a specific command to the mower."""
         cmd = self.format_message(serial_number, {"cmd": action})
         self._log.debug("Sending '%s' on topic '%s'", cmd, topic)
-        self.client.publish(topic, cmd, 0)
-        # self._configuration.publish(topic, cmd, mqtt.QoS.AT_LEAST_ONCE)
+        self.client.publish(topic, cmd, QOS_FLAG)
 
     def publish(self, serial_number: str, topic: str, message: dict) -> None:
         """Publish message to the mower."""
         self._log.debug("Publishing message '%s'", message)
-        self.client.publish(topic, self.format_message(serial_number, message), 0)
-        # self._configuration.publish(
-        #     topic,
-        #     self.format_message(serial_number, message),
-        #     mqtt.QoS.AT_LEAST_ONCE,
-        # )
+        self.client.publish(
+            topic, self.format_message(serial_number, message), QOS_FLAG
+        )
 
     def format_message(self, serial_number: str, message: dict) -> str:
         """
