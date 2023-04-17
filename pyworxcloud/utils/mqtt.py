@@ -93,12 +93,14 @@ class MQTT(LDict):
         user_id: int,
         logger: Logger,
         callback: Any,
+        token_refresh_func: Any,
     ) -> dict:
         """Initialize AWSIoT MQTT handler."""
         super().__init__()
         # self.client = None
         self._events = EventHandler()
         self._on_update = callback
+        self._token_refresh = token_refresh_func
         self._endpoint = endpoint
         self._log = logger.getChild("MQTT")
         self._disconnected = False
@@ -190,6 +192,7 @@ class MQTT(LDict):
             logger.debug(
                 "Unexpected MQTT disconnect (%s) - retrying", connack_string(rc)
             )
+            self._token_refresh()
             self.client.reconnect_delay_set(min_delay=1, max_delay=120)
             self.client.reconnect()
 

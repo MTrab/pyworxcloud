@@ -246,6 +246,7 @@ class WorxCloud(dict):
             self._user_id,
             self._log,
             self._on_update,
+            self._api.update_token,
         )
 
         self.mqtt.connect()
