@@ -249,7 +249,7 @@ class WorxCloud(dict):
         )
 
         self.mqtt.connect()
-        while isinstance(self.mqtt.connected, type(None)):
+        while self.mqtt.connected is False:
             pass
 
         for mower in self._mowers:
