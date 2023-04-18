@@ -13,9 +13,8 @@ from uuid import uuid4
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import connack_string, error_string
 
-from ..exceptions import MQTTException
-
 from ..events import EventHandler, LandroidEvent
+from ..exceptions import MQTTException
 from .landroid_class import LDict
 
 QOS_FLAG = 1

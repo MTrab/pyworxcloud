@@ -173,7 +173,9 @@ class Schedule(LDict):
         self["time_extension"] = 0
         self["active"] = True
         self["auto_schedule"] = {
-            "settings": data["auto_schedule_settings"] if "auto_schedule_settings" in data else {},
+            "settings": data["auto_schedule_settings"]
+            if "auto_schedule_settings" in data
+            else {},
             "enabled": data["auto_schedule"] if "auto_schedule" in data else False,
         }
 
