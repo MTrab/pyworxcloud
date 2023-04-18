@@ -87,7 +87,7 @@ class MQTT(LDict):
 
     def __init__(
         self,
-        token: str,
+        api: Any,
         brandprefix: str,
         endpoint: str,
         user_id: int,
@@ -103,8 +103,7 @@ class MQTT(LDict):
         self._log = logger.getChild("MQTT")
         self._disconnected = False
         self._topic: list = []
-
-        accesstokenparts = token.replace("_", "/").replace("-", "+").split(".")
+        self._api = api
 
         self._uuid = uuid4()
 
@@ -114,6 +113,10 @@ class MQTT(LDict):
             userdata=None,
             reconnect_on_failure=True,
         )
+
+        accesstokenparts = (
+            api.access_token.replace("_", "/").replace("-", "+").split(".")
+        )
         self.client.username_pw_set(
             username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",
             password=None,
@@ -122,6 +125,7 @@ class MQTT(LDict):
         ssl_context = ssl.create_default_context()
         ssl_context.set_alpn_protocols(["mqtt"])
         self.client.tls_set_context(context=ssl_context)
+        self.client.reconnect_delay_set(min_delay=10, max_delay=300)
 
         self.client.on_connect = self._on_connect
         self.client.on_message = self._forward_on_message
@@ -144,9 +148,10 @@ class MQTT(LDict):
         self._log.debug("Received MQTT message:\n%s", msg)
         self._on_update(msg)
 
-    def subscribe(self, topic: str) -> None:
+    def subscribe(self, topic: str, append: bool = True) -> None:
         """Subscribe to MQTT updates."""
-        self._topic.append(topic)
+        if append and topic not in self._topic:
+            self._topic.append(topic)
         self.client.subscribe(topic=topic, qos=QOS_FLAG)
 
     def connect(self) -> None:
@@ -171,6 +176,8 @@ class MQTT(LDict):
             self._events.call(
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
             )
+            for topic in self._topic:
+                self.subscribe(topic, False)
         else:
             logger.debug("MQTT connection failed")
             self._events.call(
@@ -187,16 +194,33 @@ class MQTT(LDict):
         """MQTT callback method."""
         logger = self._log.getChild("Conn_State")
         if rc > 0:
-            logger.debug(
-                "Unexpected MQTT disconnect (%s) - retrying", connack_string(rc)
-            )
-            self.client.reconnect_delay_set(min_delay=1, max_delay=120)
-            self.client.reconnect()
+            if rc == 7:
+                logger.debug("Refreshing access token and reconnecting")
+                self._api.update_token()
+                accesstokenparts = (
+                    self._api.access_token.replace("_", "/")
+                    .replace("-", "+")
+                    .split(".")
+                )
+                self.client.username_pw_set(
+                    username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",
+                    password=None,
+                )
+                self.connect()
+            else:
+                logger.debug(
+                    "Unexpected MQTT disconnect (%s: %s) - retrying",
+                    rc,
+                    connack_string(rc),
+                )
+                self.client.reconnect()
 
     def disconnect(
         self, reasoncode=None, properties=None  # pylint: disable=unused-argument
     ):
         """Disconnect from AWSIoT MQTT server."""
+        for topic in self._topic:
+            self.client.unsubscribe(self._topic.pop(topic))
         self._disconnected = True
         self.client.loop_stop()
         self.client.disconnect()
