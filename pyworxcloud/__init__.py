@@ -240,13 +240,12 @@ class WorxCloud(dict):
         self._log.debug("Setting up MQTT handler")
         # setup MQTT handler
         self.mqtt = MQTT(
-            self._api.access_token,
+            self._api,
             self._cloud.BRAND_PREFIX,
             self._endpoint,
             self._user_id,
             self._log,
             self._on_update,
-            self._api.update_token,
         )
 
         self.mqtt.connect()
