@@ -608,8 +608,8 @@ class WorxCloud(dict):
         """
         mower = self.get_mower(serial_number)
         if mower["online"]:
-            if not isinstance(rain_delay, str):
-                rain_delay = str(rain_delay)
+            if not isinstance(rain_delay, int):
+                rain_delay = int(rain_delay)
             self.mqtt.publish(
                 serial_number,
                 mower["mqtt_topics"]["command_in"],
@@ -741,9 +741,9 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             self.mqtt.publish(
-                serial_number, mower["mqtt_topics"]["command_in"], {"sc": {"m": 1}}
-            ) if enable else str(
-                {"sc": {"m": 0}},
+                serial_number, mower["mqtt_topics"]["command_in"],
+                {"sc": {"m": 1}} if enable
+                else {"sc": {"m": 0}}
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
