@@ -35,7 +35,7 @@ from .utils.mqtt import Command
 from .utils.schedules import TYPE_TO_STRING
 
 if sys.version_info < (3, 9, 0):
-    sys.exit("The pyWorxcloud module requires Python 3.10.0 or later")
+    sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
 
 _LOGGER = logging.getLogger(__name__)
 
