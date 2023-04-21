@@ -79,5 +79,6 @@ class APIError(Exception):
 class MowerNotFoundError(Exception):
     """Error raised when a specific requested mower was not found in the result."""
 
+
 class NoConnectionError(Exception):
     """Raised when the endpoint cannot be reached."""

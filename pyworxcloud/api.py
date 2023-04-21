@@ -111,7 +111,7 @@ class LandroidCloudAPI:
                     "{}{}", model["default_name"], model["meters"]
                 ),
                 "model_year": model["product_year"],
-                "cutting_width": model["cutting_width"]
+                "cutting_width": model["cutting_width"],
             }
             mower["firmware_version"] = "{:.2f}".format(mower["firmware_version"])
 
