@@ -8,6 +8,7 @@ from ..exceptions import (
     AuthorizationError,
     ForbiddenError,
     InternalServerError,
+    NoConnectionError,
     NotFoundError,
     RequestError,
     ServiceUnavailableError,
@@ -77,7 +78,7 @@ def POST(URL: str, REQUEST_BODY: str, HEADER: dict | None = None) -> str:
             else:
                 raise APIError(err)
 
-    raise TimeoutError()
+    raise NoConnectionError()
 
 
 def GET(URL: str, HEADER: dict | None = None) -> str:
@@ -114,4 +115,4 @@ def GET(URL: str, HEADER: dict | None = None) -> str:
             else:
                 raise APIError(err)
 
-    raise TimeoutError()
+    raise NoConnectionError()
