@@ -108,7 +108,9 @@ class DeviceHandler(LDict):
             self.lawn = Lawn(data["lawn_perimeter"], data["lawn_size"])
 
         self.name = data["name"]
-        self.model = "Model info not available in API"  # f"{self.chassis.default_name}{self.chassis.meters}"
+        self.model = str.format(
+            "{} ({})", data["model"]["friendly_name"], data["model"]["code"]
+        )
 
         for attr in UNWANTED_ATTRIBS:
             if hasattr(self, attr):
