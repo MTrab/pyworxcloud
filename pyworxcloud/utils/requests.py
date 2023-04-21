@@ -89,6 +89,8 @@ def GET(URL: str, HEADER: dict | None = None) -> str:
             raise InternalServerError()
         elif code == 503:
             raise ServiceUnavailableError()
+        elif code == 504:
+            raise TimeoutError()
         else:
             raise APIError(err)
 
