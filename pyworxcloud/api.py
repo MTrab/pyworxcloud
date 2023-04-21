@@ -104,9 +104,38 @@ class LandroidCloudAPI:
             HEADERS(self.access_token),
         )
         for mower in mowers:
+            model = self.get_model(mower["product_id"])
+            mower["model"] = {
+                "code": model["code"],
+                "friendly_name": str.format(
+                    "{}{}", model["default_name"], model["meters"]
+                ),
+                "model_year": model["product_year"],
+                "cutting_width": model["cutting_width"]
+            }
             mower["firmware_version"] = "{:.2f}".format(mower["firmware_version"])
 
         return mowers
+
+    def get_model(self, product_id: int) -> str | None:
+        """Get model from product_id.
+
+        Returns:
+            str: JSON object containing detailed product information.
+            None: Returned when product_id couldn't be matched to a product.
+        """
+        products = GET(
+            f"https://{self.cloud.ENDPOINT}/api/v2/products",
+            HEADERS(self.access_token),
+        )
+
+        product_info = None
+        for product in products:
+            if product["id"] == product_id:
+                product_info = product
+                break
+
+        return product_info
 
     @property
     def data(self) -> str:
