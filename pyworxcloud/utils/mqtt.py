@@ -219,7 +219,8 @@ class MQTT(LDict):
     ):
         """Disconnect from AWSIoT MQTT server."""
         for topic in self._topic:
-            self.client.unsubscribe(self._topic.pop(topic))
+            self.client.unsubscribe(topic)
+        self._topic = []
         self._disconnected = True
         self.client.loop_stop()
         self.client.disconnect()
