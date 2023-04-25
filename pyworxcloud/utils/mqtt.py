@@ -218,7 +218,9 @@ class MQTT(LDict):
         self, reasoncode=None, properties=None  # pylint: disable=unused-argument
     ):
         """Disconnect from AWSIoT MQTT server."""
+        logger = self._log.getChild("MQTT_Disconnect")
         for topic in self._topic:
+            logger.debug("Unsubscribing '%s'", topic)
             self.client.unsubscribe(topic)
         self._topic = []
         self._disconnected = True
