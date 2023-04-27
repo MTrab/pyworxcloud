@@ -502,10 +502,14 @@ class WorxCloud(dict):
 
         for mower in self._mowers:
             device = DeviceHandler(self._api, mower)
+            device.raw_data = json.dumps(mower["last_status"]["payload"])
             _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
             self.devices.update({mower["name"]: device})
 
             self._decode_data(device)
+            self._events.call(
+                LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
+            )
 
     def get_mower(self, serial_number: str) -> dict:
         """Get a specific mower."""
