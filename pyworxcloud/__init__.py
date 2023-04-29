@@ -437,51 +437,51 @@ class WorxCloud(dict):
                         "end"
                     ] = end_time.time().strftime("%H:%M")
 
-            # Fetch secondary schedule
-            if "dd" in data["cfg"]["sc"]:
-                sch_type = ScheduleType.SECONDARY
-                device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
+                # Fetch secondary schedule
+                if "dd" in data["cfg"]["sc"]:
+                    sch_type = ScheduleType.SECONDARY
+                    device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
 
-                for day in range(0, len(data["cfg"]["sc"]["dd"])):
-                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                        "start"
-                    ] = data["cfg"]["sc"]["dd"][day][0]
-                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                        "duration"
-                    ] = data["cfg"]["sc"]["dd"][day][1]
-                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                        "boundary"
-                    ] = bool(data["cfg"]["sc"]["dd"][day][2])
-
-                    time_start = datetime.strptime(
-                        data["cfg"]["sc"]["dd"][day][0],
-                        "%H:%M",
-                    )
-
-                    if isinstance(
+                    for day in range(0, len(data["cfg"]["sc"]["dd"])):
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "start"
+                        ] = data["cfg"]["sc"]["dd"][day][0]
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                             "duration"
-                        ],
-                        type(None),
-                    ):
+                        ] = data["cfg"]["sc"]["dd"][day][1]
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                            "duration"
-                        ] = "0"
+                            "boundary"
+                        ] = bool(data["cfg"]["sc"]["dd"][day][2])
 
-                    duration = int(
+                        time_start = datetime.strptime(
+                            data["cfg"]["sc"]["dd"][day][0],
+                            "%H:%M",
+                        )
+
+                        if isinstance(
+                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                "duration"
+                            ],
+                            type(None),
+                        ):
+                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                "duration"
+                            ] = "0"
+
+                        duration = int(
+                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                "duration"
+                            ]
+                        )
+
+                        duration = duration * (
+                            1 + (int(device.schedules["time_extension"]) / 100)
+                        )
+                        end_time = time_start + timedelta(minutes=duration)
+
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                            "duration"
-                        ]
-                    )
-
-                    duration = duration * (
-                        1 + (int(device.schedules["time_extension"]) / 100)
-                    )
-                    end_time = time_start + timedelta(minutes=duration)
-
-                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                        "end"
-                    ] = end_time.time().strftime("%H:%M")
+                            "end"
+                        ] = end_time.time().strftime("%H:%M")
 
             device.schedules.update_progress_and_next(
                 tz=self._tz
