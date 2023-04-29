@@ -442,7 +442,7 @@ class WorxCloud(dict):
                 sch_type = ScheduleType.SECONDARY
                 device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
 
-                for day in range(0, len(data["cfg"]["sc"]["d"])):
+                for day in range(0, len(data["cfg"]["sc"]["dd"])):
                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                         "start"
                     ] = data["cfg"]["sc"]["dd"][day][0]
