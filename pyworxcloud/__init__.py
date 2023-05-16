@@ -663,7 +663,7 @@ class WorxCloud(dict):
         elif not mower["online"]:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    def setzone(self, serial_number: str, zone: str) -> None:
+    def setzone(self, serial_number: str, zone: str | int) -> None:
         """Set zone to be mowed when next mowing task is started.
 
         Args:
