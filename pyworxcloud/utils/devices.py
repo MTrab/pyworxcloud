@@ -97,7 +97,7 @@ class DeviceHandler(LDict):
         self.capabilities = Capability(data)
         self.rainsensor = Rainsensor()
         self.status = States()
-        self.zone = Zone()
+        self.zone = Zone(data)
         self.warranty = Warranty(data)
         self.firmware = Firmware(data)
         self.schedules = Schedule(data)
