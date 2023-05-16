@@ -7,7 +7,7 @@ from .landroid_class import LDict
 class Zone(LDict):
     """Class for handling zone data."""
 
-    def __init__(self) -> dict:
+    def __init__(self, data) -> dict:
         """Initialize zone object."""
         super().__init__()
 
@@ -15,6 +15,14 @@ class Zone(LDict):
         self["index"] = None
         self["indicies"] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self["starting_point"] = [0, 0, 0, 0]
+
+        if not "last_status" in data:
+            return
+
+        self["index"] = data["last_status"]["payload"]["dat"]["lz"]
+        self["indicies"] = data["last_status"]["payload"]["cfg"]["mzv"]
+        self["starting_point"] = data["last_status"]["payload"]["cfg"]["mz"]
+        self["current"] = self["indicies"][self["index"]]
 
     @property
     def current(self) -> int:

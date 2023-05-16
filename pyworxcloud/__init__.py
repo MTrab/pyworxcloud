@@ -311,7 +311,7 @@ class WorxCloud(dict):
             data = device.json_data
         elif device.raw_data:
             logger.debug("Found raw data: %s", device.raw_data)
-            data = json.loads(device.raw_data)
+            data = device.raw_data
         else:
             device.is_decoded = True
             logger.debug("No valid data was found, skipping update for %s", device.name)
@@ -505,6 +505,7 @@ class WorxCloud(dict):
             _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
             self.devices.update({mower["name"]: device})
 
+            device.raw_data = mower["last_status"]["payload"]
             self._decode_data(device)
 
     def get_mower(self, serial_number: str) -> dict:
