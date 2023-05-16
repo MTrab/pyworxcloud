@@ -17,7 +17,8 @@ from .exceptions import (
     NoOneTimeScheduleError,
     NoPartymodeError,
     OfflineError,
-    RequestException,
+    ZoneNoProbability,
+    ZoneNotDefined,
 )
 from .helpers import convert_to_time, get_logger
 from .utils import (
@@ -691,7 +692,12 @@ class WorxCloud(dict):
                 zone = int(zone)
 
             if device.zone["starting_point"][zone] == 0:
-                raise RequestException("Cannot request this zone as it is not defined.")
+                raise ZoneNotDefined("Cannot request this zone as it is not defined.")
+
+            if not zone in device.zone["indicies"]:
+                raise ZoneNoProbability(
+                    "Cannot request this zone as it has no probability set."
+                )
 
             current = device.zone["indicies"]
             new_zones = current
