@@ -279,9 +279,17 @@ class WorxCloud(dict):
         logger.debug("MQTT data received")
         # logger.debug("MQTT data received '%s' on topic '%s'", payload, topic)
 
+        # "Malformed" message, we are missing a serial number to identify the mower.
+        if not "sn" in data["cfg"] and not "mac" in data["dat"]:
+            return
+
         for mower in self._mowers:
-            if mower["serial_number"] == data["cfg"]["sn"]:
-                break
+            if "sn" in data["cfg"]:
+                if mower["serial_number"] == data["cfg"]["sn"]:
+                    break
+            else:
+                if mower["mac_address"] == data["dat"]["mac"]:
+                    break
 
         device: DeviceHandler = self.devices[mower["name"]]
 

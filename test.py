@@ -18,8 +18,6 @@ cloud = WorxCloud(EMAIL, PASS, TYPE)
 cloud.authenticate()
 cloud.connect()
 
-cloud.setzone("20213028401100013915", 2)
-
 # print(vars(cloud))
 
 cloud.disconnect()
