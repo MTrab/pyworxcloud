@@ -274,38 +274,41 @@ class WorxCloud(dict):
 
     def _on_update(self, payload):  # , topic, payload, dup, qos, retain, **kwargs):
         """Triggered when a MQTT message was received."""
-        data = json.loads(payload)
         logger = self._log.getChild("MQTT_data_in")
-        logger.debug("MQTT data received")
-        # logger.debug("MQTT data received '%s' on topic '%s'", payload, topic)
+        try:
+            data = json.loads(payload)
+            logger.debug("MQTT data received")
 
-        # "Malformed" message, we are missing a serial number to identify the mower.
-        if not "sn" in data["cfg"] and not "mac" in data["dat"]:
-            return
+            # "Malformed" message, we are missing a serial number and MAC address to identify the mower.
+            if not "sn" in data["cfg"] and not "mac" in data["dat"]:
+                return
 
-        for mower in self._mowers:
-            if "sn" in data["cfg"]:
-                if mower["serial_number"] == data["cfg"]["sn"]:
-                    break
-            else:
-                if mower["mac_address"] == data["dat"]["mac"]:
-                    break
+            for mower in self._mowers:
+                if "sn" in data["cfg"]:
+                    if mower["serial_number"] == data["cfg"]["sn"]:
+                        break
+                else:
+                    if mower["mac_address"] == data["dat"]["mac"]:
+                        break
 
-        device: DeviceHandler = self.devices[mower["name"]]
+            device: DeviceHandler = self.devices[mower["name"]]
 
-        while not device.is_decoded:
-            pass  # Wait for last dataset to be handled
+            while not device.is_decoded:
+                pass  # Wait for last dataset to be handled
 
-        if device.raw_data == data:
-            self._log.debug("Data was already present and not changed.")
-            return  # Dataset was not changed, no update needed
+            if device.raw_data == data:
+                self._log.debug("Data was already present and not changed.")
+                return  # Dataset was not changed, no update needed
 
-        device.raw_data = payload
-        self._decode_data(device)
+            device.raw_data = payload
+            self._decode_data(device)
 
-        self._events.call(
-            LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
-        )
+            self._events.call(
+                LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
+            )
+        except json.decoder.JSONDecodeError:
+            logger.debug("Malformed MQTT message received")
+            pass
 
     def _decode_data(self, device: DeviceHandler) -> None:
         """Decode incoming JSON data."""
