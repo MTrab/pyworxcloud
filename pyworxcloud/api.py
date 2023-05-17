@@ -52,11 +52,14 @@ class LandroidCloudAPI:
             "password": self.password,
         }
 
-        resp = POST(url, request_body, HEADERS())
-        self.access_token = resp["access_token"]
-        self.refresh_token = resp["refresh_token"]
-        now = int(time.time())
-        self._token_expire = now + int(resp["expires_in"])
+        try:
+            resp = POST(url, request_body, HEADERS())
+            self.access_token = resp["access_token"]
+            self.refresh_token = resp["refresh_token"]
+            now = int(time.time())
+            self._token_expire = now + int(resp["expires_in"])
+        except:
+            return
 
     def update_token(self) -> None:
         """Refresh the tokens."""
