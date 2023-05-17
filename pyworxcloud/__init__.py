@@ -517,7 +517,9 @@ class WorxCloud(dict):
             _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
             self.devices.update({mower["name"]: device})
 
-            device.raw_data = mower["last_status"]["payload"]
+            if not isinstance(mower["last_status"], type(None)):
+                device.raw_data = mower["last_status"]["payload"]
+
             self._decode_data(device)
 
     def get_mower(self, serial_number: str) -> dict:
