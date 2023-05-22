@@ -19,9 +19,21 @@ class Zone(LDict):
         if not "last_status" in data:
             return
 
-        self["index"] = data["last_status"]["payload"]["dat"]["lz"]
-        self["indicies"] = data["last_status"]["payload"]["cfg"]["mzv"]
-        self["starting_point"] = data["last_status"]["payload"]["cfg"]["mz"]
+        self["index"] = (
+            data["last_status"]["payload"]["dat"]["lz"]
+            if "lz" in data["last_status"]["payload"]["dat"]
+            else 0
+        )
+        self["indicies"] = (
+            data["last_status"]["payload"]["cfg"]["mzv"]
+            if "mzv" in data["last_status"]["payload"]["dat"]
+            else [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
+        self["starting_point"] = (
+            data["last_status"]["payload"]["cfg"]["mz"]
+            if "mz" in data["last_status"]["payload"]["dat"]
+            else [0, 0, 0, 0]
+        )
         self["current"] = self["indicies"][self["index"]]
 
     @property
