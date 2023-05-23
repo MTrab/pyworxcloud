@@ -21,7 +21,7 @@ class CloudType(object):
 
         BRAND_PREFIX: str = "WX"
         ENDPOINT: str = "api.worxlandroid.com"
-        AUTH_ENDPOINT: str = "id.eu.worx.com"
+        AUTH_ENDPOINT: str = "id.worx.com"
         AUTH_CLIENT_ID: str = "150da4d2-bb44-433b-9429-3773adc70a2a"
 
     class KRESS(str):
@@ -29,7 +29,7 @@ class CloudType(object):
 
         BRAND_PREFIX: str = "KR"
         ENDPOINT: str = "api.kress-robotik.com"
-        AUTH_ENDPOINT: str = "id.eu.kress.com"
+        AUTH_ENDPOINT: str = "id.kress.com"
         AUTH_CLIENT_ID: str = "931d4bc4-3192-405a-be78-98e43486dc59"
 
     class LANDXCAPE(str):
