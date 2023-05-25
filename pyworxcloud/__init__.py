@@ -5,6 +5,7 @@ import json
 import logging
 import sys
 from datetime import datetime, timedelta
+import threading
 from typing import Any
 
 from .api import LandroidCloudAPI
@@ -39,6 +40,8 @@ if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
 
 _LOGGER = logging.getLogger(__name__)
+
+REFRESH_TIME = 30
 
 
 class WorxCloud(dict):
@@ -158,6 +161,9 @@ class WorxCloud(dict):
         self._user_id = None
         self._mowers = None
 
+        # Dict holding refresh timers
+        self._timers = {}
+
         # Dict of devices, identified by name
         self.devices = {}
 
@@ -255,6 +261,13 @@ class WorxCloud(dict):
 
         for mower in self._mowers:
             self.mqtt.subscribe(mower["mqtt_topics"]["command_out"])
+            refresh = threading.Timer(
+                REFRESH_TIME * 60,
+                self._force_refresh,
+                args=[mower["serial_number"], mower["name"]],
+            )
+            refresh.start()
+            self._timers.update({mower["serial_number"]: refresh})
 
         self._log.debug("MQTT connect done")
 
@@ -271,6 +284,17 @@ class WorxCloud(dict):
     def auth_result(self) -> bool:
         """Return current authentication result."""
         return self._auth_result
+
+    def _force_refresh(self, *args, **kwargs) -> None:
+        """Handle for refreshing device."""
+        logger = self._log.getChild("Forced_Refresh")
+        logger.debug("Forcing refresh for '%s'", args[1])
+        self.update(args[0])
+        refresh = threading.Timer(
+            REFRESH_TIME * 60, self._force_refresh, args=[args[0], args[1]]
+        )
+        refresh.start()
+        self._timers.update({args[0]: refresh})
 
     def _on_update(self, payload):  # , topic, payload, dup, qos, retain, **kwargs):
         """Triggered when a MQTT message was received."""
@@ -292,6 +316,15 @@ class WorxCloud(dict):
                         break
 
             device: DeviceHandler = self.devices[mower["name"]]
+            auto_refresh = self._timers[mower["serial_number"]]
+            auto_refresh.cancel()
+            auto_refresh = threading.Timer(
+                REFRESH_TIME * 60,
+                self._force_refresh,
+                args=[mower["serial_number"], mower["name"]],
+            )
+            auto_refresh.start()
+            self._timers.update({mower["serial_number"]: auto_refresh})
 
             while not device.is_decoded:
                 pass  # Wait for last dataset to be handled
