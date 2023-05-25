@@ -336,7 +336,7 @@ class WorxCloud(dict):
             device.status.update(data["dat"]["ls"])
             device.error.update(data["dat"]["le"])
 
-            device.zone.index = data["dat"]["lz"]
+            device.zone.index = data["dat"]["lz"] if "lz" in data["dat"] else 0
 
             device.locked = bool(data["dat"]["lk"])
 
