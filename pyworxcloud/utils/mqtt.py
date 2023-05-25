@@ -177,11 +177,14 @@ class MQTT(LDict):
             )
             for topic in self._topic:
                 self.subscribe(topic, False)
+
+            self.connected = True
         else:
             logger.debug("MQTT connection failed")
             self._events.call(
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
             )
+            self.connected = False
 
     def _on_disconnect(
         self,
@@ -191,6 +194,7 @@ class MQTT(LDict):
         properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
     ) -> None:
         """MQTT callback method."""
+        self.connected = False
         logger = self._log.getChild("Conn_State")
         if rc > 0:
             if rc == 7:
@@ -212,7 +216,10 @@ class MQTT(LDict):
                     rc,
                     connack_string(rc),
                 )
-                self.client.reconnect()
+                try:
+                    self.client.reconnect()
+                except:  # pylint: disable=bare-except
+                    self.connected = False
 
     def disconnect(
         self, reasoncode=None, properties=None  # pylint: disable=unused-argument
