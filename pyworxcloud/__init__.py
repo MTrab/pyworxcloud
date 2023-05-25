@@ -234,7 +234,7 @@ class WorxCloud(dict):
         self._log.debug("Fetching basic API data")
         self._fetch()
         self._log.debug("Done fetching basic API data")
-        
+
         if len(self._mowers) == 0:
             self._log.debug("no mowers connected to account")
             return False
