@@ -237,7 +237,7 @@ class WorxCloud(dict):
         
         if len(self._mowers) == 0:
             self._log.debug("no mowers connected to account")
-            return false
+            return False
 
         self._endpoint = self._mowers[0]["mqtt_endpoint"]
         self._user_id = self._mowers[0]["user_id"]
