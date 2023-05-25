@@ -1,5 +1,6 @@
 """MQTT information class."""
 from __future__ import annotations
+import asyncio
 
 import json
 import random
@@ -177,14 +178,11 @@ class MQTT(LDict):
             )
             for topic in self._topic:
                 self.subscribe(topic, False)
-
-            self.connected = True
         else:
             logger.debug("MQTT connection failed")
             self._events.call(
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
             )
-            self.connected = False
 
     def _on_disconnect(
         self,
@@ -194,7 +192,6 @@ class MQTT(LDict):
         properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
     ) -> None:
         """MQTT callback method."""
-        self.connected = False
         logger = self._log.getChild("Conn_State")
         if rc > 0:
             if rc == 7:
@@ -219,7 +216,7 @@ class MQTT(LDict):
                 try:
                     self.client.reconnect()
                 except:  # pylint: disable=bare-except
-                    self.connected = False
+                    pass
 
     def disconnect(
         self, reasoncode=None, properties=None  # pylint: disable=unused-argument
@@ -248,10 +245,17 @@ class MQTT(LDict):
 
     def publish(self, serial_number: str, topic: str, message: dict) -> None:
         """Publish message to the mower."""
-        self._log.debug("Publishing message '%s'", message)
-        self.client.publish(
-            topic, self.format_message(serial_number, message), QOS_FLAG
-        )
+        if not self.connected:
+            self._log.warning("Not connected to API endpoint - awaiting connection")
+            asyncio.sleep(15)
+            self.connect()
+            # Call publish rather than continue to handle connection issues
+            self.publish(serial_number, topic, message)
+        else:
+            self._log.debug("Publishing message '%s'", message)
+            self.client.publish(
+                topic, self.format_message(serial_number, message), QOS_FLAG
+            )
 
     def format_message(self, serial_number: str, message: dict) -> str:
         """

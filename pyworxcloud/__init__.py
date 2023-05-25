@@ -535,7 +535,7 @@ class WorxCloud(dict):
     def update(self, serial_number: str) -> None:
         """Request a state refresh."""
         mower = self.get_mower(serial_number)
-        _LOGGER.debug("Trying to refreshing '%s'", serial_number)
+        _LOGGER.debug("Trying to refresh '%s'", serial_number)
         self.mqtt.ping(serial_number, mower["mqtt_topics"]["command_in"])
 
     def start(self, serial_number: str) -> None:
