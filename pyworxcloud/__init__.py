@@ -259,7 +259,6 @@ class WorxCloud(dict):
         self._log.debug("MQTT connect done")
 
         # Convert time strings to objects.
-        self._log.debug("Converting date and time string")
         for name, device in self.devices.items():
             convert_to_time(
                 name, device, device.time_zone, callback=self.update_attribute
