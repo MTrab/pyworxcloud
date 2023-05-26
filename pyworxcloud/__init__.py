@@ -5,6 +5,7 @@ import json
 import logging
 import sys
 from datetime import datetime, timedelta
+import threading
 from typing import Any
 
 from .api import LandroidCloudAPI
@@ -39,6 +40,8 @@ if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
 
 _LOGGER = logging.getLogger(__name__)
+
+REFRESH_TIME = 15
 
 
 class WorxCloud(dict):
@@ -158,6 +161,9 @@ class WorxCloud(dict):
         self._user_id = None
         self._mowers = None
 
+        # Dict holding refresh timers
+        self._timers = {}
+
         # Dict of devices, identified by name
         self.devices = {}
 
@@ -259,11 +265,11 @@ class WorxCloud(dict):
 
         for mower in self._mowers:
             self.mqtt.subscribe(mower["mqtt_topics"]["command_out"])
+            self._schedule_forced_refresh(mower["serial_number"])
 
         self._log.debug("MQTT connect done")
 
         # Convert time strings to objects.
-        self._log.debug("Converting date and time string")
         for name, device in self.devices.items():
             convert_to_time(
                 name, device, device.time_zone, callback=self.update_attribute
@@ -276,6 +282,42 @@ class WorxCloud(dict):
     def auth_result(self) -> bool:
         """Return current authentication result."""
         return self._auth_result
+
+    def _schedule_forced_refresh(self, serial_number: str) -> None:
+        """Schedule a forced refresh."""
+        logger = self._log.getChild("Refresh_Scheduler")
+        name = None
+        for mower in self._mowers:
+            if mower["serial_number"] == serial_number:
+                name = mower["name"]
+                break
+
+        if isinstance(name, type(None)):
+            logger.warning(
+                "Didn't find any mowers with serial number '%s'", serial_number
+            )
+            return None
+
+        next_refresh = datetime.now() + timedelta(minutes=REFRESH_TIME)
+        logger.debug(
+            "Scheduling a forcing refresh for '%s' at %s",
+            name,
+            next_refresh,
+        )
+
+        force_refresh = threading.Timer(
+            REFRESH_TIME * 60, self._force_refresh, args=[serial_number, name]
+        )
+        force_refresh.start()
+        self._timers.update({serial_number: force_refresh})
+
+    def _force_refresh(self, *args, **kwargs) -> None:
+        """Handle for refreshing device."""
+        logger = self._log.getChild("Forced_Refresh")
+        logger.debug("Forcing refresh for '%s'", args[1])
+        self.update(args[0])
+
+        self._schedule_forced_refresh(args[0])
 
     def _on_update(self, payload):  # , topic, payload, dup, qos, retain, **kwargs):
         """Triggered when a MQTT message was received."""
@@ -297,6 +339,8 @@ class WorxCloud(dict):
                         break
 
             device: DeviceHandler = self.devices[mower["name"]]
+            (self._timers[mower["serial_number"]]).cancel()
+            self._schedule_forced_refresh(mower["serial_number"])
 
             while not device.is_decoded:
                 pass  # Wait for last dataset to be handled
