@@ -223,7 +223,8 @@ class WorxCloud(dict):
 
     def disconnect(self) -> None:
         """Close API connections."""
-        self.mqtt.disconnect()
+        if self.mqtt:
+            self.mqtt.disconnect()
 
     def connect(
         self,
