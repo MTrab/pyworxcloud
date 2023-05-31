@@ -1,8 +1,6 @@
 """Zone representation."""
 from __future__ import annotations
 
-from ..exceptions import InvalidDataDecodeException
-
 from .landroid_class import LDict
 
 
