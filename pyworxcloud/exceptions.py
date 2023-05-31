@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 
+class InvalidDataDecodeException(Exception):
+    """Raised when there was an error decoding data."""
+
+
 class NoPartymodeError(Exception):
     """Define an error when partymode is not supported."""
 
