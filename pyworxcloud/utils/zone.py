@@ -46,8 +46,8 @@ class Zone(LDict):
                 if "mz" in data["last_status"]["payload"]["cfg"]
                 else [0, 0, 0, 0]
             )
-        except:  # pylint: disable=bare-except
-            raise InvalidDataDecodeException from None
+        except TypeError:  # pylint: disable=bare-except
+            pass
 
         self["current"] = self["indicies"][self["index"]]
 
