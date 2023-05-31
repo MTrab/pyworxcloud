@@ -579,8 +579,11 @@ class WorxCloud(dict):
             _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
             self.devices.update({mower["name"]: device})
 
-            if not isinstance(mower["last_status"], type(None)):
-                device.raw_data = mower["last_status"]["payload"]
+            try:
+                if not isinstance(mower["last_status"], type(None)):
+                    device.raw_data = mower["last_status"]["payload"]
+            except:  # pylint: disable=bare-except
+                pass
 
             self._decode_data(device)
 
