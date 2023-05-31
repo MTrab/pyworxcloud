@@ -427,7 +427,7 @@ class WorxCloud(dict):
                         str(data["dat"]["rain"]["s"]) == "1"
                     )
                     device.rainsensor.remaining = int(data["dat"]["rain"]["cnt"])
-            except:  # pylint: disable=bare-except
+            except TypeError:  # pylint: disable=bare-except
                 invalid_data = True
 
         if "cfg" in data:
@@ -561,7 +561,7 @@ class WorxCloud(dict):
                     if not isinstance(self._tz, type(None))
                     else device.time_zone
                 )
-            except:  # pylint: disable=bare-except
+            except TypeError:
                 invalid_data = True
 
         convert_to_time(
@@ -586,7 +586,7 @@ class WorxCloud(dict):
             try:
                 if not isinstance(mower["last_status"], type(None)):
                     device.raw_data = mower["last_status"]["payload"]
-            except:  # pylint: disable=bare-except
+            except TypeError:
                 pass
 
             self._decode_data(device)
