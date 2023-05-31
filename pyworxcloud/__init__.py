@@ -226,13 +226,22 @@ class WorxCloud(dict):
 
     def disconnect(self) -> None:
         """Close API connections."""
+        # pylint: disable=bare-except
+        logger = self._log.getChild("Disconnect")
+
         # Cancel force refresh timer on disconnect
-        for _, tmr in self._timers.items():
-            tmr.cancel()
+        try:
+            for _, tmr in self._timers.items():
+                tmr.cancel()
+        except:
+            logger.debug("Could not cancel timers - skipping.")
 
         # Disconnect MQTT connection
-        if self.mqtt:
-            self.mqtt.disconnect()
+        try:
+            if self.mqtt:
+                self.mqtt.disconnect()
+        except:
+            logger.debug("Could not disconnect MQTT - skipping.")
 
     def connect(
         self,
