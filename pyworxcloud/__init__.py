@@ -1,4 +1,6 @@
 """pyWorxCloud definition."""
+# pylint: disable=undefined-loop-variable
+# pylint: disable=line-too-long
 from __future__ import annotations
 
 import json
@@ -312,7 +314,9 @@ class WorxCloud(dict):
         force_refresh.start()
         self._timers.update({serial_number: force_refresh})
 
-    def _force_refresh(self, *args, **kwargs) -> None:
+    def _force_refresh(
+        self, *args, **kwargs  # pylint: disable=unused-argument
+    ) -> None:
         """Handle for refreshing device."""
         logger = self._log.getChild("Forced_Refresh")
         logger.debug("Forcing refresh for '%s'", args[1])
@@ -327,7 +331,8 @@ class WorxCloud(dict):
             data = json.loads(payload)
             logger.debug("MQTT data received")
 
-            # "Malformed" message, we are missing a serial number and MAC address to identify the mower.
+            # "Malformed" message, we are missing a serial number and
+            # MAC address to identify the mower.
             if not "sn" in data["cfg"] and not "mac" in data["dat"]:
                 return
 
@@ -358,7 +363,6 @@ class WorxCloud(dict):
             )
         except json.decoder.JSONDecodeError:
             logger.debug("Malformed MQTT message received")
-            pass
 
     def _decode_data(self, device: DeviceHandler) -> None:
         """Decode incoming JSON data."""

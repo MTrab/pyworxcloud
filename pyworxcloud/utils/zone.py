@@ -1,6 +1,8 @@
 """Zone representation."""
 from __future__ import annotations
 
+from ..exceptions import InvalidDataDecodeException
+
 from .landroid_class import LDict
 
 
@@ -16,33 +18,37 @@ class Zone(LDict):
         self["indicies"] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self["starting_point"] = [0, 0, 0, 0]
 
-        if not "last_status" in data:
-            return
+        try:
+            if not "last_status" in data:
+                return
 
-        if not "payload" in data["last_status"]:
-            return
+            if not "payload" in data["last_status"]:
+                return
 
-        if (
-            not "dat" in data["last_status"]["payload"]
-            or not "cfg" in data["last_status"]["payload"]
-        ):
-            return
+            if (
+                not "dat" in data["last_status"]["payload"]
+                or not "cfg" in data["last_status"]["payload"]
+            ):
+                return
 
-        self["index"] = (
-            data["last_status"]["payload"]["dat"]["lz"]
-            if "lz" in data["last_status"]["payload"]["dat"]
-            else 0
-        )
-        self["indicies"] = (
-            data["last_status"]["payload"]["cfg"]["mzv"]
-            if "mzv" in data["last_status"]["payload"]["cfg"]
-            else [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        )
-        self["starting_point"] = (
-            data["last_status"]["payload"]["cfg"]["mz"]
-            if "mz" in data["last_status"]["payload"]["cfg"]
-            else [0, 0, 0, 0]
-        )
+            self["index"] = (
+                data["last_status"]["payload"]["dat"]["lz"]
+                if "lz" in data["last_status"]["payload"]["dat"]
+                else 0
+            )
+            self["indicies"] = (
+                data["last_status"]["payload"]["cfg"]["mzv"]
+                if "mzv" in data["last_status"]["payload"]["cfg"]
+                else [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            )
+            self["starting_point"] = (
+                data["last_status"]["payload"]["cfg"]["mz"]
+                if "mz" in data["last_status"]["payload"]["cfg"]
+                else [0, 0, 0, 0]
+            )
+        except:  # pylint: disable=bare-except
+            raise InvalidDataDecodeException from None
+
         self["current"] = self["indicies"][self["index"]]
 
     @property
