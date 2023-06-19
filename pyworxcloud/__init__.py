@@ -402,13 +402,22 @@ class WorxCloud(dict):
         # device.firmware["version"] = "{:.2f}".format(device.firmware["version"])
         if "dat" in data:
             try:
-                device.rssi = data["dat"]["rsi"]
-                logger.debug("Status code: %s", data["dat"]["ls"])
-                device.status.update(data["dat"]["ls"])
-                device.error.update(data["dat"]["le"])
+                # Get wifi signal strength
+                if "rsi" in data["dat"]:
+                    device.rssi = data["dat"]["rsi"]
 
+                # Get status code
+                if "ls" in data["dat"]:
+                    device.status.update(data["dat"]["ls"])
+
+                # Get error code
+                if "le" in data["dat"]:
+                    device.error.update(data["dat"]["le"])
+
+                # Get zone index
                 device.zone.index = data["dat"]["lz"] if "lz" in data["dat"] else 0
 
+                # Get device lock state
                 device.locked = bool(data["dat"]["lk"])
 
                 # Get battery info if available
