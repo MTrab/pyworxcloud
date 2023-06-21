@@ -456,8 +456,15 @@ class WorxCloud(dict):
 
         if "cfg" in data:
             try:
-                device.updated = data["cfg"]["dt"] + " " + data["cfg"]["tm"]
-                device.rainsensor.delay = int(data["cfg"]["rd"])
+                if "dt" in data["cfg"] and "tm" in data["cfg"]:
+                    device.updated = data["cfg"]["dt"] + " " + data["cfg"]["tm"]
+                else:
+                    device.updated = "Unknown"
+
+                # Fetch rainsensor delay
+                device.rainsensor.delay = (
+                    int(data["cfg"]["rd"]) if "rd" in data["cfg"] else 0
+                )
 
                 # Fetch wheel torque
                 if "tq" in data["cfg"]:
@@ -465,13 +472,12 @@ class WorxCloud(dict):
                     device.torque = data["cfg"]["tq"]
 
                 # Fetch zone information
-                if "mz" in data["cfg"]:
+                if "mz" in data["cfg"] and "mzv" in data["cfg"]:
                     device.zone.starting_point = data["cfg"]["mz"]
                     device.zone.indicies = data["cfg"]["mzv"]
 
                     # Map current zone to zone index
                     device.zone.current = device.zone.indicies[device.zone.index]
-                    # device.zone.current = 1
 
                 # Fetch main schedule
                 if "sc" in data["cfg"]:
@@ -586,6 +592,8 @@ class WorxCloud(dict):
                     else device.time_zone
                 )
             except TypeError:
+                invalid_data = True
+            except KeyError:
                 invalid_data = True
 
         convert_to_time(
