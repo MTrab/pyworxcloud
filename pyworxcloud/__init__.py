@@ -447,7 +447,7 @@ class WorxCloud(dict):
 
         if "cfg" in data:
             try:
-                device.updated = data["cfg"]["dt"] + " " + data["cfg"]["tm"]
+                device.updated = data["cfg"]["dt"] + " " + data["cfg"]["tm"] if "dt" in data["cfg"] else data["dat"]["tm"]
                 device.rainsensor.delay = int(data["cfg"]["rd"])
 
                 # Fetch wheel torque
