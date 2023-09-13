@@ -318,7 +318,7 @@ class WorxCloud(dict):
 
         next_refresh = datetime.now() + timedelta(minutes=REFRESH_TIME)
         logger.debug(
-            "Scheduling a forcing refresh for '%s' at %s",
+            "Scheduling a forced refresh for '%s' at %s",
             name,
             next_refresh,
         )
@@ -348,12 +348,17 @@ class WorxCloud(dict):
 
             # "Malformed" message, we are missing a serial number and
             # MAC address to identify the mower.
-            if not "sn" in data["cfg"] and not "mac" in data["dat"]:
+            if (
+                not "sn" in data["cfg"] or not "uuid" in data["dat"]
+            ) and not "mac" in data["dat"]:
                 return
 
             for mower in self._mowers:
                 if "sn" in data["cfg"]:
                     if mower["serial_number"] == data["cfg"]["sn"]:
+                        break
+                elif "uuid" in data["dat"]:
+                    if mower["uuid"] == data["dat"]["uuid"]:
                         break
                 else:
                     if mower["mac_address"] == data["dat"]["mac"]:
@@ -382,6 +387,7 @@ class WorxCloud(dict):
     def _decode_data(self, device: DeviceHandler) -> None:
         """Decode incoming JSON data."""
         invalid_data = False
+        is_vision = False
 
         device.is_decoded = False
 
@@ -401,6 +407,12 @@ class WorxCloud(dict):
 
         # device.firmware["version"] = "{:.2f}".format(device.firmware["version"])
         if "dat" in data:
+            if "uuid" in data["dat"]:
+                is_vision = True
+
+            if isinstance(device.mac_address, type(None)):
+                device.mac_address = data["dat"]["mac"]
+
             try:
                 # Get wifi signal strength
                 if "rsi" in data["dat"]:
@@ -456,7 +468,11 @@ class WorxCloud(dict):
 
         if "cfg" in data:
             try:
-                device.updated = data["cfg"]["dt"] + " " + data["cfg"]["tm"] if "dt" in data["cfg"] else data["dat"]["tm"]
+                device.updated = (
+                    data["cfg"]["dt"] + " " + data["cfg"]["tm"]
+                    if "dt" in data["cfg"]
+                    else data["dat"]["tm"]
+                )
                 device.rainsensor.delay = int(data["cfg"]["rd"])
 
                 # Fetch wheel torque
@@ -480,26 +496,58 @@ class WorxCloud(dict):
                     if "distm" in data["cfg"]["sc"]:
                         device.capabilities.add(DeviceCapability.PARTY_MODE)
 
-                    device.partymode_enabled = bool(str(data["cfg"]["sc"]["m"]) == "2")
-
-                    device.schedules["active"] = bool(
-                        str(data["cfg"]["sc"]["m"]) in ["1", "2"]
+                    device.partymode_enabled = (
+                        bool(str(data["cfg"]["sc"]["m"]) == "2")
+                        if not is_vision
+                        else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
                     )
-                    device.schedules["time_extension"] = data["cfg"]["sc"]["p"]
+                    device.schedules["active"] = (
+                        bool(str(data["cfg"]["sc"]["m"]) in ["1", "2"])
+                        if not is_vision
+                        else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
+                    )
+
+                    device.schedules["time_extension"] = (
+                        data["cfg"]["sc"]["p"] if not is_vision else "0"
+                    )
 
                     sch_type = ScheduleType.PRIMARY
                     device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
 
-                    for day in range(0, len(data["cfg"]["sc"]["d"])):
+                    for day in range(
+                        0,
+                        len(data["cfg"]["sc"]["d"])
+                        if not is_vision
+                        else len(data["cfg"]["sc"]["slots"]),
+                    ):
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                             "start"
-                        ] = data["cfg"]["sc"]["d"][day][0]
+                        ] = (
+                            data["cfg"]["sc"]["d"][day][0]
+                            if not is_vision
+                            else (
+                                datetime.strptime("00:00", "%H:%M")
+                                + timedelta(
+                                    minutes=data["cfg"]["sc"]["slots"][day]["s"]
+                                )
+                            ).strftime("%H:%M")
+                        )
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                             "duration"
-                        ] = data["cfg"]["sc"]["d"][day][1]
+                        ] = (
+                            data["cfg"]["sc"]["d"][day][1]
+                            if not is_vision
+                            else data["cfg"]["sc"]["slots"][day]["t"]
+                        )
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                             "boundary"
-                        ] = bool(data["cfg"]["sc"]["d"][day][2])
+                        ] = (
+                            bool(data["cfg"]["sc"]["d"][day][2])
+                            if not is_vision
+                            else bool(
+                                data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]["b"]
+                            )
+                        )
 
                         time_start = datetime.strptime(
                             device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
@@ -593,6 +641,7 @@ class WorxCloud(dict):
             device.name, device, device.time_zone, callback=self.update_attribute
         )
 
+        device.isVision = is_vision
         device.is_decoded = True
         logger.debug("Data for %s was decoded", device.name)
 
@@ -615,6 +664,9 @@ class WorxCloud(dict):
                 pass
 
             self._decode_data(device)
+
+            if isinstance(mower["mac_address"], type(None)):
+                mower["mac_address"] = device.raw_data["dat"]["mac"]
 
     def get_mower(self, serial_number: str) -> dict:
         """Get a specific mower."""
