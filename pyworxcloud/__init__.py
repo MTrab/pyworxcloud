@@ -402,13 +402,22 @@ class WorxCloud(dict):
         # device.firmware["version"] = "{:.2f}".format(device.firmware["version"])
         if "dat" in data:
             try:
-                device.rssi = data["dat"]["rsi"]
-                logger.debug("Status code: %s", data["dat"]["ls"])
-                device.status.update(data["dat"]["ls"])
-                device.error.update(data["dat"]["le"])
+                # Get wifi signal strength
+                if "rsi" in data["dat"]:
+                    device.rssi = data["dat"]["rsi"]
 
+                # Get status code
+                if "ls" in data["dat"]:
+                    device.status.update(data["dat"]["ls"])
+
+                # Get error code
+                if "le" in data["dat"]:
+                    device.error.update(data["dat"]["le"])
+
+                # Get zone index
                 device.zone.index = data["dat"]["lz"] if "lz" in data["dat"] else 0
 
+                # Get device lock state
                 device.locked = bool(data["dat"]["lk"])
 
                 # Get battery info if available
@@ -456,13 +465,12 @@ class WorxCloud(dict):
                     device.torque = data["cfg"]["tq"]
 
                 # Fetch zone information
-                if "mz" in data["cfg"]:
+                if "mz" in data["cfg"] and "mzv" in data["cfg"]:
                     device.zone.starting_point = data["cfg"]["mz"]
                     device.zone.indicies = data["cfg"]["mzv"]
 
                     # Map current zone to zone index
                     device.zone.current = device.zone.indicies[device.zone.index]
-                    # device.zone.current = 1
 
                 # Fetch main schedule
                 if "sc" in data["cfg"]:
@@ -577,6 +585,8 @@ class WorxCloud(dict):
                     else device.time_zone
                 )
             except TypeError:
+                invalid_data = True
+            except KeyError:
                 invalid_data = True
 
         convert_to_time(
