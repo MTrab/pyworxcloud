@@ -520,7 +520,8 @@ class WorxCloud(dict):
                         if not is_vision
                         else len(data["cfg"]["sc"]["slots"]),
                     ):
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        dayOfWeek = day if not is_vision else data["cfg"]["sc"]["slots"][day]["d"]
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "start"
                         ] = (
                             data["cfg"]["sc"]["d"][day][0]
@@ -532,14 +533,14 @@ class WorxCloud(dict):
                                 )
                             ).strftime("%H:%M")
                         )
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "duration"
                         ] = (
                             data["cfg"]["sc"]["d"][day][1]
                             if not is_vision
                             else data["cfg"]["sc"]["slots"][day]["t"]
                         )
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "boundary"
                         ] = (
                             bool(data["cfg"]["sc"]["d"][day][2])
@@ -550,24 +551,24 @@ class WorxCloud(dict):
                         )
 
                         time_start = datetime.strptime(
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                                 "start"
                             ],
                             "%H:%M",
                         )
 
                         if isinstance(
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                                 "duration"
                             ],
                             type(None),
                         ):
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                                 "duration"
                             ] = "0"
 
                         duration = int(
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                                 "duration"
                             ]
                         )
@@ -577,7 +578,7 @@ class WorxCloud(dict):
                         )
                         end_time = time_start + timedelta(minutes=duration)
 
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "end"
                         ] = end_time.time().strftime("%H:%M")
 
