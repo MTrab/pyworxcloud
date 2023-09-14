@@ -6,8 +6,8 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from datetime import datetime, timedelta
 import threading
+from datetime import datetime, timedelta
 from typing import Any
 
 from .api import LandroidCloudAPI
@@ -520,7 +520,11 @@ class WorxCloud(dict):
                         if not is_vision
                         else len(data["cfg"]["sc"]["slots"]),
                     ):
-                        dayOfWeek = day if not is_vision else data["cfg"]["sc"]["slots"][day]["d"]
+                        dayOfWeek = (
+                            day
+                            if not is_vision
+                            else data["cfg"]["sc"]["slots"][day]["d"]
+                        )
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "start"
                         ] = (
@@ -551,26 +555,26 @@ class WorxCloud(dict):
                         )
 
                         time_start = datetime.strptime(
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                                "start"
-                            ],
+                            device.schedules[TYPE_TO_STRING[sch_type]][
+                                DAY_MAP[dayOfWeek]
+                            ]["start"],
                             "%H:%M",
                         )
 
                         if isinstance(
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                                "duration"
-                            ],
+                            device.schedules[TYPE_TO_STRING[sch_type]][
+                                DAY_MAP[dayOfWeek]
+                            ]["duration"],
                             type(None),
                         ):
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                                "duration"
-                            ] = "0"
+                            device.schedules[TYPE_TO_STRING[sch_type]][
+                                DAY_MAP[dayOfWeek]
+                            ]["duration"] = "0"
 
                         duration = int(
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                                "duration"
-                            ]
+                            device.schedules[TYPE_TO_STRING[sch_type]][
+                                DAY_MAP[dayOfWeek]
+                            ]["duration"]
                         )
 
                         duration = duration * (
