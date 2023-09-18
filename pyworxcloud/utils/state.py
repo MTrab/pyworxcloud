@@ -21,6 +21,7 @@ STATE_TO_DESCRIPTION = {
     10: "blade blocked",
     11: "debug",
     12: "remote control",
+    13: "digital fence escape",
     30: "going home",
     31: "zoning",
     32: "cutting edge",
