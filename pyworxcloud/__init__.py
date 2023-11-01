@@ -409,9 +409,12 @@ class WorxCloud(dict):
         if "dat" in data:
             if "uuid" in data["dat"]:
                 is_vision = True
+                device.uuid = data["dat"]["uuid"]
 
             if isinstance(device.mac_address, type(None)):
-                device.mac_address = data["dat"]["mac"]
+                device.mac_address = (
+                    data["dat"]["mac"] if "mac" in data["dat"] else "__UUID__"
+                )
 
             try:
                 # Get wifi signal strength
@@ -430,7 +433,7 @@ class WorxCloud(dict):
                 device.zone.index = data["dat"]["lz"] if "lz" in data["dat"] else 0
 
                 # Get device lock state
-                device.locked = bool(data["dat"]["lk"])
+                device.locked = bool(data["dat"]["lk"]) if "lk" in data["dat"] else None
 
                 # Get battery info if available
                 if "bt" in data["dat"]:
@@ -549,8 +552,10 @@ class WorxCloud(dict):
                         ] = (
                             bool(data["cfg"]["sc"]["d"][day][2])
                             if not is_vision
-                            else bool(
-                                data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]["b"]
+                            else (
+                                bool(data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]["b"])
+                                if "b" in data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]
+                                else None
                             )
                         )
 
@@ -671,7 +676,11 @@ class WorxCloud(dict):
             self._decode_data(device)
 
             if isinstance(mower["mac_address"], type(None)):
-                mower["mac_address"] = device.raw_data["dat"]["mac"]
+                mower["mac_address"] = (
+                    device.raw_data["dat"]["mac"]
+                    if "mac" in device.raw_data["dat"]
+                    else "__UUID__"
+                )
 
     def get_mower(self, serial_number: str) -> dict:
         """Get a specific mower."""
