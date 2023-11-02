@@ -349,20 +349,32 @@ class WorxCloud(dict):
             # "Malformed" message, we are missing a serial number and
             # MAC address to identify the mower.
             if (
-                not "sn" in data["cfg"] or not "uuid" in data["dat"]
+                not "sn" in data["cfg"] and not "uuid" in data["dat"]
             ) and not "mac" in data["dat"]:
+                logger.debug("Malformed message received")
                 return
+
+            found_match = False
 
             for mower in self._mowers:
                 if "sn" in data["cfg"]:
                     if mower["serial_number"] == data["cfg"]["sn"]:
+                        found_match = True
                         break
                 elif "uuid" in data["dat"]:
                     if mower["uuid"] == data["dat"]["uuid"]:
+                        found_match = True
                         break
-                else:
+                elif "mac" in data["dat"]:
                     if mower["mac_address"] == data["dat"]["mac"]:
+                        found_match = True
                         break
+
+            if not found_match:
+                logger.debug("Could not match incoming data with a known mower!")
+                return
+            else:
+                logger.debug("Matched to '%s'", mower["name"])
 
             device: DeviceHandler = self.devices[mower["name"]]
             (self._timers[mower["serial_number"]]).cancel()
