@@ -27,6 +27,8 @@ STATE_TO_DESCRIPTION = {
     32: "cutting edge",
     33: "searching area",
     34: "pause",
+    103: "searching zone",
+    104: "searching home",
 }
 
 # Valid error states
