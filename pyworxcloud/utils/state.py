@@ -68,10 +68,16 @@ class States(LDict):
     """States class handler."""
 
     def update(self, new_id: int) -> None:
-        self["id"] = new_id
-        self["description"] = self.__descriptor[self["id"]]
+        """Update the dataset."""
+        try:
+            self["id"] = new_id
+            self["description"] = self.__descriptor[self["id"]]
+        except KeyError:
+            self["id"] = -1
+            self["description"] = self.__descriptor[self["id"]]
 
     def __init__(self, statetype: StateType = StateType.STATUS) -> dict:
+        """Initialize the dataset."""
         super().__init__()
 
         self.__descriptor = STATE_TO_DESCRIPTION
