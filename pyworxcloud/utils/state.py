@@ -73,8 +73,7 @@ class States(LDict):
             self["id"] = new_id
             self["description"] = self.__descriptor[self["id"]]
         except KeyError:
-            self["id"] = -1
-            self["description"] = self.__descriptor[self["id"]]
+            self["description"] = self.__descriptor[-1]
 
     def __init__(self, statetype: StateType = StateType.STATUS) -> dict:
         """Initialize the dataset."""
