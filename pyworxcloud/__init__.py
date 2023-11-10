@@ -1,6 +1,7 @@
 """pyWorxCloud definition."""
 # pylint: disable=undefined-loop-variable
 # pylint: disable=line-too-long
+# pylint: disable=too-many-lines
 from __future__ import annotations
 
 import json
@@ -532,7 +533,7 @@ class WorxCloud(dict):
                         if device.protocol == 0
                         else len(data["cfg"]["sc"]["slots"]),
                     ):
-                        dayOfWeek = (
+                        dayOfWeek = (  # pylint: disable=invalid-name
                             day
                             if device.protocol == 0
                             else data["cfg"]["sc"]["slots"][day]["d"]
@@ -704,7 +705,12 @@ class WorxCloud(dict):
         """Request a state refresh."""
         mower = self.get_mower(serial_number)
         _LOGGER.debug("Trying to refresh '%s'", serial_number)
-        self.mqtt.ping(serial_number, mower["mqtt_topics"]["command_in"])
+
+        self.mqtt.ping(
+            serial_number if mower["protocol"] == 0 else mower["uuid"],
+            mower["mqtt_topics"]["command_in"],
+            mower["protocol"],
+        )
 
     def start(self, serial_number: str) -> None:
         """Start mowing task
@@ -716,7 +722,10 @@ class WorxCloud(dict):
         if mower["online"]:
             _LOGGER.debug("Sending start command to '%s'", serial_number)
             self.mqtt.command(
-                serial_number, mower["mqtt_topics"]["command_in"], Command.START
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                Command.START,
+                mower["protocol"],
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -733,7 +742,10 @@ class WorxCloud(dict):
 
         if mower["online"]:
             self.mqtt.command(
-                serial_number, mower["mqtt_topics"]["command_in"], Command.HOME
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                Command.HOME,
+                mower["protocol"],
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -747,7 +759,10 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             self.mqtt.command(
-                serial_number, mower["mqtt_topics"]["command_in"], Command.SAFEHOME
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                Command.SAFEHOME,
+                mower["protocol"],
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -761,7 +776,10 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             self.mqtt.command(
-                serial_number, mower["mqtt_topics"]["command_in"], Command.PAUSE
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                Command.PAUSE,
+                mower["protocol"],
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -775,7 +793,10 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             self.mqtt.command(
-                serial_number, mower["mqtt_topics"]["command_in"], Command.FORCE_REFRESH
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                Command.FORCE_REFRESH,
+                mower["protocol"],
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -794,7 +815,7 @@ class WorxCloud(dict):
             if not isinstance(rain_delay, int):
                 rain_delay = int(rain_delay)
             self.mqtt.publish(
-                serial_number,
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 {"rd": rain_delay},
             )
@@ -813,9 +834,10 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             self.mqtt.command(
-                serial_number,
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 Command.LOCK if state else Command.UNLOCK,
+                mower["protocol"],
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -835,21 +857,21 @@ class WorxCloud(dict):
         if mower["online"]:
             device = DeviceHandler(self._api, mower)
             if device.capabilities.check(DeviceCapability.PARTY_MODE):
-                if device.protocol == 0:
+                if mower["protocol"] == 0:
                     self.mqtt.publish(
-                        serial_number,
+                        serial_number if mower["protocol"] == 0 else mower["uuid"],
                         mower["mqtt_topics"]["command_in"],
                         {"sc": {"m": 2, "distm": 0}}
                         if state
                         else {"sc": {"m": 1, "distm": 0}},
+                        mower["protocol"],
                     )
                 else:
                     self.mqtt.publish(
-                        serial_number,
+                        serial_number if mower["protocol"] == 0 else mower["uuid"],
                         mower["mqtt_topics"]["command_in"],
-                        {"cfg": {"sc": {"enabled": 1}}}
-                        if state
-                        else {"cfg": {"sc": {"enabled": 0}}},
+                        {"sc": {"enabled": 0}} if state else {"sc": {"enabled": 1}},
+                        mower["protocol"],
                     )
             elif not device.capabilities.check(DeviceCapability.PARTY_MODE):
                 raise NoPartymodeError("This device does not support Partymode")
@@ -889,10 +911,12 @@ class WorxCloud(dict):
                 tmp.append(new_zones[0])
                 new_zones = tmp
 
+            device = DeviceHandler(self._api, mower)
             self.mqtt.publish(
-                serial_number,
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 {"mzv": new_zones},
+                mower["protocol"],
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -907,7 +931,10 @@ class WorxCloud(dict):
         if mower["online"]:
             _LOGGER.debug("Sending ZONETRAINING command to %s", mower["name"])
             self.mqtt.command(
-                serial_number, mower["mqtt_topics"]["command_in"], Command.ZONETRAINING
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                Command.ZONETRAINING,
+                mower["protocol"],
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -922,7 +949,10 @@ class WorxCloud(dict):
         if mower["online"]:
             _LOGGER.debug("Sending RESTART command to %s", mower["name"])
             self.mqtt.command(
-                serial_number, mower["mqtt_topics"]["command_in"], Command.RESTART
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                Command.RESTART,
+                mower["protocol"],
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -939,9 +969,10 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             self.mqtt.publish(
-                serial_number,
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 {"sc": {"m": 1}} if enable else {"sc": {"m": 0}},
+                mower["protocol"],
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
@@ -964,10 +995,12 @@ class WorxCloud(dict):
                 if not isinstance(runtime, int):
                     runtime = int(runtime)
 
+                device = DeviceHandler(self._api, mower)
                 self.mqtt.publish(
-                    serial_number,
+                    serial_number if mower["protocol"] == 0 else mower["uuid"],
                     mower["mqtt_topics"]["command_in"],
                     {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}},
+                    mower["protocol"],
                 )
             elif not device.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE):
                 raise NoOneTimeScheduleError(
@@ -989,7 +1022,10 @@ class WorxCloud(dict):
         if mower["online"]:
             _LOGGER.debug("Sending %s to %s", data, mower["name"])
             self.mqtt.publish(
-                serial_number, mower["mqtt_topics"]["command_in"], json.loads(data)
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                json.loads(data),
+                mower["protocol"],
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")

@@ -12,10 +12,9 @@ from typing import Any
 from uuid import uuid4
 
 import paho.mqtt.client as mqtt
-from paho.mqtt.client import connack_string, error_string
+from paho.mqtt.client import connack_string
 
 from ..events import EventHandler, LandroidEvent
-from ..exceptions import MQTTException
 from .landroid_class import LDict
 
 QOS_FLAG = 1
@@ -118,7 +117,7 @@ class MQTT(LDict):
             api.access_token.replace("_", "/").replace("-", "+").split(".")
         )
         self.client.username_pw_set(
-            username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",
+            username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
             password=None,
         )
 
@@ -138,8 +137,8 @@ class MQTT(LDict):
 
     def _forward_on_message(
         self,
-        client: mqtt.Client | None,
-        userdata: Any | None,
+        client: mqtt.Client | None,  # pylint: disable=unused-argument
+        userdata: Any | None,  # pylint: disable=unused-argument
         message: Any | None,
         properties: Any | None = None,  # pylint: disable=unused-argument
     ) -> None:
@@ -161,9 +160,9 @@ class MQTT(LDict):
 
     def _on_connect(
         self,
-        client: mqtt.Client | None,
-        userdata: Any | None,
-        flags: Any | None,
+        client: mqtt.Client | None,  # pylint: disable=unused-argument
+        userdata: Any | None,  # pylint: disable=unused-argument
+        flags: Any | None,  # pylint: disable=unused-argument
         rc: int | None,
         properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
     ) -> None:
@@ -186,8 +185,8 @@ class MQTT(LDict):
 
     def _on_disconnect(
         self,
-        client: mqtt.Client | None,
-        userdata: Any | None,
+        client: mqtt.Client | None,  # pylint: disable=unused-argument
+        userdata: Any | None,  # pylint: disable=unused-argument
         rc: int | None,
         properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
     ) -> None:
@@ -203,7 +202,7 @@ class MQTT(LDict):
                     .split(".")
                 )
                 self.client.username_pw_set(
-                    username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",
+                    username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
                     password=None,
                 )
                 self.connect()
@@ -231,19 +230,25 @@ class MQTT(LDict):
         self.client.loop_stop()
         self.client.disconnect()
 
-    def ping(self, serial_number: str, topic: str) -> None:
+    def ping(self, serial_number: str, topic: str, protocol: int = 0) -> None:
         """Ping (update) the mower."""
-        cmd = self.format_message(serial_number, {"cmd": Command.FORCE_REFRESH})
+        cmd = self.format_message(
+            serial_number, {"cmd": Command.FORCE_REFRESH}, protocol
+        )
         self._log.debug("Sending '%s' on topic '%s'", cmd, topic)
         self.client.publish(topic, cmd, QOS_FLAG)
 
-    def command(self, serial_number: str, topic: str, action: Command) -> None:
+    def command(
+        self, serial_number: str, topic: str, action: Command, protocol: int = 0
+    ) -> None:
         """Send a specific command to the mower."""
-        cmd = self.format_message(serial_number, {"cmd": action})
+        cmd = self.format_message(serial_number, {"cmd": action}, protocol)
         self._log.debug("Sending '%s' on topic '%s'", cmd, topic)
         self.client.publish(topic, cmd, QOS_FLAG)
 
-    def publish(self, serial_number: str, topic: str, message: dict) -> None:
+    def publish(
+        self, serial_number: str, topic: str, message: dict, protocol: int = 0
+    ) -> None:
         """Publish message to the mower."""
         if not self.connected:
             self._log.warning("Not connected to API endpoint - awaiting connection")
@@ -254,21 +259,28 @@ class MQTT(LDict):
         else:
             self._log.debug("Publishing message '%s'", message)
             self.client.publish(
-                topic, self.format_message(serial_number, message), QOS_FLAG
+                topic, self.format_message(serial_number, message, protocol), QOS_FLAG
             )
 
-    def format_message(self, serial_number: str, message: dict) -> str:
+    def format_message(self, serial_number: str, message: dict, protocol: int) -> str:
         """
         Format a message.
         Message is expected to be a dict like this: {"cmd": 1}
         """
         now = datetime.now()
-        msg = {
-            "id": random.randint(1024, 65535),
-            "sn": serial_number,
-            "tm": now.strftime("%H:%M:%S"),
-            "dt": now.strftime("%d/%m/%Y"),
-        }
+        if protocol == 0:
+            msg = {
+                "id": random.randint(1024, 65535),
+                "sn": serial_number,
+                "tm": now.strftime("%H:%M:%S"),
+                "dt": now.strftime("%d/%m/%Y"),
+            }
+        elif protocol == 1:
+            msg = {
+                "id": random.randint(1024, 65535),
+                "uuid": serial_number,
+                "tm": now.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            }
 
         msg.update(message)
         self._log.debug("Formatting message '%s' to '%s'", message, msg)
