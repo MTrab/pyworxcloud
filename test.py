@@ -20,4 +20,6 @@ cloud.connect()
 
 # print(vars(cloud))
 
+cloud.set_partymode("202330294701004695F4", True)
+# cloud.update("202330294701004695F4")
 cloud.disconnect()

@@ -29,6 +29,8 @@ STATE_TO_DESCRIPTION = {
     34: "pause",
     103: "searching zone",
     104: "searching home",
+    110: "border crossing",
+    111: "exploring lawn",
 }
 
 # Valid error states
@@ -56,6 +58,22 @@ ERROR_TO_DESCRIPTION = {
     19: "battery trunk open timeout",
     20: "wire sync",
     21: "msg num",
+    100: "charging station docking error",
+    101: "hbi error",
+    102: "ota error",
+    103: "map error",
+    104: "excessive slope",
+    105: "unreachable zone",
+    106: "unreachable charging station",
+    108: "insufficient sensor data",
+    109: "training start disallowed",
+    110: "camera error",
+    111: "mapping exploration required",
+    112: "mapping exploration failed",
+    113: "rfid reader error",
+    114: "headlight error",
+    115: "missing charging station",
+    116: "blade height adjustment blocked",
 }
 
 
