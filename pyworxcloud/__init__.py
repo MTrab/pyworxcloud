@@ -399,7 +399,6 @@ class WorxCloud(dict):
     def _decode_data(self, device: DeviceHandler) -> None:
         """Decode incoming JSON data."""
         invalid_data = False
-        is_vision = False
 
         device.is_decoded = False
 
@@ -417,10 +416,8 @@ class WorxCloud(dict):
             logger.debug("No valid data was found, skipping update for %s", device.name)
             return
 
-        # device.firmware["version"] = "{:.2f}".format(device.firmware["version"])
         if "dat" in data:
             if "uuid" in data["dat"]:
-                is_vision = True
                 device.uuid = data["dat"]["uuid"]
 
             if isinstance(device.mac_address, type(None)):
@@ -508,22 +505,22 @@ class WorxCloud(dict):
                     if "ots" in data["cfg"]["sc"]:
                         device.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
                         device.capabilities.add(DeviceCapability.EDGE_CUT)
-                    if "distm" in data["cfg"]["sc"]:
+                    if "distm" in data["cfg"]["sc"] or "enabled" in data["cfg"]["sc"]:
                         device.capabilities.add(DeviceCapability.PARTY_MODE)
 
                     device.partymode_enabled = (
                         bool(str(data["cfg"]["sc"]["m"]) == "2")
-                        if not is_vision
+                        if device.protocol == 0
                         else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
                     )
                     device.schedules["active"] = (
                         bool(str(data["cfg"]["sc"]["m"]) in ["1", "2"])
-                        if not is_vision
+                        if device.protocol == 0
                         else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
                     )
 
                     device.schedules["time_extension"] = (
-                        data["cfg"]["sc"]["p"] if not is_vision else "0"
+                        data["cfg"]["sc"]["p"] if device.protocol == 0 else "0"
                     )
 
                     sch_type = ScheduleType.PRIMARY
@@ -532,19 +529,19 @@ class WorxCloud(dict):
                     for day in range(
                         0,
                         len(data["cfg"]["sc"]["d"])
-                        if not is_vision
+                        if device.protocol == 0
                         else len(data["cfg"]["sc"]["slots"]),
                     ):
                         dayOfWeek = (
                             day
-                            if not is_vision
+                            if device.protocol == 0
                             else data["cfg"]["sc"]["slots"][day]["d"]
                         )
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "start"
                         ] = (
                             data["cfg"]["sc"]["d"][day][0]
-                            if not is_vision
+                            if device.protocol == 0
                             else (
                                 datetime.strptime("00:00", "%H:%M")
                                 + timedelta(
@@ -556,14 +553,14 @@ class WorxCloud(dict):
                             "duration"
                         ] = (
                             data["cfg"]["sc"]["d"][day][1]
-                            if not is_vision
+                            if device.protocol == 0
                             else data["cfg"]["sc"]["slots"][day]["t"]
                         )
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "boundary"
                         ] = (
                             bool(data["cfg"]["sc"]["d"][day][2])
-                            if not is_vision
+                            if device.protocol == 0
                             else (
                                 bool(data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]["b"])
                                 if "b" in data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]
@@ -663,7 +660,6 @@ class WorxCloud(dict):
             device.name, device, device.time_zone, callback=self.update_attribute
         )
 
-        device.isVision = is_vision
         device.is_decoded = True
         logger.debug("Data for %s was decoded", device.name)
 
@@ -835,16 +831,26 @@ class WorxCloud(dict):
             OfflineError: Raised if the device is offline.
         """
         mower = self.get_mower(serial_number)
+
         if mower["online"]:
             device = DeviceHandler(self._api, mower)
             if device.capabilities.check(DeviceCapability.PARTY_MODE):
-                self.mqtt.publish(
-                    serial_number,
-                    mower["mqtt_topics"]["command_in"],
-                    {"sc": {"m": 2, "distm": 0}}
-                    if state
-                    else {"sc": {"m": 1, "distm": 0}},
-                )
+                if device.protocol == 0:
+                    self.mqtt.publish(
+                        serial_number,
+                        mower["mqtt_topics"]["command_in"],
+                        {"sc": {"m": 2, "distm": 0}}
+                        if state
+                        else {"sc": {"m": 1, "distm": 0}},
+                    )
+                else:
+                    self.mqtt.publish(
+                        serial_number,
+                        mower["mqtt_topics"]["command_in"],
+                        {"cfg": {"sc": {"enabled": 1}}}
+                        if state
+                        else {"cfg": {"sc": {"enabled": 0}}},
+                    )
             elif not device.capabilities.check(DeviceCapability.PARTY_MODE):
                 raise NoPartymodeError("This device does not support Partymode")
         elif not mower["online"]:

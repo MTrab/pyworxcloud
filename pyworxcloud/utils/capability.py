@@ -41,7 +41,10 @@ class Capability:
                 if "ots" in device_data["last_status"]["payload"]["cfg"]["sc"]:
                     self.add(DeviceCapability.ONE_TIME_SCHEDULE)
                     self.add(DeviceCapability.EDGE_CUT)
-                if "distm" in device_data["last_status"]["payload"]["cfg"]["sc"]:
+                if (
+                    "distm" in device_data["last_status"]["payload"]["cfg"]["sc"]
+                    or "enabled" in device_data["last_status"]["payload"]["cfg"]["sc"]
+                ):
                     self.add(DeviceCapability.PARTY_MODE)
         except TypeError:
             pass
