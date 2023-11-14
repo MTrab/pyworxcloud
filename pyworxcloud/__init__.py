@@ -481,8 +481,12 @@ class WorxCloud(dict):
 
         if "cfg" in data:
             try:
+                if "dt" in data["cfg"]:
+                    dt_split = data["cfg"]["dt"].split("/")
+                    date = f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]}"
+
                 device.updated = (
-                    data["cfg"]["dt"] + " " + data["cfg"]["tm"]
+                    date + "T" + data["cfg"]["tm"] + "Z"
                     if "dt" in data["cfg"]
                     else data["dat"]["tm"]
                 )
