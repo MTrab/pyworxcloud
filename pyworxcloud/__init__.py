@@ -465,12 +465,12 @@ class WorxCloud(dict):
                 # Check for extra module availability
                 if "modules" in data["dat"]:
                     if "4G" in data["dat"]["modules"]:
-                        if data["dat"]["modules"]['4G']['geo']['stat'] == 'unk':
-                          logger.warn("dat.modules.4G.geo.stat is unknown")
+                        if data["dat"]["modules"]["4G"]["geo"]["stat"] == "unk":
+                            logger.warn("dat.modules.4G.geo.stat is unknown")
                         else:
                             device.gps = Location(
-                               data["dat"]["modules"]["4G"]["gps"]["coo"][0],
-                               data["dat"]["modules"]["4G"]["gps"]["coo"][1],
+                                data["dat"]["modules"]["4G"]["gps"]["coo"][0],
+                                data["dat"]["modules"]["4G"]["gps"]["coo"][1],
                             )
 
                 # Get remaining rain delay if available

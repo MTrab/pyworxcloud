@@ -279,7 +279,7 @@ class MQTT(LDict):
             msg = {
                 "id": random.randint(1024, 65535),
                 "uuid": serial_number,
-                "tm": now.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "tm": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
 
         msg.update(message)
