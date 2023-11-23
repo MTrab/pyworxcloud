@@ -8,8 +8,6 @@ EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
 TYPE = environ["TYPE"]
 
-tz = datetime.datetime.now().astimezone().tzinfo.tzname(None)
-
 # Clear the screen for better visibility when debugging
 print("\033c", end="")
 
@@ -20,6 +18,4 @@ cloud.connect()
 
 # print(vars(cloud))
 
-# cloud.set_partymode("202330294701004695F4", True)
-# cloud.update("202330294701004695F4")
 cloud.disconnect()
