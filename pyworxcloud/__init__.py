@@ -484,15 +484,15 @@ class WorxCloud(dict):
 
         if "cfg" in data:
             try:
-                if "dt" in data["cfg"]:
-                    dt_split = data["cfg"]["dt"].split("/")
-                    date = f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]}"
+                # if "dt" in data["cfg"]:
+                #     dt_split = data["cfg"]["dt"].split("/")
+                #     date = f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]}"
 
-                device.updated = (
-                    date + "T" + data["cfg"]["tm"] + "Z"
-                    if "dt" in data["cfg"]
-                    else data["dat"]["tm"]
-                )
+                # device.updated = (
+                #     date + "T" + data["cfg"]["tm"] + "Z"
+                #     if "dt" in data["cfg"]
+                #     else data["dat"]["tm"]
+                # )
                 device.rainsensor.delay = int(data["cfg"]["rd"])
 
                 # Fetch wheel torque
@@ -664,6 +664,7 @@ class WorxCloud(dict):
             except KeyError:
                 invalid_data = True
 
+        device.updated = device.last_status["timestamp"]
         convert_to_time(
             device.name, device, device.time_zone, callback=self.update_attribute
         )
