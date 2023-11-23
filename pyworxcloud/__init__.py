@@ -489,7 +489,7 @@ class WorxCloud(dict):
                     + data["cfg"]["tm"]
                 )
             else:
-                date = data["dat"]["tm"].replace("T", " ").replace("Z", "")
+                date = datetime.fromisoformat(data["dat"]["tm"])
 
             device.updated = date
             device.rainsensor.delay = int(data["cfg"]["rd"])
