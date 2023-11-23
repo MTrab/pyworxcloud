@@ -465,13 +465,10 @@ class WorxCloud(dict):
                 # Check for extra module availability
                 if "modules" in data["dat"]:
                     if "4G" in data["dat"]["modules"]:
-                        if data["dat"]["modules"]["4G"]["geo"]["stat"] == "unk":
-                            logger.warn("dat.modules.4G.geo.stat is unknown")
-                        else:
-                            device.gps = Location(
-                                data["dat"]["modules"]["4G"]["gps"]["coo"][0],
-                                data["dat"]["modules"]["4G"]["gps"]["coo"][1],
-                            )
+                        device.gps = Location(
+                            data["dat"]["modules"]["4G"]["gps"]["coo"][0],
+                            data["dat"]["modules"]["4G"]["gps"]["coo"][1],
+                        )
 
                 # Get remaining rain delay if available
                 if "rain" in data["dat"]:
@@ -483,120 +480,166 @@ class WorxCloud(dict):
                 invalid_data = True
 
         if "cfg" in data:
-            try:
-                # if "dt" in data["cfg"]:
-                #     dt_split = data["cfg"]["dt"].split("/")
-                #     date = f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]}"
+            # try:
+            if "dt" in data["cfg"]:
+                dt_split = data["cfg"]["dt"].split("/")
+                date = (
+                    f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]}"
+                    + " "
+                    + data["cfg"]["tm"]
+                )
+            else:
+                date = data["dat"]["tm"].replace("T", " ").replace("Z", "")
 
-                # device.updated = (
-                #     date + "T" + data["cfg"]["tm"] + "Z"
-                #     if "dt" in data["cfg"]
-                #     else data["dat"]["tm"]
-                # )
-                device.rainsensor.delay = int(data["cfg"]["rd"])
+            device.updated = date
+            device.rainsensor.delay = int(data["cfg"]["rd"])
 
-                # Fetch wheel torque
-                if "tq" in data["cfg"]:
-                    device.capabilities.add(DeviceCapability.TORQUE)
-                    device.torque = data["cfg"]["tq"]
+            # Fetch wheel torque
+            if "tq" in data["cfg"]:
+                device.capabilities.add(DeviceCapability.TORQUE)
+                device.torque = data["cfg"]["tq"]
 
-                # Fetch zone information
-                if "mz" in data["cfg"] and "mzv" in data["cfg"]:
-                    device.zone.starting_point = data["cfg"]["mz"]
-                    device.zone.indicies = data["cfg"]["mzv"]
+            # Fetch zone information
+            if "mz" in data["cfg"] and "mzv" in data["cfg"]:
+                device.zone.starting_point = data["cfg"]["mz"]
+                device.zone.indicies = data["cfg"]["mzv"]
 
-                    # Map current zone to zone index
-                    device.zone.current = device.zone.indicies[device.zone.index]
+                # Map current zone to zone index
+                device.zone.current = device.zone.indicies[device.zone.index]
 
-                # Fetch main schedule
-                if "sc" in data["cfg"]:
-                    if "ots" in data["cfg"]["sc"]:
-                        device.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
-                        device.capabilities.add(DeviceCapability.EDGE_CUT)
-                    if "distm" in data["cfg"]["sc"] or "enabled" in data["cfg"]["sc"]:
-                        device.capabilities.add(DeviceCapability.PARTY_MODE)
+            # Fetch main schedule
+            if "sc" in data["cfg"]:
+                if "ots" in data["cfg"]["sc"]:
+                    device.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                    device.capabilities.add(DeviceCapability.EDGE_CUT)
+                if "distm" in data["cfg"]["sc"] or "enabled" in data["cfg"]["sc"]:
+                    device.capabilities.add(DeviceCapability.PARTY_MODE)
 
-                    device.partymode_enabled = (
-                        bool(str(data["cfg"]["sc"]["m"]) == "2")
+                device.partymode_enabled = (
+                    bool(str(data["cfg"]["sc"]["m"]) == "2")
+                    if device.protocol == 0
+                    else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
+                )
+                device.schedules["active"] = (
+                    bool(str(data["cfg"]["sc"]["m"]) in ["1", "2"])
+                    if device.protocol == 0
+                    else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
+                )
+
+                device.schedules["time_extension"] = (
+                    data["cfg"]["sc"]["p"] if device.protocol == 0 else "0"
+                )
+
+                sch_type = ScheduleType.PRIMARY
+                device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
+
+                for day in range(
+                    0,
+                    len(data["cfg"]["sc"]["d"])
+                    if device.protocol == 0
+                    else len(data["cfg"]["sc"]["slots"]),
+                ):
+                    dayOfWeek = (  # pylint: disable=invalid-name
+                        day
                         if device.protocol == 0
-                        else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
+                        else data["cfg"]["sc"]["slots"][day]["d"]
                     )
-                    device.schedules["active"] = (
-                        bool(str(data["cfg"]["sc"]["m"]) in ["1", "2"])
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+                        "start"
+                    ] = (
+                        data["cfg"]["sc"]["d"][day][0]
                         if device.protocol == 0
-                        else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
+                        else (
+                            datetime.strptime("00:00", "%H:%M")
+                            + timedelta(minutes=data["cfg"]["sc"]["slots"][day]["s"])
+                        ).strftime("%H:%M")
                     )
-
-                    device.schedules["time_extension"] = (
-                        data["cfg"]["sc"]["p"] if device.protocol == 0 else "0"
-                    )
-
-                    sch_type = ScheduleType.PRIMARY
-                    device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
-
-                    for day in range(
-                        0,
-                        len(data["cfg"]["sc"]["d"])
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+                        "duration"
+                    ] = (
+                        data["cfg"]["sc"]["d"][day][1]
                         if device.protocol == 0
-                        else len(data["cfg"]["sc"]["slots"]),
-                    ):
-                        dayOfWeek = (  # pylint: disable=invalid-name
-                            day
-                            if device.protocol == 0
-                            else data["cfg"]["sc"]["slots"][day]["d"]
+                        else data["cfg"]["sc"]["slots"][day]["t"]
+                    )
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+                        "boundary"
+                    ] = (
+                        bool(data["cfg"]["sc"]["d"][day][2])
+                        if device.protocol == 0
+                        else (
+                            bool(data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]["b"])
+                            if "b" in data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]
+                            else None
                         )
+                    )
+
+                    time_start = datetime.strptime(
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "start"
-                        ] = (
-                            data["cfg"]["sc"]["d"][day][0]
-                            if device.protocol == 0
-                            else (
-                                datetime.strptime("00:00", "%H:%M")
-                                + timedelta(
-                                    minutes=data["cfg"]["sc"]["slots"][day]["s"]
-                                )
-                            ).strftime("%H:%M")
-                        )
+                        ],
+                        "%H:%M",
+                    )
+
+                    if isinstance(
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "duration"
-                        ] = (
-                            data["cfg"]["sc"]["d"][day][1]
-                            if device.protocol == 0
-                            else data["cfg"]["sc"]["slots"][day]["t"]
-                        )
+                        ],
+                        type(None),
+                    ):
                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+                            "duration"
+                        ] = "0"
+
+                    duration = int(
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+                            "duration"
+                        ]
+                    )
+
+                    duration = duration * (
+                        1 + (int(device.schedules["time_extension"]) / 100)
+                    )
+                    end_time = time_start + timedelta(minutes=duration)
+
+                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+                        "end"
+                    ] = end_time.time().strftime("%H:%M")
+
+                # Fetch secondary schedule
+                if "dd" in data["cfg"]["sc"]:
+                    sch_type = ScheduleType.SECONDARY
+                    device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
+
+                    for day in range(0, len(data["cfg"]["sc"]["dd"])):
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "start"
+                        ] = data["cfg"]["sc"]["dd"][day][0]
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                            "duration"
+                        ] = data["cfg"]["sc"]["dd"][day][1]
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                             "boundary"
-                        ] = (
-                            bool(data["cfg"]["sc"]["d"][day][2])
-                            if device.protocol == 0
-                            else (
-                                bool(data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]["b"])
-                                if "b" in data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]
-                                else None
-                            )
-                        )
+                        ] = bool(data["cfg"]["sc"]["dd"][day][2])
 
                         time_start = datetime.strptime(
-                            device.schedules[TYPE_TO_STRING[sch_type]][
-                                DAY_MAP[dayOfWeek]
-                            ]["start"],
+                            data["cfg"]["sc"]["dd"][day][0],
                             "%H:%M",
                         )
 
                         if isinstance(
-                            device.schedules[TYPE_TO_STRING[sch_type]][
-                                DAY_MAP[dayOfWeek]
-                            ]["duration"],
+                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                "duration"
+                            ],
                             type(None),
                         ):
-                            device.schedules[TYPE_TO_STRING[sch_type]][
-                                DAY_MAP[dayOfWeek]
-                            ]["duration"] = "0"
+                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                "duration"
+                            ] = "0"
 
                         duration = int(
-                            device.schedules[TYPE_TO_STRING[sch_type]][
-                                DAY_MAP[dayOfWeek]
-                            ]["duration"]
+                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                "duration"
+                            ]
                         )
 
                         duration = duration * (
@@ -604,67 +647,20 @@ class WorxCloud(dict):
                         )
                         end_time = time_start + timedelta(minutes=duration)
 
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                             "end"
                         ] = end_time.time().strftime("%H:%M")
 
-                    # Fetch secondary schedule
-                    if "dd" in data["cfg"]["sc"]:
-                        sch_type = ScheduleType.SECONDARY
-                        device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
+            device.schedules.update_progress_and_next(
+                tz=self._tz
+                if not isinstance(self._tz, type(None))
+                else device.time_zone
+            )
+            # except TypeError:
+            #     invalid_data = True
+            # except KeyError:
+            #     invalid_data = True
 
-                        for day in range(0, len(data["cfg"]["sc"]["dd"])):
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                                "start"
-                            ] = data["cfg"]["sc"]["dd"][day][0]
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                                "duration"
-                            ] = data["cfg"]["sc"]["dd"][day][1]
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                                "boundary"
-                            ] = bool(data["cfg"]["sc"]["dd"][day][2])
-
-                            time_start = datetime.strptime(
-                                data["cfg"]["sc"]["dd"][day][0],
-                                "%H:%M",
-                            )
-
-                            if isinstance(
-                                device.schedules[TYPE_TO_STRING[sch_type]][
-                                    DAY_MAP[day]
-                                ]["duration"],
-                                type(None),
-                            ):
-                                device.schedules[TYPE_TO_STRING[sch_type]][
-                                    DAY_MAP[day]
-                                ]["duration"] = "0"
-
-                            duration = int(
-                                device.schedules[TYPE_TO_STRING[sch_type]][
-                                    DAY_MAP[day]
-                                ]["duration"]
-                            )
-
-                            duration = duration * (
-                                1 + (int(device.schedules["time_extension"]) / 100)
-                            )
-                            end_time = time_start + timedelta(minutes=duration)
-
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                                "end"
-                            ] = end_time.time().strftime("%H:%M")
-
-                device.schedules.update_progress_and_next(
-                    tz=self._tz
-                    if not isinstance(self._tz, type(None))
-                    else device.time_zone
-                )
-            except TypeError:
-                invalid_data = True
-            except KeyError:
-                invalid_data = True
-
-        device.updated = device.last_status["timestamp"]
         convert_to_time(
             device.name, device, device.time_zone, callback=self.update_attribute
         )
