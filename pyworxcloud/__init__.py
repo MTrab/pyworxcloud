@@ -911,15 +911,15 @@ class WorxCloud(dict):
                     "Cannot request this zone as it has no probability set."
                 )
 
-            current = device.zone["indicies"]
-            new_zones = current
+            current_zones = device.zone["indicies"]
+            requested_zone_index = current_zones.index(zone)
+            next_zone_index = device.zone["index"]
 
-            while not new_zones[device.zone["index"]] == zone:
-                tmp = []
-                for i in range(1, 10):
-                    tmp.append(new_zones[i])
-                tmp.append(new_zones[0])
-                new_zones = tmp
+            no_indices = len(current_zones)
+            offset = (requested_zone_index - next_zone_index) % no_indices
+            new_zones = []
+            for i in range(0, no_indices):
+                new_zones.append(current_zones[(offset + i) % no_indices])
 
             device = DeviceHandler(self._api, mower)
             self.mqtt.publish(
