@@ -417,7 +417,9 @@ class WorxCloud(dict):
             logger.debug("No valid data was found, skipping update for %s", device.name)
             return
 
+        mower = device._mower
         if "dat" in data:
+            mower["last_status"]["payload"]["dat"] = data["dat"]
             if "uuid" in data["dat"]:
                 device.uuid = data["dat"]["uuid"]
 
@@ -444,6 +446,7 @@ class WorxCloud(dict):
 
                 # Get device lock state
                 device.locked = bool(data["dat"]["lk"]) if "lk" in data["dat"] else None
+                mower["locked"] = device.locked
 
                 # Get battery info if available
                 if "bt" in data["dat"]:
@@ -480,6 +483,7 @@ class WorxCloud(dict):
                 invalid_data = True
 
         if "cfg" in data:
+            mower["last_status"]["payload"]["cfg"] = data["cfg"]
             # try:
             if "dt" in data["cfg"]:
                 dt_split = data["cfg"]["dt"].split("/")
@@ -664,6 +668,8 @@ class WorxCloud(dict):
         convert_to_time(
             device.name, device, device.time_zone, callback=self.update_attribute
         )
+
+        mower["last_status"]["timestamp"] = device.updated
 
         device.is_decoded = True
         logger.debug("Data for %s was decoded", device.name)
