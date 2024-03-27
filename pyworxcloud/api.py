@@ -1,4 +1,5 @@
 """Landroid Cloud API implementation"""
+
 # pylint: disable=unnecessary-lambda
 from __future__ import annotations
 

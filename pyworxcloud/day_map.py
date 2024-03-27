@@ -1,4 +1,5 @@
 """Map days to integer."""
+
 from __future__ import annotations
 
 DAY_MAP = {

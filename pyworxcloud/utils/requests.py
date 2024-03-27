@@ -1,4 +1,5 @@
 """For handling HTTP/HTTPS requests."""
+
 from __future__ import annotations
 
 from time import sleep

@@ -1,4 +1,5 @@
 """Landroid Cloud callback events"""
+
 # pylint: disable=unnecessary-lambda
 from __future__ import annotations
 

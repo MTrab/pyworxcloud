@@ -1,4 +1,5 @@
 """pyWorxCloud definition."""
+
 # pylint: disable=undefined-loop-variable
 # pylint: disable=line-too-long
 # pylint: disable=too-many-lines
@@ -64,10 +65,9 @@ class WorxCloud(dict):
         self,
         username: str,
         password: str,
-        cloud: CloudType.WORX
-        | CloudType.KRESS
-        | CloudType.LANDXCAPE
-        | str = CloudType.WORX,
+        cloud: (
+            CloudType.WORX | CloudType.KRESS | CloudType.LANDXCAPE | str
+        ) = CloudType.WORX,
         verify_ssl: bool = True,
         tz: str | None = None,  # pylint: disable=invalid-name
     ) -> None:
@@ -539,9 +539,11 @@ class WorxCloud(dict):
 
                 for day in range(
                     0,
-                    len(data["cfg"]["sc"]["d"])
-                    if device.protocol == 0
-                    else len(data["cfg"]["sc"]["slots"]),
+                    (
+                        len(data["cfg"]["sc"]["d"])
+                        if device.protocol == 0
+                        else len(data["cfg"]["sc"]["slots"])
+                    ),
                 ):
                     dayOfWeek = (  # pylint: disable=invalid-name
                         day
@@ -656,9 +658,11 @@ class WorxCloud(dict):
                         ] = end_time.time().strftime("%H:%M")
 
             device.schedules.update_progress_and_next(
-                tz=self._tz
-                if not isinstance(self._tz, type(None))
-                else device.time_zone
+                tz=(
+                    self._tz
+                    if not isinstance(self._tz, type(None))
+                    else device.time_zone
+                )
             )
             # except TypeError:
             #     invalid_data = True
@@ -871,9 +875,11 @@ class WorxCloud(dict):
                     self.mqtt.publish(
                         serial_number if mower["protocol"] == 0 else mower["uuid"],
                         mower["mqtt_topics"]["command_in"],
-                        {"sc": {"m": 2, "distm": 0}}
-                        if state
-                        else {"sc": {"m": 1, "distm": 0}},
+                        (
+                            {"sc": {"m": 2, "distm": 0}}
+                            if state
+                            else {"sc": {"m": 1, "distm": 0}}
+                        ),
                         mower["protocol"],
                     )
                 else:
