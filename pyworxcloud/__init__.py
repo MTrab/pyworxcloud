@@ -5,6 +5,7 @@
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
+from asyncio import sleep
 import json
 import logging
 import sys
@@ -862,7 +863,7 @@ class WorxCloud(dict):
         """Turn on or off the partymode.
 
         Args:
-            enable (bool): True is enabling partymode, Fasle is disabling partymode.
+            enable (bool): True is enabling partymode, False is disabling partymode.
 
         Raises:
             NoPartymodeError: Raised if the device does not support partymode.
@@ -873,6 +874,11 @@ class WorxCloud(dict):
         if mower["online"]:
             device = DeviceHandler(self._api, mower)
             if device.capabilities.check(DeviceCapability.PARTY_MODE):
+                if state:
+                    self.safehome(serial_number)
+                    self.home(serial_number)
+                    sleep(1)
+
                 if mower["protocol"] == 0:
                     self.mqtt.publish(
                         serial_number if mower["protocol"] == 0 else mower["uuid"],
