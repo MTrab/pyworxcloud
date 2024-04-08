@@ -1,4 +1,5 @@
 """Class for handling device info and states."""
+
 from __future__ import annotations
 
 import json

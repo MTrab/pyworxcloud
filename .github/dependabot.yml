@@ -11,3 +11,7 @@ updates:
       interval: "daily"
     assignees:
       - "MTrab"
+    ignore:
+      - dependency-name: "paho-mqtt"
+      - dependency-name: "urllib3"
+      - dependency-name: "requests"

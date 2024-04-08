@@ -1,4 +1,5 @@
 """Supported cloud endpoints."""
+
 from __future__ import annotations
 
 WORX = "worx"

@@ -1,4 +1,5 @@
 """A class set that helps representing data as wanted."""
+
 from __future__ import annotations
 
 from typing import Any

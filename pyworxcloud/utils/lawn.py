@@ -1,4 +1,5 @@
 """Handling lawn parameters."""
+
 from __future__ import annotations
 
 from .landroid_class import LDict

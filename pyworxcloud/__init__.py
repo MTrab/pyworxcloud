@@ -417,7 +417,9 @@ class WorxCloud(dict):
             logger.debug("No valid data was found, skipping update for %s", device.name)
             return
 
+        mower = device._mower
         if "dat" in data:
+            mower["last_status"]["payload"]["dat"] = data["dat"]
             if "uuid" in data["dat"]:
                 device.uuid = data["dat"]["uuid"]
 
@@ -444,6 +446,7 @@ class WorxCloud(dict):
 
                 # Get device lock state
                 device.locked = bool(data["dat"]["lk"]) if "lk" in data["dat"] else None
+                mower["locked"] = device.locked
 
                 # Get battery info if available
                 if "bt" in data["dat"]:
@@ -480,6 +483,7 @@ class WorxCloud(dict):
                 invalid_data = True
 
         if "cfg" in data:
+            mower["last_status"]["payload"]["cfg"] = data["cfg"]
             # try:
             if "dt" in data["cfg"]:
                 dt_split = data["cfg"]["dt"].split("/")
@@ -670,6 +674,8 @@ class WorxCloud(dict):
         convert_to_time(
             device.name, device, device.time_zone, callback=self.update_attribute
         )
+
+        mower["last_status"]["timestamp"] = device.updated
 
         device.is_decoded = True
         logger.debug("Data for %s was decoded", device.name)
@@ -913,15 +919,15 @@ class WorxCloud(dict):
                     "Cannot request this zone as it has no probability set."
                 )
 
-            current = device.zone["indicies"]
-            new_zones = current
+            current_zones = device.zone["indicies"]
+            requested_zone_index = current_zones.index(zone)
+            next_zone_index = device.zone["index"]
 
-            while not new_zones[device.zone["index"]] == zone:
-                tmp = []
-                for i in range(1, 10):
-                    tmp.append(new_zones[i])
-                tmp.append(new_zones[0])
-                new_zones = tmp
+            no_indices = len(current_zones)
+            offset = (requested_zone_index - next_zone_index) % no_indices
+            new_zones = []
+            for i in range(0, no_indices):
+                new_zones.append(current_zones[(offset + i) % no_indices])
 
             device = DeviceHandler(self._api, mower)
             self.mqtt.publish(
