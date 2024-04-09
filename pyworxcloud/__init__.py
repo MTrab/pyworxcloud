@@ -874,11 +874,6 @@ class WorxCloud(dict):
         if mower["online"]:
             device = DeviceHandler(self._api, mower)
             if device.capabilities.check(DeviceCapability.PARTY_MODE):
-                if state:
-                    self.safehome(serial_number)
-                    self.home(serial_number)
-                    sleep(1)
-
                 if mower["protocol"] == 0:
                     self.mqtt.publish(
                         serial_number if mower["protocol"] == 0 else mower["uuid"],
