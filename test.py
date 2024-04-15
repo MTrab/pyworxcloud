@@ -19,4 +19,6 @@ cloud.connect()
 
 # print(vars(cloud))
 
+cloud.update(cloud.devices["Robert"].serial_number)
+
 cloud.disconnect()
