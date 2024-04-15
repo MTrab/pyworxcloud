@@ -1,4 +1,4 @@
-"""Test file for debugging only."""
+"""Test file for debugging tokens only."""
 
 import requests
 
