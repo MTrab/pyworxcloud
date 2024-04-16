@@ -24,6 +24,7 @@ from .exceptions import (
     NoOneTimeScheduleError,
     NoPartymodeError,
     OfflineError,
+    TooManyRequestsError,
     ZoneNoProbability,
     ZoneNotDefined,
 )
@@ -190,7 +191,11 @@ class WorxCloud(dict):
         """Authenticate against the API."""
         self._log.debug("Authenticating %s", self._username)
 
-        self._api.get_token()
+        try:
+            self._api.get_token()
+        except TooManyRequestsError:
+            raise TooManyRequestsError from None
+
         auth = self._api.authenticate()
         if auth is False:
             self._auth_result = False
