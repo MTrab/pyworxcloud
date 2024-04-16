@@ -912,7 +912,10 @@ class WorxCloud(dict):
             if not isinstance(zone, int):
                 zone = int(zone)
 
-            if device.zone["starting_point"][zone] == 0:
+            if (
+                zone not in device.zone["starting_point"]
+                or device.zone["starting_point"][zone] == 0
+            ):
                 raise ZoneNotDefined("Cannot request this zone as it is not defined.")
 
             if not zone in device.zone["indicies"]:
