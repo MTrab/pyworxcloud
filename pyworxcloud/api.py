@@ -7,6 +7,7 @@ import logging
 import time
 
 from .clouds import CloudType
+from .exceptions import TooManyRequestsError
 from .utils.requests import GET, HEADERS, POST
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,6 +60,8 @@ class LandroidCloudAPI:
             self.refresh_token = resp["refresh_token"]
             now = int(time.time())
             self._token_expire = now + int(resp["expires_in"])
+        except TooManyRequestsError:
+            raise TooManyRequestsError from None
         except:
             return
 

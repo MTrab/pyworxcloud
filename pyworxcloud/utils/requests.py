@@ -70,9 +70,7 @@ def POST(URL: str, REQUEST_BODY: str, HEADER: dict | None = None) -> str:
             elif code == 404:
                 raise NotFoundError()
             elif code == 429:
-                # raise TooManyRequestsError()
-                sleep(backoff(retry))
-                pass
+                raise TooManyRequestsError()
             elif code == 500:
                 raise InternalServerError()
             elif code == 503:
