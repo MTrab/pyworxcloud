@@ -1,7 +1,7 @@
 """Basic test file."""
 
-import datetime
 from os import environ
+from pprint import pprint
 
 from pyworxcloud import WorxCloud
 
@@ -19,6 +19,8 @@ cloud.connect()
 
 # print(vars(cloud))
 
-cloud.update(cloud.devices["Robert"].serial_number)
+for _, device in cloud.devices.items():
+    cloud.update(device.serial_number)
+    pprint(vars(device))
 
 cloud.disconnect()

@@ -14,10 +14,10 @@
             "subProcess": true
         },
         {
-            "name": "test_async.py",
+            "name": "test_with.py",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/test_async.py",
+            "program": "${workspaceFolder}/test_with.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "subProcess": true

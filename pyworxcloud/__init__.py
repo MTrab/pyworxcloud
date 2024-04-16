@@ -253,11 +253,8 @@ class WorxCloud(dict):
     def connect(
         self,
     ) -> bool:
-        """Connect to the cloud service endpoint
-
-        Args:
-            index (int | None, optional): Device number to connect to. Defaults to None.
-            verify_ssl (bool, optional): Should we verify SSL certificate. Defaults to True.
+        """
+        Connect to the cloud service endpoint
 
         Returns:
             bool: True if connection was successful, otherwise False.
@@ -714,7 +711,11 @@ class WorxCloud(dict):
                 )
 
     def get_mower(self, serial_number: str) -> dict:
-        """Get a specific mower."""
+        """Get a specific mower object.
+
+        Args:
+            serial_number (str): Serial number of the device
+        """
         for mower in self._mowers:
             if mower["serial_number"] == serial_number:
                 return mower
@@ -737,6 +738,9 @@ class WorxCloud(dict):
     def start(self, serial_number: str) -> None:
         """Start mowing task
 
+        Args:
+            serial_number (str): Serial number of the device
+
         Raises:
             OfflineError: Raised if the device is offline.
         """
@@ -757,6 +761,9 @@ class WorxCloud(dict):
         If the knifes was turned on when this is called,
         it will return home with knifes still turned on.
 
+        Args:
+            serial_number (str): Serial number of the device
+
         Raises:
             OfflineError: Raised if the device is offline.
         """
@@ -775,6 +782,9 @@ class WorxCloud(dict):
     def safehome(self, serial_number: str) -> None:
         """Stop and go home with the blades off
 
+        Args:
+            serial_number (str): Serial number of the device
+
         Raises:
             OfflineError: Raised if the device is offline.
         """
@@ -792,6 +802,9 @@ class WorxCloud(dict):
     def pause(self, serial_number: str) -> None:
         """Pause the mowing task
 
+        Args:
+            serial_number (str): Serial number of the device
+
         Raises:
             OfflineError: Raised if the device is offline.
         """
@@ -806,28 +819,12 @@ class WorxCloud(dict):
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    def refresh(self, serial_number: str) -> None:
-        """Force a data refresh from API endpoint.
-
-        Raises:
-            OfflineError: Raised if the device is offline.
-        """
-        mower = self.get_mower(serial_number)
-        if mower["online"]:
-            self.mqtt.command(
-                serial_number if mower["protocol"] == 0 else mower["uuid"],
-                mower["mqtt_topics"]["command_in"],
-                Command.FORCE_REFRESH,
-                mower["protocol"],
-            )
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
-
     def raindelay(self, serial_number: str, rain_delay: str) -> None:
         """Set new rain delay.
 
         Args:
-            rain_delay (str | int): Rain delay in minutes.
+            serial_number (str): Serial number of the device
+            rain_delay (str): Rain delay in minutes.
 
         Raises:
             OfflineError: Raised if the device is offline.
@@ -848,7 +845,8 @@ class WorxCloud(dict):
         """Set the device locked state.
 
         Args:
-            enabled (bool): True will lock the device, False will unlock the device.
+            serial_number (str): Serial number of the device
+            state (bool): True will lock the device, False will unlock the device.
 
         Raises:
             OfflineError: Raised if the device is offline.
@@ -868,7 +866,8 @@ class WorxCloud(dict):
         """Turn on or off the partymode.
 
         Args:
-            enable (bool): True is enabling partymode, False is disabling partymode.
+            serial_number (str): Serial number of the device
+            state (bool): True is enabling partymode, False is disabling partymode.
 
         Raises:
             NoPartymodeError: Raised if the device does not support partymode.
@@ -906,6 +905,7 @@ class WorxCloud(dict):
         """Set zone to be mowed when next mowing task is started.
 
         Args:
+            serial_number (str): Serial number of the device
             zone (str | int): Zone to mow, valid possibilities are a number from 1 to 4.
 
         Raises:
@@ -951,6 +951,9 @@ class WorxCloud(dict):
     def zonetraining(self, serial_number: str) -> None:
         """Start the zone training task.
 
+        Args:
+            serial_number (str): Serial number of the device
+
         Raises:
             OfflineError: Raised if the device is offline.
         """
@@ -968,6 +971,9 @@ class WorxCloud(dict):
 
     def restart(self, serial_number: str):
         """Reboot the device baseboard.
+
+        Args:
+            serial_number (str): Serial number of the device
 
         Raises:
             OfflineError: Raised if the device is offline.
@@ -988,6 +994,7 @@ class WorxCloud(dict):
         """Turn on or off the schedule.
 
         Args:
+            serial_number (str): Serial number of the device
             enable (bool): True is enabling the schedule, Fasle is disabling the schedule.
 
         Raises:
@@ -1008,6 +1015,7 @@ class WorxCloud(dict):
         """Start a One-Time-Schedule task
 
         Args:
+            serial_number (str): Serial number of the device
             boundary (bool): If True the device will start the task cutting the edge.
             runtime (str | int): Minutes to run the task before returning to dock.
 
@@ -1040,6 +1048,7 @@ class WorxCloud(dict):
         """Send raw JSON data to the device.
 
         Args:
+            serial_number (str): Serial number of the device
             data (str): Data to be sent, formatted as a valid JSON object.
 
         Raises:
