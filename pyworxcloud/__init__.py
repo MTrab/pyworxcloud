@@ -420,7 +420,7 @@ class WorxCloud(dict):
             logger.debug("No valid data was found, skipping update for %s", device.name)
             return
 
-        mower = device._mower
+        mower = device.mower
         if "dat" in data:
             mower["last_status"]["payload"]["dat"] = data["dat"]
             if "uuid" in data["dat"]:

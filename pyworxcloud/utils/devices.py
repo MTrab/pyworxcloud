@@ -40,7 +40,7 @@ class DeviceHandler(LDict):
         super().__init__()
 
         self._api = api
-        self._mower = mower
+        self.mower = mower
         self._tz = tz
 
         if not isinstance(mower, type(None)) and not isinstance(api, type(None)):

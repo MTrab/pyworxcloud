@@ -1,3 +1,5 @@
+"""Testfile demonstrating the "with method" of calling the module."""
+
 from os import environ
 from pprint import pprint
 
