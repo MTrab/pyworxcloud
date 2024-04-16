@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "test.py",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/test.py",
             "console": "integratedTerminal",
@@ -15,7 +15,7 @@
         },
         {
             "name": "test_with.py",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/test_with.py",
             "console": "integratedTerminal",
