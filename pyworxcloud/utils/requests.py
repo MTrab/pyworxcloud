@@ -54,7 +54,9 @@ def POST(URL: str, REQUEST_BODY: str, HEADER: dict | None = None) -> str:
 
     for retry in range(NUM_RETRIES):
         try:
-            req = requests.post(URL, REQUEST_BODY, headers=HEADER)
+            req = requests.post(
+                URL, REQUEST_BODY, headers=HEADER, timeout=60, cookies=None
+            )  # 60 seconds timeout
 
             req.raise_for_status()
 
@@ -91,7 +93,9 @@ def GET(URL: str, HEADER: dict | None = None) -> str:
 
     for retry in range(NUM_RETRIES):
         try:
-            req = requests.get(URL, headers=HEADER)
+            req = requests.get(
+                URL, headers=HEADER, timeout=60, cookies=None
+            )  # 60 seconds timeout
 
             req.raise_for_status()
 
