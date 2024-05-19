@@ -918,14 +918,14 @@ class WorxCloud(dict):
                 zone = int(zone)
 
             if (
-                zone not in device.zone["starting_point"]
+                zone >= len(device.zone["starting_point"])
                 or device.zone["starting_point"][zone] == 0
             ):
-                raise ZoneNotDefined("Cannot request this zone as it is not defined.")
+                raise ZoneNotDefined("Cannot request zone {} as it is not defined.".format(zone))
 
             if not zone in device.zone["indicies"]:
                 raise ZoneNoProbability(
-                    "Cannot request this zone as it has no probability set."
+                    "Cannot request zone {} as it has no probability set.".format(zone)
                 )
 
             current_zones = device.zone["indicies"]
