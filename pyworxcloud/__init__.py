@@ -471,10 +471,11 @@ class WorxCloud(dict):
                 # Check for extra module availability
                 if "modules" in data["dat"]:
                     if "4G" in data["dat"]["modules"]:
-                        device.gps = Location(
-                            data["dat"]["modules"]["4G"]["gps"]["coo"][0],
-                            data["dat"]["modules"]["4G"]["gps"]["coo"][1],
-                        )
+                        if "gps" in data["dat"]["modules"]["4G"]:
+                            device.gps = Location(
+                                data["dat"]["modules"]["4G"]["gps"]["coo"][0],
+                                data["dat"]["modules"]["4G"]["gps"]["coo"][1],
+                            )
 
                 # Get remaining rain delay if available
                 if "rain" in data["dat"]:
@@ -921,7 +922,9 @@ class WorxCloud(dict):
                 zone >= len(device.zone["starting_point"])
                 or device.zone["starting_point"][zone] == 0
             ):
-                raise ZoneNotDefined("Cannot request zone {} as it is not defined.".format(zone))
+                raise ZoneNotDefined(
+                    "Cannot request zone {} as it is not defined.".format(zone)
+                )
 
             if not zone in device.zone["indicies"]:
                 raise ZoneNoProbability(
