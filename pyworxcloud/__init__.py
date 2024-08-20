@@ -339,6 +339,7 @@ class WorxCloud(dict):
         """Handle for refreshing device."""
         logger = self._log.getChild("Forced_Refresh")
         logger.debug("Forcing refresh for '%s'", args[1])
+        self._fetch(args[0])
         self.update(args[0])
 
         self._schedule_forced_refresh(args[0])
@@ -687,11 +688,12 @@ class WorxCloud(dict):
         if invalid_data:
             raise InvalidDataDecodeException()
 
-    def _fetch(self) -> None:
+    def _fetch(self, serial_number: str | None = None) -> None:
         """Fetch base API information."""
         self._mowers = self._api.get_mowers()
 
-        for mower in self._mowers:
+        if serial_number is not None:
+            mower = self.get_mower(serial_number)
             device = DeviceHandler(self._api, mower)
             _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
             self.devices.update({mower["name"]: device})
@@ -710,6 +712,26 @@ class WorxCloud(dict):
                     if "mac" in device.raw_data["dat"]
                     else "__UUID__"
                 )
+        else:
+            for mower in self._mowers:
+                device = DeviceHandler(self._api, mower)
+                _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
+                self.devices.update({mower["name"]: device})
+
+                try:
+                    if not isinstance(mower["last_status"], type(None)):
+                        device.raw_data = mower["last_status"]["payload"]
+                except TypeError:
+                    pass
+
+                self._decode_data(device)
+
+                if isinstance(mower["mac_address"], type(None)):
+                    mower["mac_address"] = (
+                        device.raw_data["dat"]["mac"]
+                        if "mac" in device.raw_data["dat"]
+                        else "__UUID__"
+                    )
 
     def get_mower(self, serial_number: str) -> dict:
         """Get a specific mower object.
