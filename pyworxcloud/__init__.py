@@ -48,7 +48,7 @@ if sys.version_info < (3, 9, 0):
 
 _LOGGER = logging.getLogger(__name__)
 
-REFRESH_TIME = 15
+REFRESH_TIME = 5
 
 
 class WorxCloud(dict):
@@ -167,11 +167,13 @@ class WorxCloud(dict):
         self._user_id = None
         self._mowers = None
 
+        self._decoding: bool = False
+
         # Dict holding refresh timers
         self._timers = {}
 
         # Dict of devices, identified by name
-        self.devices = {}
+        self.devices: DeviceHandler = {}
 
         self.mqtt = None
 
@@ -339,7 +341,6 @@ class WorxCloud(dict):
         """Handle for refreshing device."""
         logger = self._log.getChild("Forced_Refresh")
         logger.debug("Forcing refresh for '%s'", args[1])
-        self._fetch(args[0])
         self.update(args[0])
 
         self._schedule_forced_refresh(args[0])
@@ -382,6 +383,12 @@ class WorxCloud(dict):
                 logger.debug("Matched to '%s'", mower["name"])
 
             device: DeviceHandler = self.devices[mower["name"]]
+
+            if not device.online:
+                logger.debug("Device is marked offline - refreshing")
+                self._fetch()
+                device: DeviceHandler = self.devices[mower["name"]]
+
             (self._timers[mower["serial_number"]]).cancel()
             self._schedule_forced_refresh(mower["serial_number"])
 
@@ -393,6 +400,7 @@ class WorxCloud(dict):
                 return  # Dataset was not changed, no update needed
 
             device.raw_data = payload
+            logger.debug("Device online before decode: %s", device.online)
             self._decode_data(device)
 
             self._events.call(
@@ -401,10 +409,21 @@ class WorxCloud(dict):
         except json.decoder.JSONDecodeError:
             logger.debug("Malformed MQTT message received")
 
+    def _on_api_update(self, data):  # , topic, payload, dup, qos, retain, **kwargs):
+        """Triggered when API has been updated."""
+        logger = self._log.getChild("API_update")
+        try:
+            self._events.call(LandroidEvent.API, api_data=data)
+        except json.decoder.JSONDecodeError:
+            logger.debug("Malformed MQTT message received")
+
     def _decode_data(self, device: DeviceHandler) -> None:
         """Decode incoming JSON data."""
-        invalid_data = False
+        while self._decoding:
+            pass
 
+        self._decoding = True
+        invalid_data = False
         device.is_decoded = False
 
         logger = self._log.getChild("decode_data")
@@ -684,17 +703,20 @@ class WorxCloud(dict):
 
         device.is_decoded = True
         logger.debug("Data for %s was decoded", device.name)
+        logger.debug("Device object:\n%s", vars(device))
+
+        self._decoding = False
 
         if invalid_data:
             raise InvalidDataDecodeException()
 
-    def _fetch(self, serial_number: str | None = None) -> None:
+    def _fetch(self, forced: bool = False) -> None:
         """Fetch base API information."""
         self._mowers = self._api.get_mowers()
-
-        if serial_number is not None:
-            mower = self.get_mower(serial_number)
+        # self.devices = {}
+        for mower in self._mowers:
             device = DeviceHandler(self._api, mower)
+            _LOGGER.debug("Mower '%s' online  update: '%s'", device.name, device.online)
             _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
             self.devices.update({mower["name"]: device})
 
@@ -712,26 +734,22 @@ class WorxCloud(dict):
                     if "mac" in device.raw_data["dat"]
                     else "__UUID__"
                 )
-        else:
-            for mower in self._mowers:
-                device = DeviceHandler(self._api, mower)
-                _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
-                self.devices.update({mower["name"]: device})
 
-                try:
-                    if not isinstance(mower["last_status"], type(None)):
-                        device.raw_data = mower["last_status"]["payload"]
-                except TypeError:
-                    pass
+        logger = self._log.getChild("API_Refresh_Scheduler")
+        next_api_refresh = datetime.now() + timedelta(minutes=REFRESH_TIME)
+        logger.debug(
+            "Scheduling an API refresh at %s",
+            next_api_refresh,
+        )
 
-                self._decode_data(device)
+        force_api_refresh = threading.Timer(REFRESH_TIME * 60, self._fetch, args=[True])
+        force_api_refresh.start()
+        self._timers.update({"api": force_api_refresh})
 
-                if isinstance(mower["mac_address"], type(None)):
-                    mower["mac_address"] = (
-                        device.raw_data["dat"]["mac"]
-                        if "mac" in device.raw_data["dat"]
-                        else "__UUID__"
-                    )
+        if forced:
+            self._events.call(
+                LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
+            )
 
     def get_mower(self, serial_number: str) -> dict:
         """Get a specific mower object.
