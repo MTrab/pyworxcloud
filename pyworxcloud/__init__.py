@@ -5,11 +5,11 @@
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
-from asyncio import sleep
 import json
 import logging
 import sys
 import threading
+from asyncio import sleep
 from datetime import datetime, timedelta
 from typing import Any
 
