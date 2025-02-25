@@ -100,17 +100,28 @@ class LandroidCloudAPI:
             return False
         return True
 
+    def check_token(self) -> None:
+        """Check token and refresh if needed."""
+        now = int(time.time())
+
+        if (now + 1800) >= self._token_expire:
+            _LOGGER.debug("Updating access_token")
+            self.update_token()
+
     def get_mowers(self) -> str:
         """Get mowers associated with the account.
 
         Returns:
             str: JSON object containing available mowers associated with the account.
         """
+        self.check_token()
+
         mowers = GET(
             f"https://{self.cloud.ENDPOINT}/api/v2/product-items?status=1",
             HEADERS(self.access_token),
         )
         for mower in mowers:
+            _LOGGER.debug("Matching models for mower '%s'", mower["name"])
             model = self.get_model(mower["product_id"])
             mower["model"] = {
                 "code": model["code"],
@@ -130,6 +141,8 @@ class LandroidCloudAPI:
             str: JSON object containing detailed product information.
             None: Returned when product_id couldn't be matched to a product.
         """
+        self.check_token()
+
         products = GET(
             f"https://{self.cloud.ENDPOINT}/api/v2/products",
             HEADERS(self.access_token),

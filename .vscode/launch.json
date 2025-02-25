@@ -21,6 +21,15 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "subProcess": true
+        },
+        {
+            "name": "test_async.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/test_async.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "subProcess": true
         }
     ]
 }

@@ -16,6 +16,7 @@ class LandroidEvent(IntEnum):
     MQTT_RATELIMIT = 2
     MQTT_PUBLISH = 3
     LOG = 4
+    API = 5
 
 
 _LOGGER = logging.getLogger("pyworxcloud.events")

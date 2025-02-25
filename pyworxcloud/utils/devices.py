@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import json
 from typing import Any
 
@@ -21,6 +22,8 @@ from .state import States, StateType
 from .warranty import Warranty
 from .zone import Zone
 
+LOGGER = logging.getLogger(__name__)
+
 
 # class DeviceHandler(LDict, Actions):
 class DeviceHandler(LDict):
@@ -31,10 +34,7 @@ class DeviceHandler(LDict):
     __json_data: str = None
 
     def __init__(
-        self,
-        api: Any = None,
-        mower: Any = None,
-        tz: str | None = None,
+        self, api: Any = None, mower: Any = None, tz: str | None = None
     ) -> dict:
         """Initialize the object."""
         super().__init__()
@@ -45,6 +45,8 @@ class DeviceHandler(LDict):
 
         if not isinstance(mower, type(None)) and not isinstance(api, type(None)):
             self.__mapinfo(api, mower)
+
+        LOGGER.debug("After mapping online: %s", self.online)
 
     @property
     def raw_data(self) -> str:
@@ -92,7 +94,6 @@ class DeviceHandler(LDict):
 
         self.battery = Battery(data)
         self.blades = Blades(data)
-        self.chassis = ProductInfo(InfoType.MOWER, api, data["product_id"])
         self.error = States(StateType.ERROR)
         self.orientation = Orientation([0, 0, 0])
         self.capabilities = Capability(data)
@@ -117,4 +118,5 @@ class DeviceHandler(LDict):
             if hasattr(self, attr):
                 delattr(self, attr)
 
+        LOGGER.debug("During mapping online: %s", self.online)
         self.is_decoded = True
