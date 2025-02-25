@@ -1,48 +1,52 @@
-name-template: 'v$RESOLVED_VERSION'
-tag-template: 'v$RESOLVED_VERSION'
-change-template: '- #$NUMBER $TITLE @$AUTHOR'
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+change-template: "- #$NUMBER $TITLE @$AUTHOR"
 sort-direction: ascending
 exclude-labels:
-  - 'skip-changelog'
+  - "skip-changelog"
 categories:
-  - title: '🚀 Features'
+  - title: "🚀 Features"
     labels:
-      - 'feature request'
-      - 'enhancement'
+      - "feature request"
+      - "enhancement"
 
-  - title: '🐛 Bug Fixes'
+  - title: "🐛 Bug Fixes"
     labels:
-      - 'fix'
-      - 'bugfix'
-      - 'bug'
+      - "fix"
+      - "bugfix"
+      - "bug"
 
-  - title: '🧰 Maintenance'
-    label: 'chore'
+  - title: "🧰 Maintenance"
+    label: "chore"
 
   - title: ":package: Dependencies"
     labels:
-      - 'dependencies'
+      - "dependencies"
 
 version-resolver:
   major:
     labels:
-      - 'major'
+      - "major"
   minor:
     labels:
-      - 'minor'
+      - "minor"
   patch:
     labels:
-      - 'patch'
+      - "patch"
   default: patch
 template: |
   ## Changes
 
   $CHANGES
 
+  ## Say thanks
+
+  <a href="https://www.buymeacoffee.com/mtrab" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+
 autolabeler:
-  - label: 'bug'
+  - label: "bug"
     branch:
       - '/fix\/.+/'
-  - label: 'feature request'
+  - label: "feature request"
     branch:
       - '/feature\/.+/'
