@@ -11,6 +11,10 @@ class NoPartymodeError(Exception):
     """Define an error when partymode is not supported."""
 
 
+class NoOfflimitsError(Exception):
+    """Define an error when Off Limits module isn't present or supported."""
+
+
 class NoOneTimeScheduleError(Exception):
     """Define an error when OTS is not supported."""
 
