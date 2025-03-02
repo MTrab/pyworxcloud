@@ -20,6 +20,7 @@ from .exceptions import (
     AuthorizationError,
     InvalidDataDecodeException,
     MowerNotFoundError,
+    NoOfflimitsError,
     NoOneTimeScheduleError,
     NoPartymodeError,
     OfflineError,
@@ -395,13 +396,16 @@ class WorxCloud(dict):
             while not device.is_decoded:
                 pass  # Wait for last dataset to be handled
 
-            if device.raw_data == data:
+            # if device.raw_data == data:
+            if "raw_data" in mower and mower["raw_data"] == data:
                 self._log.debug("Data was already present and not changed.")
                 return  # Dataset was not changed, no update needed
 
-            device.raw_data = payload
+            # device.raw_data = payload
+            mower.update({"raw_data": data})
             logger.debug("Device online before decode: %s", device.online)
-            self._decode_data(device)
+            # self._decode_data(device)
+            device: DeviceHandler = self.devices[mower["name"]]
 
             self._events.call(
                 LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
@@ -417,298 +421,310 @@ class WorxCloud(dict):
         except json.decoder.JSONDecodeError:
             logger.debug("Malformed MQTT message received")
 
-    def _decode_data(self, device: DeviceHandler) -> None:
-        """Decode incoming JSON data."""
-        while self._decoding:
-            pass
+    # def _decode_data(self, device: DeviceHandler) -> None:
+    #     """Decode incoming JSON data."""
+    #     while self._decoding:
+    #         pass
 
-        self._decoding = True
-        invalid_data = False
-        device.is_decoded = False
+    #     self._decoding = True
+    #     invalid_data = False
+    #     device.is_decoded = False
 
-        logger = self._log.getChild("decode_data")
-        logger.debug("Data decoding for %s started", device.name)
+    #     logger = self._log.getChild("decode_data")
+    #     logger.debug("Data decoding for %s started", device.name)
 
-        if device.json_data:
-            logger.debug("Found JSON decoded data: %s", device.json_data)
-            data = device.json_data
-        elif device.raw_data:
-            logger.debug("Found raw data: %s", device.raw_data)
-            data = device.raw_data
-        else:
-            device.is_decoded = True
-            logger.debug("No valid data was found, skipping update for %s", device.name)
-            return
+    #     if device.json_data:
+    #         logger.debug("Found JSON decoded data: %s", device.json_data)
+    #         data = device.json_data
+    #     elif device.raw_data:
+    #         logger.debug("Found raw data: %s", device.raw_data)
+    #         data = device.raw_data
+    #     else:
+    #         device.is_decoded = True
+    #         logger.debug("No valid data was found, skipping update for %s", device.name)
+    #         return
 
-        mower = device.mower
-        if "dat" in data:
-            mower["last_status"]["payload"]["dat"] = data["dat"]
-            if "uuid" in data["dat"]:
-                device.uuid = data["dat"]["uuid"]
+    #     mower = device.mower
+    #     if "dat" in data:
+    #         mower["last_status"]["payload"]["dat"] = data["dat"]
+    #         if "uuid" in data["dat"]:
+    #             device.uuid = data["dat"]["uuid"]
 
-            if isinstance(device.mac_address, type(None)):
-                device.mac_address = (
-                    data["dat"]["mac"] if "mac" in data["dat"] else "__UUID__"
-                )
+    #         if isinstance(device.mac_address, type(None)):
+    #             device.mac_address = (
+    #                 data["dat"]["mac"] if "mac" in data["dat"] else "__UUID__"
+    #             )
 
-            try:
-                # Get wifi signal strength
-                if "rsi" in data["dat"]:
-                    device.rssi = data["dat"]["rsi"]
+    #         try:
+    #             # Get wifi signal strength
+    #             if "rsi" in data["dat"]:
+    #                 device.rssi = data["dat"]["rsi"]
 
-                # Get status code
-                if "ls" in data["dat"]:
-                    device.status.update(data["dat"]["ls"])
+    #             # Get status code
+    #             if "ls" in data["dat"]:
+    #                 device.status.update(data["dat"]["ls"])
 
-                # Get error code
-                if "le" in data["dat"]:
-                    device.error.update(data["dat"]["le"])
+    #             # Get error code
+    #             if "le" in data["dat"]:
+    #                 device.error.update(data["dat"]["le"])
 
-                # Get zone index
-                device.zone.index = data["dat"]["lz"] if "lz" in data["dat"] else 0
+    #             # Get zone index
+    #             device.zone.index = data["dat"]["lz"] if "lz" in data["dat"] else 0
 
-                # Get device lock state
-                device.locked = bool(data["dat"]["lk"]) if "lk" in data["dat"] else None
-                mower["locked"] = device.locked
+    #             # Get device lock state
+    #             device.locked = bool(data["dat"]["lk"]) if "lk" in data["dat"] else None
+    #             mower["locked"] = device.locked
 
-                # Get battery info if available
-                if "bt" in data["dat"]:
-                    if len(device.battery) == 0:
-                        device.battery = Battery(data["dat"]["bt"])
-                    else:
-                        device.battery.set_data(data["dat"]["bt"])
-                # Get device statistics if available
-                if "st" in data["dat"]:
-                    device.statistics = Statistic(data["dat"]["st"])
+    #             # Get battery info if available
+    #             if "bt" in data["dat"]:
+    #                 if len(device.battery) == 0:
+    #                     device.battery = Battery(data["dat"]["bt"])
+    #                 else:
+    #                     device.battery.set_data(data["dat"]["bt"])
+    #             # Get device statistics if available
+    #             if "st" in data["dat"]:
+    #                 device.statistics = Statistic(data["dat"]["st"])
 
-                    if len(device.blades) != 0:
-                        device.blades.set_data(data["dat"]["st"])
+    #                 if len(device.blades) != 0:
+    #                     device.blades.set_data(data["dat"]["st"])
 
-                # Get orientation if available.
-                if "dmp" in data["dat"]:
-                    device.orientation = Orientation(data["dat"]["dmp"])
+    #             # Get orientation if available.
+    #             if "dmp" in data["dat"]:
+    #                 device.orientation = Orientation(data["dat"]["dmp"])
 
-                # Check for extra module availability
-                if "modules" in data["dat"]:
-                    if "4G" in data["dat"]["modules"]:
-                        if "gps" in data["dat"]["modules"]["4G"]:
-                            device.gps = Location(
-                                data["dat"]["modules"]["4G"]["gps"]["coo"][0],
-                                data["dat"]["modules"]["4G"]["gps"]["coo"][1],
-                            )
+    #             # Check for extra module availability
+    #             if "modules" in data["dat"]:
+    #                 if "4G" in data["dat"]["modules"]:
+    #                     if "gps" in data["dat"]["modules"]["4G"]:
+    #                         device.gps = Location(
+    #                             data["dat"]["modules"]["4G"]["gps"]["coo"][0],
+    #                             data["dat"]["modules"]["4G"]["gps"]["coo"][1],
+    #                         )
 
-                # Get remaining rain delay if available
-                if "rain" in data["dat"]:
-                    device.rainsensor.triggered = bool(
-                        str(data["dat"]["rain"]["s"]) == "1"
-                    )
-                    device.rainsensor.remaining = int(data["dat"]["rain"]["cnt"])
-            except TypeError:  # pylint: disable=bare-except
-                invalid_data = True
+    #             # Get remaining rain delay if available
+    #             if "rain" in data["dat"]:
+    #                 device.rainsensor.triggered = bool(
+    #                     str(data["dat"]["rain"]["s"]) == "1"
+    #                 )
+    #                 device.rainsensor.remaining = int(data["dat"]["rain"]["cnt"])
 
-        if "cfg" in data:
-            mower["last_status"]["payload"]["cfg"] = data["cfg"]
-            # try:
-            if "dt" in data["cfg"]:
-                dt_split = data["cfg"]["dt"].split("/")
-                date = (
-                    f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]}"
-                    + " "
-                    + data["cfg"]["tm"]
-                )
-            elif "tm" in data["dat"]:
-                date = datetime.fromisoformat(data["dat"]["tm"])
-            else:
-                date = datetime.now()
+    #         except TypeError:  # pylint: disable=bare-except
+    #             invalid_data = True
 
-            device.updated = date
-            device.rainsensor.delay = int(data["cfg"]["rd"])
+    #     if "cfg" in data:
+    #         mower["last_status"]["payload"]["cfg"] = data["cfg"]
+    #         # try:
+    #         if "dt" in data["cfg"]:
+    #             dt_split = data["cfg"]["dt"].split("/")
+    #             date = (
+    #                 f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]}"
+    #                 + " "
+    #                 + data["cfg"]["tm"]
+    #             )
+    #         elif "tm" in data["dat"]:
+    #             date = datetime.fromisoformat(data["dat"]["tm"])
+    #         else:
+    #             date = datetime.now()
 
-            # Fetch wheel torque
-            if "tq" in data["cfg"]:
-                device.capabilities.add(DeviceCapability.TORQUE)
-                device.torque = data["cfg"]["tq"]
+    #         device.updated = date
+    #         device.rainsensor.delay = int(data["cfg"]["rd"])
 
-            # Fetch zone information
-            if "mz" in data["cfg"] and "mzv" in data["cfg"]:
-                device.zone.starting_point = data["cfg"]["mz"]
-                device.zone.indicies = data["cfg"]["mzv"]
+    #         # Fetch wheel torque
+    #         if "tq" in data["cfg"]:
+    #             device.capabilities.add(DeviceCapability.TORQUE)
+    #             device.torque = data["cfg"]["tq"]
 
-                # Map current zone to zone index
-                device.zone.current = device.zone.indicies[device.zone.index]
+    #         # Fetch zone information
+    #         if "mz" in data["cfg"] and "mzv" in data["cfg"]:
+    #             device.zone.starting_point = data["cfg"]["mz"]
+    #             device.zone.indicies = data["cfg"]["mzv"]
 
-            # Fetch main schedule
-            if "sc" in data["cfg"]:
-                if "ots" in data["cfg"]["sc"]:
-                    device.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
-                    device.capabilities.add(DeviceCapability.EDGE_CUT)
-                if "distm" in data["cfg"]["sc"] or "enabled" in data["cfg"]["sc"]:
-                    device.capabilities.add(DeviceCapability.PARTY_MODE)
+    #             # Map current zone to zone index
+    #             device.zone.current = device.zone.indicies[device.zone.index]
 
-                device.partymode_enabled = (
-                    bool(str(data["cfg"]["sc"]["m"]) == "2")
-                    if device.protocol == 0
-                    else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
-                )
-                device.schedules["active"] = (
-                    bool(str(data["cfg"]["sc"]["m"]) in ["1", "2"])
-                    if device.protocol == 0
-                    else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
-                )
+    #         # Fetch main schedule
+    #         if "sc" in data["cfg"]:
+    #             if "ots" in data["cfg"]["sc"]:
+    #                 device.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
+    #                 device.capabilities.add(DeviceCapability.EDGE_CUT)
+    #             if "distm" in data["cfg"]["sc"] or "enabled" in data["cfg"]["sc"]:
+    #                 device.capabilities.add(DeviceCapability.PARTY_MODE)
 
-                device.schedules["time_extension"] = (
-                    data["cfg"]["sc"]["p"] if device.protocol == 0 else "0"
-                )
+    #             device.partymode_enabled = (
+    #                 bool(str(data["cfg"]["sc"]["m"]) == "2")
+    #                 if device.protocol == 0
+    #                 else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
+    #             )
+    #             device.schedules["active"] = (
+    #                 bool(str(data["cfg"]["sc"]["m"]) in ["1", "2"])
+    #                 if device.protocol == 0
+    #                 else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
+    #             )
 
-                sch_type = ScheduleType.PRIMARY
-                device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
+    #             device.schedules["time_extension"] = (
+    #                 data["cfg"]["sc"]["p"] if device.protocol == 0 else "0"
+    #             )
 
-                for day in range(
-                    0,
-                    (
-                        len(data["cfg"]["sc"]["d"])
-                        if device.protocol == 0
-                        else len(data["cfg"]["sc"]["slots"])
-                    ),
-                ):
-                    dayOfWeek = (  # pylint: disable=invalid-name
-                        day
-                        if device.protocol == 0
-                        else data["cfg"]["sc"]["slots"][day]["d"]
-                    )
-                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                        "start"
-                    ] = (
-                        data["cfg"]["sc"]["d"][day][0]
-                        if device.protocol == 0
-                        else (
-                            datetime.strptime("00:00", "%H:%M")
-                            + timedelta(minutes=data["cfg"]["sc"]["slots"][day]["s"])
-                        ).strftime("%H:%M")
-                    )
-                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                        "duration"
-                    ] = (
-                        data["cfg"]["sc"]["d"][day][1]
-                        if device.protocol == 0
-                        else data["cfg"]["sc"]["slots"][day]["t"]
-                    )
-                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                        "boundary"
-                    ] = (
-                        bool(data["cfg"]["sc"]["d"][day][2])
-                        if device.protocol == 0
-                        else (
-                            bool(data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]["b"])
-                            if "b" in data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]
-                            else None
-                        )
-                    )
+    #             sch_type = ScheduleType.PRIMARY
+    #             device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
 
-                    time_start = datetime.strptime(
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                            "start"
-                        ],
-                        "%H:%M",
-                    )
+    #             for day in range(
+    #                 0,
+    #                 (
+    #                     len(data["cfg"]["sc"]["d"])
+    #                     if device.protocol == 0
+    #                     else len(data["cfg"]["sc"]["slots"])
+    #                 ),
+    #             ):
+    #                 dayOfWeek = (  # pylint: disable=invalid-name
+    #                     day
+    #                     if device.protocol == 0
+    #                     else data["cfg"]["sc"]["slots"][day]["d"]
+    #                 )
+    #                 device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+    #                     "start"
+    #                 ] = (
+    #                     data["cfg"]["sc"]["d"][day][0]
+    #                     if device.protocol == 0
+    #                     else (
+    #                         datetime.strptime("00:00", "%H:%M")
+    #                         + timedelta(minutes=data["cfg"]["sc"]["slots"][day]["s"])
+    #                     ).strftime("%H:%M")
+    #                 )
+    #                 device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+    #                     "duration"
+    #                 ] = (
+    #                     data["cfg"]["sc"]["d"][day][1]
+    #                     if device.protocol == 0
+    #                     else data["cfg"]["sc"]["slots"][day]["t"]
+    #                 )
+    #                 device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+    #                     "boundary"
+    #                 ] = (
+    #                     bool(data["cfg"]["sc"]["d"][day][2])
+    #                     if device.protocol == 0
+    #                     else (
+    #                         bool(data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]["b"])
+    #                         if "b" in data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]
+    #                         else None
+    #                     )
+    #                 )
 
-                    if isinstance(
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                            "duration"
-                        ],
-                        type(None),
-                    ):
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                            "duration"
-                        ] = "0"
+    #                 time_start = datetime.strptime(
+    #                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+    #                         "start"
+    #                     ],
+    #                     "%H:%M",
+    #                 )
 
-                    duration = int(
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                            "duration"
-                        ]
-                    )
+    #                 if isinstance(
+    #                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+    #                         "duration"
+    #                     ],
+    #                     type(None),
+    #                 ):
+    #                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+    #                         "duration"
+    #                     ] = "0"
 
-                    duration = duration * (
-                        1 + (int(device.schedules["time_extension"]) / 100)
-                    )
-                    end_time = time_start + timedelta(minutes=duration)
+    #                 duration = int(
+    #                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+    #                         "duration"
+    #                     ]
+    #                 )
 
-                    device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                        "end"
-                    ] = end_time.time().strftime("%H:%M")
+    #                 duration = duration * (
+    #                     1 + (int(device.schedules["time_extension"]) / 100)
+    #                 )
+    #                 end_time = time_start + timedelta(minutes=duration)
 
-                # Fetch secondary schedule
-                if "dd" in data["cfg"]["sc"]:
-                    sch_type = ScheduleType.SECONDARY
-                    device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
+    #                 device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
+    #                     "end"
+    #                 ] = end_time.time().strftime("%H:%M")
 
-                    for day in range(0, len(data["cfg"]["sc"]["dd"])):
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                            "start"
-                        ] = data["cfg"]["sc"]["dd"][day][0]
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                            "duration"
-                        ] = data["cfg"]["sc"]["dd"][day][1]
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                            "boundary"
-                        ] = bool(data["cfg"]["sc"]["dd"][day][2])
+    #             # Fetch secondary schedule
+    #             if "dd" in data["cfg"]["sc"]:
+    #                 sch_type = ScheduleType.SECONDARY
+    #                 device.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
 
-                        time_start = datetime.strptime(
-                            data["cfg"]["sc"]["dd"][day][0],
-                            "%H:%M",
-                        )
+    #                 for day in range(0, len(data["cfg"]["sc"]["dd"])):
+    #                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+    #                         "start"
+    #                     ] = data["cfg"]["sc"]["dd"][day][0]
+    #                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+    #                         "duration"
+    #                     ] = data["cfg"]["sc"]["dd"][day][1]
+    #                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+    #                         "boundary"
+    #                     ] = bool(data["cfg"]["sc"]["dd"][day][2])
 
-                        if isinstance(
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                                "duration"
-                            ],
-                            type(None),
-                        ):
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                                "duration"
-                            ] = "0"
+    #                     time_start = datetime.strptime(
+    #                         data["cfg"]["sc"]["dd"][day][0],
+    #                         "%H:%M",
+    #                     )
 
-                        duration = int(
-                            device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                                "duration"
-                            ]
-                        )
+    #                     if isinstance(
+    #                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+    #                             "duration"
+    #                         ],
+    #                         type(None),
+    #                     ):
+    #                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+    #                             "duration"
+    #                         ] = "0"
 
-                        duration = duration * (
-                            1 + (int(device.schedules["time_extension"]) / 100)
-                        )
-                        end_time = time_start + timedelta(minutes=duration)
+    #                     duration = int(
+    #                         device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+    #                             "duration"
+    #                         ]
+    #                     )
 
-                        device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                            "end"
-                        ] = end_time.time().strftime("%H:%M")
+    #                     duration = duration * (
+    #                         1 + (int(device.schedules["time_extension"]) / 100)
+    #                     )
+    #                     end_time = time_start + timedelta(minutes=duration)
 
-            device.schedules.update_progress_and_next(
-                tz=(
-                    self._tz
-                    if not isinstance(self._tz, type(None))
-                    else device.time_zone
-                )
-            )
-            # except TypeError:
-            #     invalid_data = True
-            # except KeyError:
-            #     invalid_data = True
+    #                     device.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+    #                         "end"
+    #                     ] = end_time.time().strftime("%H:%M")
 
-        convert_to_time(
-            device.name, device, device.time_zone, callback=self.update_attribute
-        )
+    #             # Check for addon modules
+    #             if "modules" in data["cfg"]:
+    #                 if "DF" in data["cfg"]["modules"]:
+    #                     device.capabilities.add(DeviceCapability.OFF_LIMITS)
+    #                     device.offlimit = bool(
+    #                         str(data["cfg"]["modules"]["DF"]["cut"]) == "1"
+    #                     )
+    #                     device.offlimit_shortcut = bool(
+    #                         str(data["cfg"]["modules"]["DF"]["fh"]) == "1"
+    #                     )
 
-        mower["last_status"]["timestamp"] = device.updated
+    #         device.schedules.update_progress_and_next(
+    #             tz=(
+    #                 self._tz
+    #                 if not isinstance(self._tz, type(None))
+    #                 else device.time_zone
+    #             )
+    #         )
+    #         # except TypeError:
+    #         #     invalid_data = True
+    #         # except KeyError:
+    #         #     invalid_data = True
 
-        device.is_decoded = True
-        logger.debug("Data for %s was decoded", device.name)
-        logger.debug("Device object:\n%s", vars(device))
+    #     convert_to_time(
+    #         device.name, device, device.time_zone, callback=self.update_attribute
+    #     )
 
-        self._decoding = False
+    #     mower["last_status"]["timestamp"] = device.updated
 
-        if invalid_data:
-            raise InvalidDataDecodeException()
+    #     device.is_decoded = True
+    #     logger.debug("Data for %s was decoded", device.name)
+    #     logger.debug("Device object:\n%s", vars(device))
+
+    #     self._decoding = False
+
+    #     if invalid_data:
+    #         raise InvalidDataDecodeException()
 
     def _fetch(self, forced: bool = False) -> None:
         """Fetch base API information."""
@@ -726,7 +742,8 @@ class WorxCloud(dict):
             except TypeError:
                 pass
 
-            self._decode_data(device)
+            # self._decode_data(device)
+            device.decode_data()
 
             if isinstance(mower["mac_address"], type(None)):
                 mower["mac_address"] = (
@@ -751,15 +768,21 @@ class WorxCloud(dict):
                 LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
             )
 
-    def get_mower(self, serial_number: str) -> dict:
+    def get_mower(self, serial_number: str, device: bool = False) -> dict:
         """Get a specific mower object.
 
         Args:
             serial_number (str): Serial number of the device
         """
-        for mower in self._mowers:
-            if mower["serial_number"] == serial_number:
-                return mower
+
+        if device:
+            for mower in self.devices.items():
+                if mower[1].serial_number == serial_number:
+                    return mower[1]
+        else:
+            for mower in self._mowers:
+                if mower["serial_number"] == serial_number:
+                    return mower
 
         raise MowerNotFoundError(
             f"Mower with serialnumber {serial_number} was not found."
@@ -939,6 +962,98 @@ class WorxCloud(dict):
                     )
             elif not device.capabilities.check(DeviceCapability.PARTY_MODE):
                 raise NoPartymodeError("This device does not support Partymode")
+        elif not mower["online"]:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+    def set_offlimits(self, serial_number: str, state: bool) -> None:
+        """Turn on or off the off limits module.
+
+        Args:
+            serial_number (str): Serial number of the device
+            state (bool): True is enabling off limits module, False is disabling off limits module.
+
+        Raises:
+            NoOfflimitsError: Raised if the device does not support off limits.
+            OfflineError: Raised if the device is offline.
+        """
+        mower = self.get_mower(serial_number)
+
+        if mower["online"]:
+            _LOGGER.debug("Setting offlimits")
+            device = DeviceHandler(self._api, mower)
+            if device.capabilities.check(DeviceCapability.OFF_LIMITS):
+                self.mqtt.publish(
+                    serial_number if device.protocol == 0 else device.uuid,
+                    mower["mqtt_topics"]["command_in"],
+                    (
+                        {
+                            "modules": {
+                                "DF": {
+                                    "cut": 1,
+                                    "fh": 1 if device.offlimit_shortcut else 0,
+                                }
+                            }
+                        }
+                        if state
+                        else {
+                            "modules": {
+                                "DF": {
+                                    "cut": 0,
+                                    "fh": 1 if device.offlimit_shortcut else 0,
+                                }
+                            }
+                        }
+                    ),
+                    device.protocol,
+                )
+            elif not device.capabilities.check(DeviceCapability.OFF_LIMITS):
+                raise NoOfflimitsError("This device does not support Off Limits")
+        elif not mower["online"]:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+    def set_offlimits_shortcut(self, serial_number: str, state: bool) -> None:
+        """Turn on or off the off limits shortcut function.
+
+        Args:
+            serial_number (str): Serial number of the device
+            state (bool): True is enabling shortcut, False is disabling shortcut.
+
+        Raises:
+            NoOfflimitsError: Raised if the device does not support off limits.
+            OfflineError: Raised if the device is offline.
+        """
+        mower = self.get_mower(serial_number)
+
+        if mower["online"]:
+            _LOGGER.debug("Setting offlimits")
+            device = DeviceHandler(self._api, mower)
+            if device.capabilities.check(DeviceCapability.OFF_LIMITS):
+                self.mqtt.publish(
+                    serial_number if device.protocol == 0 else device.uuid,
+                    mower["mqtt_topics"]["command_in"],
+                    (
+                        {
+                            "modules": {
+                                "DF": {
+                                    "cut": 1 if device.offlimit else 0,
+                                    "fh": 1,
+                                }
+                            }
+                        }
+                        if state
+                        else {
+                            "modules": {
+                                "DF": {
+                                    "cut": 1 if device.offlimit else 0,
+                                    "fh": 0,
+                                }
+                            }
+                        }
+                    ),
+                    device.protocol,
+                )
+            elif not device.capabilities.check(DeviceCapability.OFF_LIMITS):
+                raise NoOfflimitsError("This device does not support Off Limits")
         elif not mower["online"]:
             raise OfflineError("The device is currently offline, no action was sent.")
 
@@ -1125,6 +1240,26 @@ class WorxCloud(dict):
             self._api.check_token()
             POST(
                 f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}/counters/battery/reset",
+                "",
+                HEADERS(self._api.access_token),
+            )
+
+    def reset_blade_counter(self, serial_number: str) -> None:
+        """Resets blade counter.
+
+        Args:
+            serial_number (str): Serial number of the device
+            data (str): Data to be sent, formatted as a valid JSON object.
+
+        Raises:
+            OfflineError: Raised if the device isn't online.
+        """
+        mower = self.get_mower(serial_number)
+        if mower["online"]:
+            _LOGGER.debug("Resetting blade counter for %s", mower["name"])
+            self._api.check_token()
+            POST(
+                f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}/counters/blade/reset",
                 "",
                 HEADERS(self._api.access_token),
             )
