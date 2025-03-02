@@ -16,6 +16,7 @@ class DeviceCapability(IntEnum):
     ONE_TIME_SCHEDULE = 2
     PARTY_MODE = 4
     TORQUE = 8
+    OFF_LIMITS = 16
 
 
 CAPABILITY_TO_TEXT = {
@@ -23,6 +24,7 @@ CAPABILITY_TO_TEXT = {
     DeviceCapability.ONE_TIME_SCHEDULE: "One-Time-Schedule",
     DeviceCapability.PARTY_MODE: "Party Mode",
     DeviceCapability.TORQUE: "Motor Torque",
+    DeviceCapability.OFF_LIMITS: "Off Limits",
 }
 
 
@@ -45,11 +47,20 @@ class Capability:
                 ):
                     self.add(DeviceCapability.ONE_TIME_SCHEDULE)
                     self.add(DeviceCapability.EDGE_CUT)
+
                 if (
                     "distm" in device_data["last_status"]["payload"]["cfg"]["sc"]
                     or "enabled" in device_data["last_status"]["payload"]["cfg"]["sc"]
                 ):
                     self.add(DeviceCapability.PARTY_MODE)
+
+        except TypeError:
+            pass
+
+        try:
+            if "modules" in device_data["last_status"]["payload"]["dat"]:
+                if "DF" in device_data["last_status"]["payload"]["dat"]["modules"]:
+                    self.add(DeviceCapability.OFF_LIMITS)
         except TypeError:
             pass
 
