@@ -9,7 +9,6 @@ import json
 import logging
 import sys
 import threading
-from asyncio import sleep
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -41,6 +40,7 @@ from .utils import (
     Weekdays,
 )
 from .utils.mqtt import Command
+from .utils.requests import HEADERS, POST
 from .utils.schedules import TYPE_TO_STRING
 
 if sys.version_info < (3, 9, 0):
@@ -1108,3 +1108,23 @@ class WorxCloud(dict):
             )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
+
+    def reset_charge_cycle_counter(self, serial_number: str) -> None:
+        """Resets charge cycle counter.
+
+        Args:
+            serial_number (str): Serial number of the device
+            data (str): Data to be sent, formatted as a valid JSON object.
+
+        Raises:
+            OfflineError: Raised if the device isn't online.
+        """
+        mower = self.get_mower(serial_number)
+        if mower["online"]:
+            _LOGGER.debug("Resetting charge cycle counter for %s", mower["name"])
+            self._api.check_token()
+            POST(
+                f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}/counters/battery/reset",
+                "",
+                HEADERS(self._api.access_token),
+            )
