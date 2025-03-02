@@ -2,31 +2,30 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 import json
 import logging
+from datetime import datetime, timedelta
 from typing import Any
 
 from pyworxcloud.day_map import DAY_MAP
 
-from .location import Location
-from .statistics import Statistic
-
 from ..const import UNWANTED_ATTRIBS
 from ..exceptions import APIException, InvalidDataDecodeException
+from ..helpers import convert_to_time
 from .battery import Battery
 from .blades import Blades
 from .capability import Capability, DeviceCapability
 from .firmware import Firmware
 from .landroid_class import LDict
 from .lawn import Lawn
+from .location import Location
 from .orientation import Orientation
 from .rainsensor import Rainsensor
 from .schedules import TYPE_TO_STRING, Schedule, ScheduleType, Weekdays
 from .state import States, StateType
+from .statistics import Statistic
 from .warranty import Warranty
 from .zone import Zone
-from ..helpers import convert_to_time
 
 LOGGER = logging.getLogger(__name__)
 
