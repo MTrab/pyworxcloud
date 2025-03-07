@@ -142,7 +142,7 @@ class DeviceHandler(LDict):
         elif self.raw_data:
             logger.debug("Found raw data: %s", self.raw_data)
             data = self.raw_data
-        elif "payload" in self.last_status:
+        elif not isinstance (self.last_status, type(None)) and "payload" in self.last_status:
             data = self.last_status["payload"]
         else:
             self.is_decoded = True

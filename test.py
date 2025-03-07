@@ -21,7 +21,7 @@ cloud.connect()
 
 for _, device in cloud.devices.items():
     cloud.update(device.serial_number)
-    pprint(vars(device))
+    # pprint(vars(device))
     print(f"{device.name} online: {device.online}")
 
     # cloud.set_offlimits(device.serial_number, False)
