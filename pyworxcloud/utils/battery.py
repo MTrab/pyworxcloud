@@ -39,8 +39,8 @@ class Battery(LDict):
 
         if not "cycles" in self:
             self["cycles"] = {
-                "total": None,
-                "current": None,
+                "total": 0,
+                "current": 0,
                 "reset_at": None,
                 "reset_time": None,
             }
