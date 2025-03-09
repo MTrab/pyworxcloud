@@ -28,11 +28,7 @@ from .exceptions import (
     ZoneNotDefined,
 )
 from .helpers import convert_to_time, get_logger
-from .utils import (
-    MQTT,
-    DeviceCapability,
-    DeviceHandler,
-)
+from .utils import MQTT, DeviceCapability, DeviceHandler
 from .utils.mqtt import Command
 from .utils.requests import HEADERS, POST
 from .utils.schedules import TYPE_TO_STRING
