@@ -45,6 +45,18 @@ class Battery(LDict):
                 "reset_time": None,
             }
 
+        if not "temperature" in self:
+            self["temperature"] = None
+
+        if not "voltage" in self:
+            self["voltage"] = None
+
+        if not "percent" in self:
+            self["percent"] = None
+
+        if not "charging" in self:
+            self["charging"] = None
+
         if indata:
             self.set_data(indata)
             self._update_cycles()

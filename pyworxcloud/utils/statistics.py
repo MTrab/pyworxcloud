@@ -12,14 +12,14 @@ class Statistic(LDict):
         """Initialize a statistics class."""
         super().__init__()
 
-        if not data:
+        if isinstance(data, type(list)):
             return
 
         # Total runtime with blades on in minutes
-        self["worktime_blades_on"] = data["b"] if "b" in data else None
+        self["worktime_blades_on"] = data["b"] if "b" in data else 0
 
         # Total distance in meters
-        self["distance"] = data["d"] if "d" in data else None
+        self["distance"] = data["d"] if "d" in data else 0
 
         # Total worktime in minutes
-        self["worktime_total"] = data["wt"] if "wt" in data else None
+        self["worktime_total"] = data["wt"] if "wt" in data else 0

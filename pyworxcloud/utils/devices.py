@@ -105,6 +105,7 @@ class DeviceHandler(LDict):
         self.warranty = Warranty(data)
         self.firmware = Firmware(data)
         self.schedules = Schedule(data)
+        self.statistics = Statistic([])
         self.in_topic = data["mqtt_topics"]["command_in"]
         self.out_topic = data["mqtt_topics"]["command_out"]
 
