@@ -12,7 +12,7 @@ class Statistic(LDict):
         """Initialize a statistics class."""
         super().__init__()
 
-        if not data:
+        if isinstance(data, type(list)):
             return
 
         # Total runtime with blades on in minutes
