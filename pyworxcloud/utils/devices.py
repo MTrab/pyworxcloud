@@ -256,19 +256,18 @@ class DeviceHandler(LDict):
                 if "ots" in data["cfg"]["sc"]:
                     self.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
                     self.capabilities.add(DeviceCapability.EDGE_CUT)
-                if "distm" in data["cfg"]["sc"] or "enabled" in data["cfg"]["sc"]:
+                if "m" in data["cfg"]["sc"] or "enabled" in data["cfg"]["sc"]:
                     self.capabilities.add(DeviceCapability.PARTY_MODE)
-
-                self.partymode_enabled = (
-                    bool(str(data["cfg"]["sc"]["m"]) == "2")
-                    if self.protocol == 0
-                    else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
-                )
-                self.schedules["active"] = (
-                    bool(str(data["cfg"]["sc"]["m"]) in ["1", "2"])
-                    if self.protocol == 0
-                    else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
-                )
+                    self.partymode_enabled = (
+                        bool(str(data["cfg"]["sc"]["m"]) == "2")
+                        if self.protocol == 0
+                        else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
+                    )
+                    self.schedules["active"] = (
+                        bool(str(data["cfg"]["sc"]["m"]) in ["1", "2"])
+                        if self.protocol == 0
+                        else bool(str(data["cfg"]["sc"]["enabled"]) == "0")
+                    )
 
                 self.schedules["time_extension"] = (
                     data["cfg"]["sc"]["p"] if self.protocol == 0 else "0"
