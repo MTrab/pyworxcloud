@@ -6,6 +6,7 @@ import asyncio
 import json
 import random
 import ssl
+import time
 import urllib.parse
 from datetime import datetime
 from logging import Logger
@@ -104,7 +105,8 @@ class MQTT(LDict):
         self._disconnected = False
         self._topic: list = []
         self._api = api
-
+        self._await_publish: bool = False
+        self._await_timestamp: time = None
         self._uuid = uuid4()
 
         self.client = mqtt.Client(
@@ -146,6 +148,7 @@ class MQTT(LDict):
         """MQTT callback method definition."""
         msg = message.payload.decode("utf-8")
         self._log.debug("Received MQTT message:\n%s", msg)
+        self._await_publish = False
         self._on_update(msg)
 
     def subscribe(self, topic: str, append: bool = True) -> None:
@@ -178,6 +181,7 @@ class MQTT(LDict):
             )
             for topic in self._topic:
                 self.subscribe(topic, False)
+            self._await_publish = False
         else:
             logger.debug("MQTT connection failed")
             self._events.call(
@@ -233,11 +237,13 @@ class MQTT(LDict):
 
     def ping(self, serial_number: str, topic: str, protocol: int = 0) -> None:
         """Ping (update) the mower."""
-        cmd = self.format_message(
-            serial_number, {"cmd": Command.FORCE_REFRESH}, protocol
-        )
+        # cmd = self.format_message(
+        #     serial_number, {"cmd": Command.FORCE_REFRESH}, protocol
+        # )
+        cmd = {"cmd": Command.FORCE_REFRESH}
         self._log.debug("Sending '%s' on topic '%s'", cmd, topic)
-        self.client.publish(topic, cmd, QOS_FLAG)
+        self.publish(serial_number, topic, cmd, protocol)
+        # self.client.publish(topic, cmd, QOS_FLAG)
 
     def command(
         self, serial_number: str, topic: str, action: Command, protocol: int = 0
@@ -256,8 +262,16 @@ class MQTT(LDict):
             asyncio.sleep(15)
             self.connect()
             # Call publish rather than continue to handle connection issues
-            self.publish(serial_number, topic, message)
+            self.publish(serial_number, topic, message, protocol)
         else:
+            while self._await_publish:
+                if self._await_timestamp + 30 >= time.time():
+                    self._await_publish = True
+                    raise TimeoutError("Timeout sending message to device")
+                asyncio.sleep(1)
+
+            self._await_publish = True
+            self._await_timestamp = time.time()
             self._log.debug("Publishing message '%s'", message)
             self.client.publish(
                 topic, self.format_message(serial_number, message, protocol), QOS_FLAG
