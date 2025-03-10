@@ -154,6 +154,8 @@ class DeviceHandler(LDict):
             return
 
         mower = self.mower
+        self.protocol = mower["protocol"]
+
         if "dat" in data:
             mower["last_status"]["payload"]["dat"] = data["dat"]
             if "uuid" in data["dat"]:
