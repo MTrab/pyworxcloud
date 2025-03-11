@@ -259,16 +259,16 @@ class MQTT(LDict):
         """Publish message to the mower."""
         if not self.connected:
             self._log.warning("Not connected to API endpoint - awaiting connection")
-            asyncio.sleep(15)
+            asyncio.run(asyncio.sleep(15))
             self.connect()
             # Call publish rather than continue to handle connection issues
             self.publish(serial_number, topic, message, protocol)
         else:
             while self._await_publish:
-                if self._await_timestamp + 30 >= time.time():
-                    self._await_publish = True
-                    raise TimeoutError("Timeout sending message to device")
-                asyncio.sleep(1)
+                if self._await_timestamp + 30 <= time.time():
+                    self._await_publish = False
+                    break
+                asyncio.run(asyncio.sleep(1))
 
             self._await_publish = True
             self._await_timestamp = time.time()
