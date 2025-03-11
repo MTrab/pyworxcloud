@@ -210,7 +210,7 @@ class MQTT(LDict):
                     username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
                     password=None,
                 )
-                self.connect()
+                # self.connect()
             else:
                 logger.debug(
                     "Unexpected MQTT disconnect (%s: %s) - retrying",
