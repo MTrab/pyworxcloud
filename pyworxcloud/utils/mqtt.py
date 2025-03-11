@@ -234,6 +234,7 @@ class MQTT(LDict):
         self._disconnected = True
         self.client.loop_stop()
         self.client.disconnect()
+        logger.debug("MQTT disconnected")
 
     def ping(self, serial_number: str, topic: str, protocol: int = 0) -> None:
         """Ping (update) the mower."""
