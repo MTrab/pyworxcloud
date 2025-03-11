@@ -237,8 +237,8 @@ class WorxCloud(dict):
 
         # Disconnect MQTT connection
         try:
-            if self.mqtt.connected:
-                self.mqtt.disconnect()
+            # if self.mqtt.connected:
+            self.mqtt.disconnect()
         except:
             logger.debug("Could not disconnect MQTT - skipping.")
 
