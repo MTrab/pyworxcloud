@@ -65,7 +65,7 @@ class LandroidCloudAPI:
         except:
             return
 
-    def update_token(self) -> None:
+    def _update_token(self) -> None:
         """Refresh the tokens."""
         url = f"https://{self.cloud.AUTH_ENDPOINT}/oauth/token"
         request_body = {
@@ -106,7 +106,7 @@ class LandroidCloudAPI:
 
         if (now + 1800) >= self._token_expire:
             _LOGGER.debug("Updating access_token")
-            self.update_token()
+            self._update_token()
 
     def get_mowers(self) -> str:
         """Get mowers associated with the account.

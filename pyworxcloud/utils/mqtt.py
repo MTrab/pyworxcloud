@@ -199,8 +199,8 @@ class MQTT(LDict):
         logger = self._log.getChild("Conn_State")
         if rc > 0:
             if rc == 7:
-                logger.debug("Refreshing access token and reconnecting")
-                self._api.update_token()
+                logger.debug("Reconnecting")
+                self._api.check_token()
                 accesstokenparts = (
                     self._api.access_token.replace("_", "/")
                     .replace("-", "+")
