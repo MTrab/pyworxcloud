@@ -949,4 +949,4 @@ class WorxCloud(dict):
                 "",
                 HEADERS(self._api.access_token),
             )
-            self.update(serial_number)
+        self._fetch(True)
