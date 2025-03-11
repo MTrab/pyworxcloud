@@ -46,7 +46,7 @@ def receive_data(
 ) -> None:
     """Callback function when the MQTT broker sends new data."""
     print("Got data on MQTT from " + name)
-    print("%s online: %s", name, device.online)
+    print(name + " last status: " + str(device.last_status))
 
 
 asyncio.run(main())

@@ -391,10 +391,12 @@ class WorxCloud(dict):
                 return  # Dataset was not changed, no update needed
 
             # device.raw_data = payload
-            mower.update({"raw_data": data})
+            # mower.update({"raw_data": data})
+            # mower["raw_data"] = data
             logger.debug("Device online before decode: %s", device.online)
             # self._decode_data(device)
             device: DeviceHandler = self.devices[mower["name"]]
+            device.raw_data = data
 
             self._events.call(
                 LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
@@ -927,6 +929,7 @@ class WorxCloud(dict):
                 "",
                 HEADERS(self._api.access_token),
             )
+            self._fetch(True)
 
     def reset_blade_counter(self, serial_number: str) -> None:
         """Resets blade counter.
@@ -947,3 +950,4 @@ class WorxCloud(dict):
                 "",
                 HEADERS(self._api.access_token),
             )
+            self._fetch(True)

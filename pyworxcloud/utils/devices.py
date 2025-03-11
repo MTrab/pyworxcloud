@@ -69,6 +69,7 @@ class DeviceHandler(LDict):
             self.__json_data = json.loads(value)
         except:  # pylint: disable=bare-except
             pass  # Just continue if we couldn't decode the data
+        self.decode_data()
 
     @property
     def is_decoded(self) -> bool:
