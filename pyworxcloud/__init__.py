@@ -929,6 +929,7 @@ class WorxCloud(dict):
                 "",
                 HEADERS(self._api.access_token),
             )
+            self._fetch(True)
 
     def reset_blade_counter(self, serial_number: str) -> None:
         """Resets blade counter.
@@ -949,4 +950,4 @@ class WorxCloud(dict):
                 "",
                 HEADERS(self._api.access_token),
             )
-        self._fetch(True)
+            self._fetch(True)
