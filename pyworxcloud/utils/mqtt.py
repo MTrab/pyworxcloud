@@ -16,6 +16,8 @@ from uuid import uuid4
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import connack_string
 
+from pyworxcloud.exceptions import NoConnectionError
+
 from ..events import EventHandler, LandroidEvent
 from .landroid_class import LDict
 
@@ -105,6 +107,7 @@ class MQTT(LDict):
         self._disconnected = False
         self._topic: list = []
         self._api = api
+        self._await_connection: bool = False
         self._await_publish: bool = False
         self._await_timestamp: time = None
         self._uuid = uuid4()
@@ -258,13 +261,12 @@ class MQTT(LDict):
         self, serial_number: str, topic: str, message: dict, protocol: int = 0
     ) -> None:
         """Publish message to the mower."""
-        if not self.connected:
-            self._log.warning("Not connected to API endpoint - awaiting connection")
-            asyncio.run(asyncio.sleep(15))
-            self.connect()
-            # Call publish rather than continue to handle connection issues
-            self.publish(serial_number, topic, message, protocol)
-        else:
+        if not self._await_connection:
+            while not self.connected:
+                self._await_connection = True
+                self._log.warning("Not connected to API endpoint - awaiting connection")
+                asyncio.run(asyncio.sleep(15))
+
             while self._await_publish:
                 if self._await_timestamp + 30 <= time.time():
                     self._await_publish = False
@@ -272,11 +274,14 @@ class MQTT(LDict):
                 asyncio.run(asyncio.sleep(1))
 
             self._await_publish = True
+            self._await_connection = False
             self._await_timestamp = time.time()
             self._log.debug("Publishing message '%s'", message)
             self.client.publish(
                 topic, self.format_message(serial_number, message, protocol), QOS_FLAG
             )
+        else:
+            raise NoConnectionError from None
 
     def format_message(self, serial_number: str, message: dict, protocol: int) -> str:
         """
