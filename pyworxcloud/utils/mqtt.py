@@ -159,7 +159,7 @@ class MQTT(LDict):
 
     def connect(self) -> None:
         """Connect to the MQTT service."""
-        self.client.connect(self._endpoint, 443, 45)
+        self.client.connect(self._endpoint, 443)
         self.client.loop_start()
 
     def _on_connect(
