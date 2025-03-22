@@ -19,6 +19,7 @@ from .events import EventHandler, LandroidEvent
 from .exceptions import (
     AuthorizationError,
     MowerNotFoundError,
+    NoConnectionError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
     NoPartymodeError,
@@ -479,11 +480,14 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         _LOGGER.debug("Trying to refresh '%s'", serial_number)
 
-        self.mqtt.ping(
-            serial_number if mower["protocol"] == 0 else mower["uuid"],
-            mower["mqtt_topics"]["command_in"],
-            mower["protocol"],
-        )
+        try:
+            self.mqtt.ping(
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                mower["protocol"],
+            )
+        except NoConnectionError:
+            raise NoConnectionError from None
 
     def start(self, serial_number: str) -> None:
         """Start mowing task

@@ -16,9 +16,8 @@ from uuid import uuid4
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import connack_string
 
-from pyworxcloud.exceptions import NoConnectionError
-
 from ..events import EventHandler, LandroidEvent
+from ..exceptions import NoConnectionError
 from .landroid_class import LDict
 
 QOS_FLAG = 1
@@ -289,6 +288,7 @@ class MQTT(LDict):
         Message is expected to be a dict like this: {"cmd": 1}
         """
         now = datetime.now()
+        msg = {}
         if protocol == 0:
             msg = {
                 "id": random.randint(1024, 65535),
