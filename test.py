@@ -13,7 +13,7 @@ TYPE = environ["TYPE"]
 print("\033c", end="")
 
 # Initialize the class
-cloud = WorxCloud(EMAIL, PASS, TYPE)
+cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")
 cloud.authenticate()
 cloud.connect()
 

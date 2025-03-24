@@ -417,7 +417,7 @@ class WorxCloud(dict):
         self._mowers = self._api.get_mowers()
         # self.devices = {}
         for mower in self._mowers:
-            device = DeviceHandler(self._api, mower)
+            device = DeviceHandler(self._api, mower, self._tz)
             _LOGGER.debug("Mower '%s' online  update: '%s'", device.name, device.online)
             _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
             self.devices.update({mower["name"]: device})
@@ -626,7 +626,7 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
 
         if mower["online"]:
-            device = DeviceHandler(self._api, mower)
+            device = DeviceHandler(self._api, mower, self._tz)
             if device.capabilities.check(DeviceCapability.PARTY_MODE):
                 if mower["protocol"] == 0:
                     self.mqtt.publish(
@@ -666,7 +666,7 @@ class WorxCloud(dict):
 
         if mower["online"]:
             _LOGGER.debug("Setting offlimits")
-            device = DeviceHandler(self._api, mower)
+            device = DeviceHandler(self._api, mower, self._tz)
             if device.capabilities.check(DeviceCapability.OFF_LIMITS):
                 self.mqtt.publish(
                     serial_number if device.protocol == 0 else device.uuid,
@@ -712,7 +712,7 @@ class WorxCloud(dict):
 
         if mower["online"]:
             _LOGGER.debug("Setting offlimits")
-            device = DeviceHandler(self._api, mower)
+            device = DeviceHandler(self._api, mower, self._tz)
             if device.capabilities.check(DeviceCapability.OFF_LIMITS):
                 self.mqtt.publish(
                     serial_number if device.protocol == 0 else device.uuid,
@@ -755,7 +755,7 @@ class WorxCloud(dict):
         """
         mower = self.get_mower(serial_number)
         if mower["online"]:
-            device = DeviceHandler(self._api, mower)
+            device = DeviceHandler(self._api, mower, self._tz)
             if not isinstance(zone, int):
                 zone = int(zone)
 
@@ -782,7 +782,7 @@ class WorxCloud(dict):
             for i in range(0, no_indices):
                 new_zones.append(current_zones[(offset + i) % no_indices])
 
-            device = DeviceHandler(self._api, mower)
+            device = DeviceHandler(self._api, mower, self._tz)
             self.mqtt.publish(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
@@ -869,12 +869,12 @@ class WorxCloud(dict):
         """
         mower = self.get_mower(serial_number)
         if mower["online"]:
-            device = DeviceHandler(self._api, mower)
+            device = DeviceHandler(self._api, mower, self._tz)
             if device.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE):
                 if not isinstance(runtime, int):
                     runtime = int(runtime)
 
-                device = DeviceHandler(self._api, mower)
+                device = DeviceHandler(self._api, mower, self._tz)
                 self.mqtt.publish(
                     serial_number if mower["protocol"] == 0 else mower["uuid"],
                     mower["mqtt_topics"]["command_in"],
