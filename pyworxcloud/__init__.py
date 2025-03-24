@@ -5,6 +5,7 @@
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sys
@@ -19,6 +20,7 @@ from .events import EventHandler, LandroidEvent
 from .exceptions import (
     AuthorizationError,
     MowerNotFoundError,
+    NoConnectionError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
     NoPartymodeError,
@@ -139,7 +141,7 @@ class WorxCloud(dict):
                 ) from None
 
         _LOGGER.debug("Initializing the API connector ...")
-        self._api = LandroidCloudAPI(username, password, cloud)
+        self._api = LandroidCloudAPI(username, password, cloud, tz)
         self._username = username
         self._cloud = cloud
         self._auth_result = False
@@ -237,7 +239,6 @@ class WorxCloud(dict):
 
         # Disconnect MQTT connection
         try:
-            # if self.mqtt.connected:
             self.mqtt.disconnect()
         except:
             logger.debug("Could not disconnect MQTT - skipping.")
@@ -274,8 +275,6 @@ class WorxCloud(dict):
         )
 
         self.mqtt.connect()
-        while self.mqtt.connected is False:
-            pass
 
         for mower in self._mowers:
             self.mqtt.subscribe(mower["mqtt_topics"]["command_out"])
@@ -382,19 +381,11 @@ class WorxCloud(dict):
             (self._timers[mower["serial_number"]]).cancel()
             self._schedule_forced_refresh(mower["serial_number"])
 
-            while not device.is_decoded:
-                pass  # Wait for last dataset to be handled
-
-            # if device.raw_data == data:
             if "raw_data" in mower and mower["raw_data"] == data:
                 self._log.debug("Data was already present and not changed.")
                 return  # Dataset was not changed, no update needed
 
-            # device.raw_data = payload
-            # mower.update({"raw_data": data})
-            # mower["raw_data"] = data
-            logger.debug("Device online before decode: %s", device.online)
-            # self._decode_data(device)
+            mower["raw_data"] = data
             device: DeviceHandler = self.devices[mower["name"]]
             device.raw_data = data
 
@@ -428,7 +419,6 @@ class WorxCloud(dict):
             except TypeError:
                 pass
 
-            # self._decode_data(device)
             device.decode_data()
 
             if isinstance(mower["mac_address"], type(None)):
@@ -479,11 +469,14 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         _LOGGER.debug("Trying to refresh '%s'", serial_number)
 
-        self.mqtt.ping(
-            serial_number if mower["protocol"] == 0 else mower["uuid"],
-            mower["mqtt_topics"]["command_in"],
-            mower["protocol"],
-        )
+        try:
+            self.mqtt.ping(
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                mower["protocol"],
+            )
+        except NoConnectionError:
+            raise NoConnectionError from None
 
     def start(self, serial_number: str) -> None:
         """Start mowing task
@@ -764,12 +757,12 @@ class WorxCloud(dict):
                 or device.zone["starting_point"][zone] == 0
             ):
                 raise ZoneNotDefined(
-                    "Cannot request zone {} as it is not defined.".format(zone)
+                    f"Cannot request zone {zone} as it is not defined."
                 )
 
             if not zone in device.zone["indicies"]:
                 raise ZoneNoProbability(
-                    "Cannot request zone {} as it has no probability set.".format(zone)
+                    f"Cannot request zone {zone} as it has no probability set."
                 )
 
             current_zones = device.zone["indicies"]

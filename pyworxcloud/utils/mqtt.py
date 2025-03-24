@@ -17,6 +17,7 @@ import paho.mqtt.client as mqtt
 from paho.mqtt.client import connack_string
 
 from ..events import EventHandler, LandroidEvent
+from ..exceptions import NoConnectionError
 from .landroid_class import LDict
 
 QOS_FLAG = 1
@@ -105,9 +106,11 @@ class MQTT(LDict):
         self._disconnected = False
         self._topic: list = []
         self._api = api
+        self._await_connection: bool = False
         self._await_publish: bool = False
         self._await_timestamp: time = None
         self._uuid = uuid4()
+        self._is_connected: bool = False
 
         self.client = mqtt.Client(
             client_id=f"{brandprefix}/USER/{user_id}/bot/{self._uuid}",
@@ -136,7 +139,8 @@ class MQTT(LDict):
     @property
     def connected(self) -> bool:
         """Returns the MQTT connection state."""
-        return self.client.is_connected()
+        return self._is_connected
+        # return self.client.is_connected()
 
     def _forward_on_message(
         self,
@@ -175,6 +179,7 @@ class MQTT(LDict):
         logger.debug(connack_string(rc))
         if rc == 0:
             self._disconnected = False
+            self._is_connected = True
             logger.debug("MQTT connected")
             self._events.call(
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
@@ -183,6 +188,7 @@ class MQTT(LDict):
                 self.subscribe(topic, False)
             self._await_publish = False
         else:
+            self._is_connected = False
             logger.debug("MQTT connection failed")
             self._events.call(
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
@@ -197,6 +203,7 @@ class MQTT(LDict):
     ) -> None:
         """MQTT callback method."""
         logger = self._log.getChild("Conn_State")
+        self._is_connected = False
         if rc > 0:
             if rc == 7:
                 logger.debug("Reconnecting")
@@ -258,13 +265,12 @@ class MQTT(LDict):
         self, serial_number: str, topic: str, message: dict, protocol: int = 0
     ) -> None:
         """Publish message to the mower."""
-        if not self.connected:
-            self._log.warning("Not connected to API endpoint - awaiting connection")
-            asyncio.run(asyncio.sleep(15))
-            self.connect()
-            # Call publish rather than continue to handle connection issues
-            self.publish(serial_number, topic, message, protocol)
-        else:
+        if not self._await_connection:
+            while not self.connected:
+                self._await_connection = True
+                self._log.warning("Not connected to API endpoint - awaiting connection")
+                asyncio.run(asyncio.sleep(15))
+
             while self._await_publish:
                 if self._await_timestamp + 30 <= time.time():
                     self._await_publish = False
@@ -272,11 +278,14 @@ class MQTT(LDict):
                 asyncio.run(asyncio.sleep(1))
 
             self._await_publish = True
+            self._await_connection = False
             self._await_timestamp = time.time()
             self._log.debug("Publishing message '%s'", message)
             self.client.publish(
                 topic, self.format_message(serial_number, message, protocol), QOS_FLAG
             )
+        else:
+            raise NoConnectionError from None
 
     def format_message(self, serial_number: str, message: dict, protocol: int) -> str:
         """
@@ -284,6 +293,7 @@ class MQTT(LDict):
         Message is expected to be a dict like this: {"cmd": 1}
         """
         now = datetime.now()
+        msg = {}
         if protocol == 0:
             msg = {
                 "id": random.randint(1024, 65535),
