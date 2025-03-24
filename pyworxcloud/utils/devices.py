@@ -420,7 +420,7 @@ class DeviceHandler(LDict):
             # except KeyError:
             #     invalid_data = True
 
-        convert_to_time(self.name, self, self.time_zone, callback=self.update_attribute)
+        convert_to_time(self.name, self, self._tz, callback=self.update_attribute)
 
         mower["last_status"]["timestamp"] = self.updated
 
