@@ -387,8 +387,8 @@ class WorxCloud(dict):
             (self._timers[mower["serial_number"]]).cancel()
             self._schedule_forced_refresh(mower["serial_number"])
 
-            while not device.is_decoded:
-                pass  # Wait for last dataset to be handled
+            # while not device.is_decoded:
+            #     pass  # Wait for last dataset to be handled
 
             # if device.raw_data == data:
             if "raw_data" in mower and mower["raw_data"] == data:
