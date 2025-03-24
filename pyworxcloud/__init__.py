@@ -392,11 +392,7 @@ class WorxCloud(dict):
                 self._log.debug("Data was already present and not changed.")
                 return  # Dataset was not changed, no update needed
 
-            # device.raw_data = payload
-            # mower.update({"raw_data": data})
-            # mower["raw_data"] = data
-            logger.debug("Device online before decode: %s", device.online)
-            # self._decode_data(device)
+            mower["raw_data"] = data
             device: DeviceHandler = self.devices[mower["name"]]
             device.raw_data = data
 
