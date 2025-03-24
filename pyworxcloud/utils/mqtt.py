@@ -110,6 +110,7 @@ class MQTT(LDict):
         self._await_publish: bool = False
         self._await_timestamp: time = None
         self._uuid = uuid4()
+        self._connres: int = -1
 
         self.client = mqtt.Client(
             client_id=f"{brandprefix}/USER/{user_id}/bot/{self._uuid}",
@@ -153,6 +154,11 @@ class MQTT(LDict):
         self._await_publish = False
         self._on_update(msg)
 
+    @property
+    def connection_result(self) -> int:
+        """Returns the connection result."""
+        return self._connres
+
     def subscribe(self, topic: str, append: bool = True) -> None:
         """Subscribe to MQTT updates."""
         if append and topic not in self._topic:
@@ -161,7 +167,7 @@ class MQTT(LDict):
 
     def connect(self) -> None:
         """Connect to the MQTT service."""
-        self.client.connect(self._endpoint, 443)
+        self._connres = self.client.connect(self._endpoint, 443)
         self.client.loop_start()
 
     def _on_connect(

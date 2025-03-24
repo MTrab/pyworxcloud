@@ -141,7 +141,7 @@ class WorxCloud(dict):
                 ) from None
 
         _LOGGER.debug("Initializing the API connector ...")
-        self._api = LandroidCloudAPI(username, password, cloud)
+        self._api = LandroidCloudAPI(username, password, cloud, tz)
         self._username = username
         self._cloud = cloud
         self._auth_result = False
@@ -276,8 +276,11 @@ class WorxCloud(dict):
         )
 
         self.mqtt.connect()
-        while self.mqtt.connected is False:
-            asyncio.run(asyncio.sleep(1))
+        if self.mqtt.connection_result != 0:
+            raise ConnectionError
+
+        # while self.mqtt.connected is False:
+        #     asyncio.run(asyncio.sleep(1))
 
         for mower in self._mowers:
             self.mqtt.subscribe(mower["mqtt_topics"]["command_out"])
