@@ -239,7 +239,6 @@ class WorxCloud(dict):
 
         # Disconnect MQTT connection
         try:
-            # if self.mqtt.connected:
             self.mqtt.disconnect()
         except:
             logger.debug("Could not disconnect MQTT - skipping.")
@@ -276,11 +275,6 @@ class WorxCloud(dict):
         )
 
         self.mqtt.connect()
-        # if not self.mqtt.connected:
-        #     raise ConnectionError
-
-        # while self.mqtt.connected is False:
-        #     asyncio.run(asyncio.sleep(1))
 
         for mower in self._mowers:
             self.mqtt.subscribe(mower["mqtt_topics"]["command_out"])
@@ -387,10 +381,6 @@ class WorxCloud(dict):
             (self._timers[mower["serial_number"]]).cancel()
             self._schedule_forced_refresh(mower["serial_number"])
 
-            # while not device.is_decoded:
-            #     pass  # Wait for last dataset to be handled
-
-            # if device.raw_data == data:
             if "raw_data" in mower and mower["raw_data"] == data:
                 self._log.debug("Data was already present and not changed.")
                 return  # Dataset was not changed, no update needed
@@ -429,7 +419,6 @@ class WorxCloud(dict):
             except TypeError:
                 pass
 
-            # self._decode_data(device)
             device.decode_data()
 
             if isinstance(mower["mac_address"], type(None)):
@@ -768,12 +757,12 @@ class WorxCloud(dict):
                 or device.zone["starting_point"][zone] == 0
             ):
                 raise ZoneNotDefined(
-                    "Cannot request zone {} as it is not defined.".format(zone)
+                    f"Cannot request zone {zone} as it is not defined."
                 )
 
             if not zone in device.zone["indicies"]:
                 raise ZoneNoProbability(
-                    "Cannot request zone {} as it has no probability set.".format(zone)
+                    f"Cannot request zone {zone} as it has no probability set."
                 )
 
             current_zones = device.zone["indicies"]
