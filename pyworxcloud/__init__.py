@@ -5,6 +5,7 @@
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sys
@@ -276,7 +277,7 @@ class WorxCloud(dict):
 
         self.mqtt.connect()
         while self.mqtt.connected is False:
-            pass
+            asyncio.run(asyncio.sleep(1))
 
         for mower in self._mowers:
             self.mqtt.subscribe(mower["mqtt_topics"]["command_out"])
