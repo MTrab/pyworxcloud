@@ -110,7 +110,7 @@ class MQTT(LDict):
         self._await_publish: bool = False
         self._await_timestamp: time = None
         self._uuid = uuid4()
-        self._connres: int = -1
+        self._is_connected: bool = False
 
         self.client = mqtt.Client(
             client_id=f"{brandprefix}/USER/{user_id}/bot/{self._uuid}",
@@ -139,7 +139,8 @@ class MQTT(LDict):
     @property
     def connected(self) -> bool:
         """Returns the MQTT connection state."""
-        return self.client.is_connected()
+        return self._is_connected
+        # return self.client.is_connected()
 
     def _forward_on_message(
         self,
@@ -154,11 +155,6 @@ class MQTT(LDict):
         self._await_publish = False
         self._on_update(msg)
 
-    @property
-    def connection_result(self) -> int:
-        """Returns the connection result."""
-        return self._connres
-
     def subscribe(self, topic: str, append: bool = True) -> None:
         """Subscribe to MQTT updates."""
         if append and topic not in self._topic:
@@ -167,7 +163,7 @@ class MQTT(LDict):
 
     def connect(self) -> None:
         """Connect to the MQTT service."""
-        self._connres = self.client.connect(self._endpoint, 443)
+        self.client.connect(self._endpoint, 443)
         self.client.loop_start()
 
     def _on_connect(
@@ -183,6 +179,7 @@ class MQTT(LDict):
         logger.debug(connack_string(rc))
         if rc == 0:
             self._disconnected = False
+            self._is_connected = True
             logger.debug("MQTT connected")
             self._events.call(
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
@@ -191,6 +188,7 @@ class MQTT(LDict):
                 self.subscribe(topic, False)
             self._await_publish = False
         else:
+            self._is_connected = False
             logger.debug("MQTT connection failed")
             self._events.call(
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
@@ -205,6 +203,7 @@ class MQTT(LDict):
     ) -> None:
         """MQTT callback method."""
         logger = self._log.getChild("Conn_State")
+        self._is_connected = False
         if rc > 0:
             if rc == 7:
                 logger.debug("Reconnecting")

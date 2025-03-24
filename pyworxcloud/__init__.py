@@ -276,8 +276,8 @@ class WorxCloud(dict):
         )
 
         self.mqtt.connect()
-        if self.mqtt.connection_result != 0:
-            raise ConnectionError
+        # if not self.mqtt.connected:
+        #     raise ConnectionError
 
         # while self.mqtt.connected is False:
         #     asyncio.run(asyncio.sleep(1))
