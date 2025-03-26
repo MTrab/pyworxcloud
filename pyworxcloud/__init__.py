@@ -409,7 +409,6 @@ class WorxCloud(dict):
         # self.devices = {}
         for mower in self._mowers:
             device = DeviceHandler(self._api, mower, self._tz)
-            _LOGGER.debug("Mower '%s' online  update: '%s'", device.name, device.online)
             _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
             self.devices.update({mower["name"]: device})
 
