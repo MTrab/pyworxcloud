@@ -2,6 +2,7 @@
 
 from os import environ
 from pprint import pprint
+from time import sleep
 
 from pyworxcloud import WorxCloud
 
@@ -17,13 +18,13 @@ cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")
 cloud.authenticate()
 cloud.connect()
 
-# print(vars(cloud))
-
 for _, device in cloud.devices.items():
     cloud.update(device.serial_number)
     # pprint(vars(device))
     # print(f"{device.name} online: {device.online}")
-    # cloud.set_partymode(device.serial_number, True if device.partymode_enabled else False)
+    cloud.set_partymode(
+        device.serial_number, False if device.partymode_enabled else True
+    )
     # cloud.set_offlimits(device.serial_number, False)
     # cloud.set_offlimits_shortcut(device.serial_number, True)
 

@@ -11,7 +11,10 @@ from .landroid_class import LDict
 class Firmware(LDict):
     """Firmware information handler class."""
 
-    def __init__(self, data: Any) -> None:
+    def __init__(self, data: Any | None = None) -> None:
+        if isinstance(data, type(None)):
+            return
+
         super().__init__()
 
         self["auto_upgrade"] = (

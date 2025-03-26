@@ -11,7 +11,10 @@ from .landroid_class import LDict
 class Warranty(LDict):
     """Class for handling warranty information."""
 
-    def __init__(self, data: Any) -> None:
+    def __init__(self, data: Any | None = None) -> None:
+        if isinstance(data, type(None)):
+            return
+
         from ..helpers.time_format import string_to_time
 
         super().__init__()

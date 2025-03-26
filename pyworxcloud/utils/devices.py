@@ -47,6 +47,21 @@ class DeviceHandler(LDict):
         self.mower = mower
         self._tz = tz
 
+        self.battery = Battery()
+        self.blades = Blades()
+        self.error = States(StateType.ERROR)
+        self.orientation = Orientation([0, 0, 0])
+        self.capabilities = Capability()
+        self.rainsensor = Rainsensor()
+        self.status = States()
+        self.zone = Zone()
+        self.warranty = Warranty()
+        self.firmware = Firmware()
+        self.schedules = Schedule()
+        self.statistics = Statistic([])
+        self.in_topic = None
+        self.out_topic = None
+
         if not isinstance(mower, type(None)) and not isinstance(api, type(None)):
             self.__mapinfo(api, mower)
 
@@ -69,6 +84,7 @@ class DeviceHandler(LDict):
             self.__json_data = json.loads(value)
         except:  # pylint: disable=bare-except
             pass  # Just continue if we couldn't decode the data
+
         self.decode_data()
 
     @property
@@ -153,6 +169,10 @@ class DeviceHandler(LDict):
             self.is_decoded = True
             logger.debug("No valid data was found, skipping update for %s", self.name)
             return
+
+        if isinstance(self.capabilities, list):
+            setattr(self, "api_capabilities", getattr(self, "capabilities"))
+            self.capabilities = Capability(data)
 
         mower = self.mower
         self.protocol = mower["protocol"]
