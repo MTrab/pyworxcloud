@@ -419,7 +419,8 @@ class WorxCloud(dict):
             except TypeError:
                 pass
 
-            device.decode_data()
+            # device.decode_data()
+            device = DeviceHandler(self._api, mower, self._tz)
 
             if isinstance(mower["mac_address"], type(None)):
                 mower["mac_address"] = (
