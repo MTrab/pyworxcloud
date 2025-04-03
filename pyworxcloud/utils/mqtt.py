@@ -106,7 +106,6 @@ class MQTT(LDict):
         self._disconnected = False
         self._topic: list = []
         self._api = api
-        self._await_connection: bool = False
         self._await_publish: bool = False
         self._await_timestamp: time = None
         self._uuid = uuid4()
@@ -165,6 +164,8 @@ class MQTT(LDict):
         """Connect to the MQTT service."""
         self.client.connect(self._endpoint, 443)
         self.client.loop_start()
+        while not self.connected:
+            asyncio.run(asyncio.sleep(0.5))
 
     def _on_connect(
         self,
@@ -206,7 +207,7 @@ class MQTT(LDict):
         self._is_connected = False
         if rc > 0:
             if rc == 7:
-                logger.debug("Reconnecting")
+                logger.debug("Reconnecting MQTT")
                 self._api.check_token()
                 accesstokenparts = (
                     self._api.access_token.replace("_", "/")
@@ -217,7 +218,6 @@ class MQTT(LDict):
                     username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
                     password=None,
                 )
-                # self.connect()
             else:
                 logger.debug(
                     "Unexpected MQTT disconnect (%s: %s) - retrying",
@@ -265,27 +265,18 @@ class MQTT(LDict):
         self, serial_number: str, topic: str, message: dict, protocol: int = 0
     ) -> None:
         """Publish message to the mower."""
-        if not self._await_connection:
-            while not self.connected:
-                self._await_connection = True
-                self._log.warning("Not connected to API endpoint - awaiting connection")
-                asyncio.run(asyncio.sleep(15))
+        while self._await_publish:
+            if self._await_timestamp + 30 >= time.time():
+                self._await_publish = False
+                break
+            asyncio.run(asyncio.sleep(1))
 
-            while self._await_publish:
-                if self._await_timestamp + 30 <= time.time():
-                    self._await_publish = False
-                    break
-                asyncio.run(asyncio.sleep(1))
-
-            self._await_publish = True
-            self._await_connection = False
-            self._await_timestamp = time.time()
-            self._log.debug("Publishing message '%s'", message)
-            self.client.publish(
-                topic, self.format_message(serial_number, message, protocol), QOS_FLAG
-            )
-        else:
-            raise NoConnectionError from None
+        self._await_publish = True
+        self._await_timestamp = time.time()
+        self._log.debug("Publishing message '%s'", message)
+        self.client.publish(
+            topic, self.format_message(serial_number, message, protocol), QOS_FLAG
+        )
 
     def format_message(self, serial_number: str, message: dict, protocol: int) -> str:
         """

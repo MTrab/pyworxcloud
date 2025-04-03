@@ -280,8 +280,6 @@ class WorxCloud(dict):
             self.mqtt.subscribe(mower["mqtt_topics"]["command_out"])
             self._schedule_forced_refresh(mower["serial_number"])
 
-        self._log.debug("MQTT connect done")
-
         # Convert time strings to objects.
         for name, device in self.devices.items():
             convert_to_time(
