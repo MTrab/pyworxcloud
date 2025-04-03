@@ -1,6 +1,7 @@
 """Zone representation."""
 
 from __future__ import annotations
+from typing import Any
 
 from .landroid_class import LDict
 
@@ -8,8 +9,11 @@ from .landroid_class import LDict
 class Zone(LDict):
     """Class for handling zone data."""
 
-    def __init__(self, data) -> dict:
+    def __init__(self, data: Any | None = None) -> dict:
         """Initialize zone object."""
+        if isinstance(data, type(None)):
+            return
+
         super().__init__()
 
         self["current"] = 0

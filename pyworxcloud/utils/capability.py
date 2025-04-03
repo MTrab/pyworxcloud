@@ -36,21 +36,24 @@ class Capability:
         # super().__init__()
         self.__int__: int = 0
         self.ready: bool = False
-
-        _LOGGER.debug("Capability data: %s", device_data)
+        if isinstance(device_data,type(None)):
+            return
+        
+        cfg = device_data["cfg"] if "cfg" in device_data else device_data["last_status"]["payload"]["cfg"]
+        dat = device_data["dat"] if "dat" in device_data else device_data["last_status"]["payload"]["dat"]
 
         try:
-            if "sc" in device_data["last_status"]["payload"]["cfg"]:
+            if "sc" in cfg:
                 if (
-                    "ots" in device_data["last_status"]["payload"]["cfg"]["sc"]
-                    or "once" in device_data["last_status"]["payload"]["cfg"]["sc"]
+                    "ots" in cfg["sc"]
+                    or "once" in cfg["sc"]
                 ):
                     self.add(DeviceCapability.ONE_TIME_SCHEDULE)
                     self.add(DeviceCapability.EDGE_CUT)
 
                 if (
-                    "distm" in device_data["last_status"]["payload"]["cfg"]["sc"]
-                    or "enabled" in device_data["last_status"]["payload"]["cfg"]["sc"]
+                    "distm" in cfg["sc"]
+                    or "enabled" in cfg["sc"]
                 ):
                     self.add(DeviceCapability.PARTY_MODE)
 
@@ -58,14 +61,14 @@ class Capability:
             pass
 
         try:
-            if "modules" in device_data["last_status"]["payload"]["dat"]:
-                if "DF" in device_data["last_status"]["payload"]["dat"]["modules"]:
+            if "modules" in dat:
+                if "DF" in dat["modules"]:
                     self.add(DeviceCapability.OFF_LIMITS)
         except TypeError:
             pass
 
         try:
-            if "tq" in device_data["last_status"]["payload"]["cfg"]:
+            if "tq" in cfg:
                 self.add(DeviceCapability.TORQUE)
         except TypeError:
             pass

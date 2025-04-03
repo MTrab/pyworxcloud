@@ -5,6 +5,7 @@ from __future__ import annotations
 import calendar
 from datetime import datetime, timedelta
 from enum import IntEnum
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from ..day_map import DAY_MAP
@@ -165,8 +166,11 @@ class ScheduleInfo:
 class Schedule(LDict):
     """Represents a schedule."""
 
-    def __init__(self, data) -> None:
+    def __init__(self, data: Any | None = None) -> None:
         """Initialize a schedule."""
+        if isinstance(data, type(None)):
+            return
+
         super().__init__()
 
         self["daily_progress"] = None
