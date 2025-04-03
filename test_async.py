@@ -48,5 +48,6 @@ def receive_data(
     print("Got data on MQTT from " + name)
     print(name + " last status: " + str(device.last_status))
 
+
 print(tz)
 asyncio.run(main())

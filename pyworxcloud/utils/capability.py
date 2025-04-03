@@ -36,25 +36,27 @@ class Capability:
         # super().__init__()
         self.__int__: int = 0
         self.ready: bool = False
-        if isinstance(device_data,type(None)):
+        if isinstance(device_data, type(None)):
             return
-        
-        cfg = device_data["cfg"] if "cfg" in device_data else device_data["last_status"]["payload"]["cfg"]
-        dat = device_data["dat"] if "dat" in device_data else device_data["last_status"]["payload"]["dat"]
+
+        cfg = (
+            device_data["cfg"]
+            if "cfg" in device_data
+            else device_data["last_status"]["payload"]["cfg"]
+        )
+        dat = (
+            device_data["dat"]
+            if "dat" in device_data
+            else device_data["last_status"]["payload"]["dat"]
+        )
 
         try:
             if "sc" in cfg:
-                if (
-                    "ots" in cfg["sc"]
-                    or "once" in cfg["sc"]
-                ):
+                if "ots" in cfg["sc"] or "once" in cfg["sc"]:
                     self.add(DeviceCapability.ONE_TIME_SCHEDULE)
                     self.add(DeviceCapability.EDGE_CUT)
 
-                if (
-                    "distm" in cfg["sc"]
-                    or "enabled" in cfg["sc"]
-                ):
+                if "distm" in cfg["sc"] or "enabled" in cfg["sc"]:
                     self.add(DeviceCapability.PARTY_MODE)
 
         except TypeError:
