@@ -406,24 +406,24 @@ class WorxCloud(dict):
         self._mowers = self._api.get_mowers()
         # self.devices = {}
         for mower in self._mowers:
-            device = DeviceHandler(self._api, mower, self._tz)
-            _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
-            self.devices.update({mower["name"]: device})
-
             try:
+                device = DeviceHandler(self._api, mower, self._tz)
+                _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
+                self.devices.update({mower["name"]: device})
+
                 if not isinstance(mower["last_status"], type(None)):
                     device.raw_data = mower["last_status"]["payload"]
+
+                device = DeviceHandler(self._api, mower, self._tz)
+
+                if isinstance(mower["mac_address"], type(None)):
+                    mower["mac_address"] = (
+                        device.raw_data["dat"]["mac"]
+                        if "mac" in device.raw_data["dat"]
+                        else "__UUID__"
+                    )
             except TypeError:
                 pass
-
-            device = DeviceHandler(self._api, mower, self._tz)
-
-            if isinstance(mower["mac_address"], type(None)):
-                mower["mac_address"] = (
-                    device.raw_data["dat"]["mac"]
-                    if "mac" in device.raw_data["dat"]
-                    else "__UUID__"
-                )
 
         logger = self._log.getChild("API_Refresh_Scheduler")
         next_api_refresh = datetime.now() + timedelta(minutes=REFRESH_TIME)
