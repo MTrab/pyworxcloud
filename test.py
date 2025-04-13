@@ -1,10 +1,13 @@
 """Basic test file."""
 
+import logging
 from os import environ
 from pprint import pprint
 from time import sleep
 
 from pyworxcloud import WorxCloud
+
+# logging.basicConfig(level=logging.DEBUG)
 
 EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
@@ -21,6 +24,7 @@ while iter <= max:
     cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")
     cloud.authenticate()
     cloud.connect()
+
     for _, device in cloud.devices.items():
         cloud.update(device.serial_number)
         # pprint(vars(device))
