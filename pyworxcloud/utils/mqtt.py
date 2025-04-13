@@ -173,13 +173,16 @@ class MQTT(LDict):
 
     def connect(self) -> None:
         """Connect to the MQTT service."""
-        self.client.connect(
-            self._endpoint,
-            443,
-        )
-        self.client.loop_start()
-        while not self.connected:
-            asyncio.run(asyncio.sleep(0.5))
+        try:
+            self.client.connect(
+                self._endpoint,
+                443,
+            )
+            self.client.loop_start()
+            while not self.connected:
+                asyncio.run(asyncio.sleep(0.5))
+        except NoConnectionError as exc:
+            raise NoConnectionError() from exc
 
     def _on_connect(
         self,
