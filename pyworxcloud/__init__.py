@@ -40,7 +40,7 @@ if sys.version_info < (3, 9, 0):
 
 _LOGGER = logging.getLogger(__name__)
 
-REFRESH_TIME = 30
+REFRESH_TIME = 60
 API_REFRESH_TIME = 15
 
 
