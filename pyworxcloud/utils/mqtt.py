@@ -114,7 +114,6 @@ class MQTT(LDict):
         self._is_connected: bool = False
         self._brandprefix = brandprefix
         self._user_id = user_id
-        self._log.setLevel(logging.DEBUG)
 
         self.client = mqtt.Client(
             client_id=f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}",
@@ -122,7 +121,6 @@ class MQTT(LDict):
             userdata=None,
             reconnect_on_failure=False,
         )
-        self.client.enable_logger(self._log.getChild("PAHO"))
 
         accesstokenparts = (
             api.access_token.replace("_", "/").replace("-", "+").split(".")
@@ -141,16 +139,12 @@ class MQTT(LDict):
         self.client.on_connect = self._on_connect
         self.client.on_message = self._forward_on_message
         self.client.on_disconnect = self._on_disconnect
-        self.client.on_log = self._on_log
 
     @property
     def connected(self) -> bool:
         """Returns the MQTT connection state."""
         return self._is_connected
         # return self.client.is_connected()
-
-    def _on_log(self, client, userdata, level, buff):
-        print(buff)
 
     def _forward_on_message(
         self,
