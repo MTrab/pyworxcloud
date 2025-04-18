@@ -221,6 +221,7 @@ class MQTT(LDict):
                 # logger.debug("Reconnecting MQTT")
                 # self._api.check_token()
                 if self._api.token_updated:
+                    self._api.token_updated = False
                     accesstokenparts = (
                         self._api.access_token.replace("_", "/")
                         .replace("-", "+")
