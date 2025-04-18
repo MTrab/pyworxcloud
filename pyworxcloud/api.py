@@ -39,6 +39,7 @@ class LandroidCloudAPI:
         self._api_host = None
         self.api_data = None
         self._tz = tz
+        self.token_updated: bool = False
 
         self.username = username
         self.password = password
@@ -107,6 +108,7 @@ class LandroidCloudAPI:
         if (now + 1800) >= self._token_expire:
             _LOGGER.debug("Updating access_token")
             self._update_token()
+            self.token_updated = True
 
     def get_mowers(self) -> str:
         """Get mowers associated with the account.
