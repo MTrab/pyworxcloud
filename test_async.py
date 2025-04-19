@@ -24,7 +24,7 @@ async def async_worx():
     # Clear the screen for better visibility when debugging
 
     # Initialize the class and connect
-    cloud = WorxCloud(EMAIL, PASS, TYPE)
+    cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")
     cloud.authenticate()
     cloud.connect()
     cloud.set_callback(LandroidEvent.DATA_RECEIVED, receive_data)
@@ -32,6 +32,9 @@ async def async_worx():
     ## Force an data update
     # device = cloud.devices[environ["DEV_NAME"]]
     # cloud.update(device.serial_number)
+
+    for _, device in cloud.devices.items():
+        cloud.update(device.serial_number)
 
     print("Listening for new data")
     while 1:
