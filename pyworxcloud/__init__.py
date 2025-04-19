@@ -40,7 +40,8 @@ if sys.version_info < (3, 9, 0):
 
 _LOGGER = logging.getLogger(__name__)
 
-REFRESH_TIME = 5
+REFRESH_TIME = 60
+API_REFRESH_TIME = 15
 
 
 class WorxCloud(dict):
@@ -426,13 +427,15 @@ class WorxCloud(dict):
                 pass
 
         logger = self._log.getChild("API_Refresh_Scheduler")
-        next_api_refresh = datetime.now() + timedelta(minutes=REFRESH_TIME)
+        next_api_refresh = datetime.now() + timedelta(minutes=API_REFRESH_TIME)
         logger.debug(
             "Scheduling an API refresh at %s",
             next_api_refresh,
         )
 
-        force_api_refresh = threading.Timer(REFRESH_TIME * 60, self._fetch, args=[True])
+        force_api_refresh = threading.Timer(
+            API_REFRESH_TIME * 60, self._fetch, args=[True]
+        )
         force_api_refresh.start()
         self._timers.update({"api": force_api_refresh})
 
