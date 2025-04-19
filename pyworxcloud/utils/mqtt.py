@@ -105,7 +105,8 @@ class MQTT(LDict):
         self._on_update = callback
         self._endpoint = endpoint
         self._log = logger.getChild("MQTT")
-        self._disconnected = False
+        self._disconnected: bool = False
+        self._reconnected: bool = False
         self._topic: list = []
         self._api = api
         self._await_publish: bool = False
@@ -119,7 +120,7 @@ class MQTT(LDict):
             client_id=f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}",
             clean_session=False,
             userdata=None,
-            reconnect_on_failure=False,
+            reconnect_on_failure=True,
         )
 
         accesstokenparts = (
@@ -134,7 +135,7 @@ class MQTT(LDict):
         ssl_context.set_alpn_protocols(["mqtt"])
         self.client.tls_set_context(context=ssl_context)
 
-        self.client.reconnect_delay_set(min_delay=10, max_delay=300)
+        self.client.reconnect_delay_set(min_delay=30, max_delay=300)
 
         self.client.on_connect = self._on_connect
         self.client.on_message = self._forward_on_message
@@ -174,7 +175,17 @@ class MQTT(LDict):
             )
             self.client.loop_start()
             while not self.connected:
-                asyncio.run(asyncio.sleep(0.5))
+                try:
+                    loop = asyncio.get_running_loop()
+                except (
+                    RuntimeError
+                ):  # 'RuntimeError: There is no current event loop...'
+                    loop = None
+
+                if loop and loop.is_running():
+                    loop.create_task(asyncio.sleep(0.5))
+                else:
+                    asyncio.run(asyncio.sleep(0.5))
         except NoConnectionError as exc:
             raise NoConnectionError() from exc
 
@@ -192,6 +203,7 @@ class MQTT(LDict):
         if rc == 0:
             self._disconnected = False
             self._is_connected = True
+            self._reconnected = False
             logger.debug("MQTT connected")
             self._events.call(
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
@@ -218,10 +230,10 @@ class MQTT(LDict):
         self._is_connected = False
         if rc > 0:
             if rc == 7:
-                # logger.debug("Reconnecting MQTT")
-                # self._api.check_token()
-                if self._api.token_updated:
-                    self._api.token_updated = False
+                if not self._reconnected:
+                    self._reconnected = True
+                    logger.debug("Reconnecting MQTT")
+                    self._api.check_token()
                     accesstokenparts = (
                         self._api.access_token.replace("_", "/")
                         .replace("-", "+")
@@ -231,7 +243,6 @@ class MQTT(LDict):
                         username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
                         password=None,
                     )
-                    self.client.reconnect()
                 else:
                     raise NoConnectionError("Error connecting to AwSIoT MQTT")
             else:
