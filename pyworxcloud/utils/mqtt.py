@@ -244,6 +244,7 @@ class MQTT(LDict):
                         password=None,
                     )
                 else:
+                    self.disconnect()
                     raise NoConnectionError("Error connecting to AwSIoT MQTT")
             else:
                 logger.debug(
