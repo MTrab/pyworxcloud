@@ -41,7 +41,7 @@ if sys.version_info < (3, 9, 0):
 _LOGGER = logging.getLogger(__name__)
 
 MQTT_REFRESH_TIME = 60
-API_REFRESH_TIME = 10
+API_REFRESH_TIME = 5
 
 
 class WorxCloud(dict):
