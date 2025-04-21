@@ -209,6 +209,7 @@ class MQTT(LDict):
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
             )
             for topic in self._topic:
+                logger.debug("Subscribing '%s'", topic)
                 self.subscribe(topic, False)
             self._await_publish = False
         else:
