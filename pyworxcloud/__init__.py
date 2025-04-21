@@ -40,8 +40,8 @@ if sys.version_info < (3, 9, 0):
 
 _LOGGER = logging.getLogger(__name__)
 
-REFRESH_TIME = 60
-API_REFRESH_TIME = 60
+MQTT_REFRESH_TIME = 60
+API_REFRESH_TIME = 10
 
 
 class WorxCloud(dict):
@@ -315,7 +315,7 @@ class WorxCloud(dict):
             )
             return None
 
-        next_refresh = datetime.now() + timedelta(minutes=REFRESH_TIME)
+        next_refresh = datetime.now() + timedelta(minutes=MQTT_REFRESH_TIME)
         logger.debug(
             "Scheduling a forced refresh for '%s' at %s",
             name,
@@ -323,7 +323,7 @@ class WorxCloud(dict):
         )
 
         force_refresh = threading.Timer(
-            REFRESH_TIME * 60, self._force_refresh, args=[serial_number, name]
+            MQTT_REFRESH_TIME * 60, self._force_refresh, args=[serial_number, name]
         )
         force_refresh.start()
         self._timers.update({serial_number: force_refresh})
