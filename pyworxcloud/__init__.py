@@ -142,7 +142,7 @@ class WorxCloud(dict):
                 ) from None
 
         _LOGGER.debug("Initializing the API connector ...")
-        self._api = LandroidCloudAPI(username, password, cloud, tz)
+        self._api = LandroidCloudAPI(username, password, cloud, tz, self._token_updated)
         self._username = username
         self._cloud = cloud
         self._auth_result = False
@@ -286,9 +286,14 @@ class WorxCloud(dict):
             convert_to_time(
                 name, device, device.time_zone, callback=self.update_attribute
             )
+
         self._log.debug("Connection tasks all done")
 
         return True
+
+    def _token_updated(self) -> None:
+        """Called when token is updated."""
+        self.mqtt.update_token()
 
     @property
     def auth_result(self) -> bool:
