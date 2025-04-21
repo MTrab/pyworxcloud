@@ -41,7 +41,7 @@ if sys.version_info < (3, 9, 0):
 _LOGGER = logging.getLogger(__name__)
 
 REFRESH_TIME = 60
-API_REFRESH_TIME = 15
+API_REFRESH_TIME = 60
 
 
 class WorxCloud(dict):
