@@ -22,6 +22,7 @@ class LandroidCloudAPI:
         password: str,
         cloud: CloudType.WORX | CloudType.KRESS | CloudType.LANDXCAPE,
         tz: str | None = None,  # pylint: disable=invalid-name
+        token_callback: callable | None = None,
     ) -> None:
         """Initialize a new instance of the API broker.
 
@@ -39,6 +40,7 @@ class LandroidCloudAPI:
         self._api_host = None
         self.api_data = None
         self._tz = tz
+        self._callback = token_callback
 
         self.username = username
         self.password = password
@@ -81,6 +83,7 @@ class LandroidCloudAPI:
         now = int(time.time())
         self._token_expire = now + int(resp["expires_in"])
 
+
     def _get_headers(self, tokenheaders: bool = False) -> dict:
         """Create header object for communication packets."""
         header_data = {}
@@ -107,6 +110,8 @@ class LandroidCloudAPI:
         if (now + 1800) >= self._token_expire:
             _LOGGER.debug("Updating access_token")
             self._update_token()
+            if self._callback:
+                self._callback()
 
     def get_mowers(self) -> str:
         """Get mowers associated with the account.

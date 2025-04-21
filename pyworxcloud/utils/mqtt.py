@@ -209,6 +209,7 @@ class MQTT(LDict):
                 LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
             )
             for topic in self._topic:
+                logger.debug("Subscribing '%s'", topic)
                 self.subscribe(topic, False)
             self._await_publish = False
         else:
@@ -256,6 +257,19 @@ class MQTT(LDict):
                     self.client.reconnect()
                 except:  # pylint: disable=bare-except
                     pass
+
+    def update_token(self) -> None:
+        """Update the token."""
+        self._log.debug("Updating token")
+        accesstokenparts = (
+            self._api.access_token.replace("_", "/").replace("-", "+").split(".")
+        )
+        self.client.username_pw_set(
+            username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
+            password=None,
+        )
+        self.client.reconnect()
+        self._log.debug("Token updated")
 
     def disconnect(
         self, reasoncode=None, properties=None  # pylint: disable=unused-argument

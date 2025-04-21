@@ -41,7 +41,7 @@ if sys.version_info < (3, 9, 0):
 _LOGGER = logging.getLogger(__name__)
 
 REFRESH_TIME = 60
-API_REFRESH_TIME = 15
+API_REFRESH_TIME = 60
 
 
 class WorxCloud(dict):
@@ -142,7 +142,7 @@ class WorxCloud(dict):
                 ) from None
 
         _LOGGER.debug("Initializing the API connector ...")
-        self._api = LandroidCloudAPI(username, password, cloud, tz)
+        self._api = LandroidCloudAPI(username, password, cloud, tz, self._token_updated)
         self._username = username
         self._cloud = cloud
         self._auth_result = False
@@ -278,7 +278,7 @@ class WorxCloud(dict):
         self.mqtt.connect()
 
         for mower in self._mowers:
-            self.mqtt.subscribe(mower["mqtt_topics"]["command_out"])
+            self.mqtt.subscribe(mower["mqtt_topics"]["command_out"], True)
             self._schedule_forced_refresh(mower["serial_number"])
 
         # Convert time strings to objects.
@@ -286,9 +286,14 @@ class WorxCloud(dict):
             convert_to_time(
                 name, device, device.time_zone, callback=self.update_attribute
             )
+
         self._log.debug("Connection tasks all done")
 
         return True
+
+    def _token_updated(self) -> None:
+        """Called when token is updated."""
+        self.mqtt.update_token()
 
     @property
     def auth_result(self) -> bool:
