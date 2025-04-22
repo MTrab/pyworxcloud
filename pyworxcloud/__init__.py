@@ -5,7 +5,6 @@
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import sys
@@ -16,7 +15,6 @@ from zoneinfo import ZoneInfo
 
 from .api import LandroidCloudAPI
 from .clouds import CloudType
-from .day_map import DAY_MAP
 from .events import EventHandler, LandroidEvent
 from .exceptions import (
     AuthorizationError,
@@ -34,7 +32,6 @@ from .helpers import convert_to_time, get_logger
 from .utils import MQTT, DeviceCapability, DeviceHandler
 from .utils.mqtt import Command
 from .utils.requests import HEADERS, POST
-from .utils.schedules import TYPE_TO_STRING
 
 if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
@@ -42,8 +39,7 @@ if sys.version_info < (3, 9, 0):
 _LOGGER = logging.getLogger(__name__)
 
 MQTT_REFRESH_TIME = 60
-API_REFRESH_TIME = 2
-API_OFFLINE_REFRESH_TIME = 30
+API_REFRESH_TIME = 5
 
 
 class WorxCloud(dict):
