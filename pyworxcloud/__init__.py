@@ -38,7 +38,6 @@ if sys.version_info < (3, 9, 0):
 
 _LOGGER = logging.getLogger(__name__)
 
-MQTT_REFRESH_TIME = 60
 API_REFRESH_TIME = 5
 
 
@@ -277,7 +276,6 @@ class WorxCloud(dict):
 
         for mower in self._mowers:
             self.mqtt.subscribe(mower["mqtt_topics"]["command_out"], True)
-            self._schedule_forced_refresh(mower["serial_number"])
 
         # Convert time strings to objects.
         for name, device in self.devices.items():
@@ -297,44 +295,6 @@ class WorxCloud(dict):
     def auth_result(self) -> bool:
         """Return current authentication result."""
         return self._auth_result
-
-    def _schedule_forced_refresh(self, serial_number: str) -> None:
-        """Schedule a forced refresh."""
-        logger = self._log.getChild("Refresh_Scheduler")
-        name = None
-        for mower in self._mowers:
-            if mower["serial_number"] == serial_number:
-                name = mower["name"]
-                break
-
-        if isinstance(name, type(None)):
-            logger.warning(
-                "Didn't find any mowers with serial number '%s'", serial_number
-            )
-            return None
-
-        next_refresh = datetime.now() + timedelta(minutes=MQTT_REFRESH_TIME)
-        logger.debug(
-            "Scheduling a forced refresh for '%s' at %s",
-            name,
-            next_refresh,
-        )
-
-        force_refresh = threading.Timer(
-            MQTT_REFRESH_TIME * 60, self._force_refresh, args=[serial_number, name]
-        )
-        force_refresh.start()
-        self._timers.update({serial_number: force_refresh})
-
-    def _force_refresh(
-        self, *args, **kwargs  # pylint: disable=unused-argument
-    ) -> None:
-        """Handle for refreshing device."""
-        logger = self._log.getChild("Forced_Refresh")
-        logger.debug("Forcing refresh for '%s'", args[1])
-        self.update(args[0])
-
-        self._schedule_forced_refresh(args[0])
 
     def _on_update(self, payload):  # , topic, payload, dup, qos, retain, **kwargs):
         """Triggered when a MQTT message was received."""
@@ -379,9 +339,6 @@ class WorxCloud(dict):
                 logger.debug("Device is marked offline - refreshing")
                 self._fetch()
                 device: DeviceHandler = self.devices[mower["name"]]
-
-            (self._timers[mower["serial_number"]]).cancel()
-            self._schedule_forced_refresh(mower["serial_number"])
 
             if "raw_data" in mower and mower["raw_data"] == data:
                 self._log.debug("Data was already present and not changed.")
