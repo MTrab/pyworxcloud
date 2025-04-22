@@ -432,15 +432,22 @@ class WorxCloud(dict):
                 pass
 
         logger = self._log.getChild("API_Refresh_Scheduler")
-        next_api_refresh = datetime.now() + timedelta(minutes=API_REFRESH_TIME)
+        last_status = (
+            mower["last_status"]["timestamp"] if mower["last_status"] else None
+        )
+        refresh_secs = API_REFRESH_TIME * 60
+        if not isinstance(last_status, type(None)):
+            update_time = last_status + timedelta(minutes=10, seconds=30)
+            if update_time > datetime.now():
+                refresh_secs = (update_time - datetime.now()).total_seconds()
+
+        next_api_refresh = datetime.now() + timedelta(seconds=refresh_secs)
         logger.debug(
             "Scheduling an API refresh at %s",
             next_api_refresh,
         )
 
-        force_api_refresh = threading.Timer(
-            API_REFRESH_TIME * 60, self._fetch, args=[True]
-        )
+        force_api_refresh = threading.Timer(refresh_secs, self._fetch, args=[True])
         force_api_refresh.start()
         self._timers.update({"api": force_api_refresh})
 
