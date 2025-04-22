@@ -12,6 +12,7 @@ import sys
 import threading
 from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from .api import LandroidCloudAPI
 from .clouds import CloudType
@@ -436,12 +437,18 @@ class WorxCloud(dict):
             mower["last_status"]["timestamp"] if mower["last_status"] else None
         )
         refresh_secs = API_REFRESH_TIME * 60
+        timezone = (
+            ZoneInfo(self._tz)
+            if not isinstance(self._tz, type(None))
+            else ZoneInfo("UTC")
+        )
+        now = datetime.now().astimezone(ZoneInfo(timezone))
         if not isinstance(last_status, type(None)):
             update_time = last_status + timedelta(minutes=10, seconds=30)
-            if update_time > datetime.now():
-                refresh_secs = (update_time - datetime.now()).total_seconds()
+            if update_time > now:
+                refresh_secs = (update_time - now).total_seconds()
 
-        next_api_refresh = datetime.now() + timedelta(seconds=refresh_secs)
+        next_api_refresh = now + timedelta(seconds=refresh_secs)
         logger.debug(
             "Scheduling an API refresh at %s",
             next_api_refresh,
