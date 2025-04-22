@@ -42,7 +42,8 @@ if sys.version_info < (3, 9, 0):
 _LOGGER = logging.getLogger(__name__)
 
 MQTT_REFRESH_TIME = 60
-API_REFRESH_TIME = 5
+API_REFRESH_TIME = 2
+API_OFFLINE_REFRESH_TIME = 30
 
 
 class WorxCloud(dict):
@@ -436,15 +437,17 @@ class WorxCloud(dict):
         last_status = (
             mower["last_status"]["timestamp"] if mower["last_status"] else None
         )
-        refresh_secs = API_REFRESH_TIME * 60
+        refresh_secs = (
+            API_REFRESH_TIME * 60 if mower["online"] else API_OFFLINE_REFRESH_TIME * 60
+        )
         timezone = (
             ZoneInfo(self._tz)
             if not isinstance(self._tz, type(None))
             else ZoneInfo("UTC")
         )
         now = datetime.now().astimezone(timezone)
-        if not isinstance(last_status, type(None)):
-            update_time = last_status + timedelta(minutes=10, seconds=30)
+        if not isinstance(last_status, type(None)) and mower["online"]:
+            update_time = last_status + timedelta(minutes=10)
             if update_time > now:
                 refresh_secs = (update_time - now).total_seconds()
 
