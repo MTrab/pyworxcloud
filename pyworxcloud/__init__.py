@@ -433,24 +433,24 @@ class WorxCloud(dict):
             except TypeError:
                 pass
 
+        self._schedule_api_refresh()
+
+        if forced:
+            self._events.call(
+                LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
+            )
+
+    def _schedule_api_refresh(self) -> None:
+        """Schedule the API refresh."""
         logger = self._log.getChild("API_Refresh_Scheduler")
-        last_status = (
-            mower["last_status"]["timestamp"] if mower["last_status"] else None
-        )
-        refresh_secs = (
-            API_REFRESH_TIME * 60 if mower["online"] else API_OFFLINE_REFRESH_TIME * 60
-        )
+
+        refresh_secs = API_REFRESH_TIME * 60
         timezone = (
             ZoneInfo(self._tz)
             if not isinstance(self._tz, type(None))
             else ZoneInfo("UTC")
         )
         now = datetime.now().astimezone(timezone)
-        if not isinstance(last_status, type(None)) and mower["online"]:
-            update_time = last_status + timedelta(minutes=10)
-            if update_time > now:
-                refresh_secs = (update_time - now).total_seconds()
-
         next_api_refresh = now + timedelta(seconds=refresh_secs)
         logger.debug(
             "Scheduling an API refresh at %s",
@@ -460,11 +460,6 @@ class WorxCloud(dict):
         force_api_refresh = threading.Timer(refresh_secs, self._fetch, args=[True])
         force_api_refresh.start()
         self._timers.update({"api": force_api_refresh})
-
-        if forced:
-            self._events.call(
-                LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
-            )
 
     def get_mower(self, serial_number: str, device: bool = False) -> dict:
         """Get a specific mower object.
