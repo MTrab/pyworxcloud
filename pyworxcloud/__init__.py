@@ -442,7 +442,7 @@ class WorxCloud(dict):
             if not isinstance(self._tz, type(None))
             else ZoneInfo("UTC")
         )
-        now = datetime.now().astimezone(ZoneInfo(timezone))
+        now = datetime.now().astimezone(timezone)
         if not isinstance(last_status, type(None)):
             update_time = last_status + timedelta(minutes=10, seconds=30)
             if update_time > now:
