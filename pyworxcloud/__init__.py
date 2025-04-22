@@ -5,17 +5,16 @@
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import sys
 import threading
 from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from .api import LandroidCloudAPI
 from .clouds import CloudType
-from .day_map import DAY_MAP
 from .events import EventHandler, LandroidEvent
 from .exceptions import (
     AuthorizationError,
@@ -33,15 +32,14 @@ from .helpers import convert_to_time, get_logger
 from .utils import MQTT, DeviceCapability, DeviceHandler
 from .utils.mqtt import Command
 from .utils.requests import HEADERS, POST
-from .utils.schedules import TYPE_TO_STRING
 
 if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
 
 _LOGGER = logging.getLogger(__name__)
 
-REFRESH_TIME = 60
-API_REFRESH_TIME = 60
+MQTT_REFRESH_TIME = 60
+API_REFRESH_TIME = 5
 
 
 class WorxCloud(dict):
@@ -315,7 +313,7 @@ class WorxCloud(dict):
             )
             return None
 
-        next_refresh = datetime.now() + timedelta(minutes=REFRESH_TIME)
+        next_refresh = datetime.now() + timedelta(minutes=MQTT_REFRESH_TIME)
         logger.debug(
             "Scheduling a forced refresh for '%s' at %s",
             name,
@@ -323,7 +321,7 @@ class WorxCloud(dict):
         )
 
         force_refresh = threading.Timer(
-            REFRESH_TIME * 60, self._force_refresh, args=[serial_number, name]
+            MQTT_REFRESH_TIME * 60, self._force_refresh, args=[serial_number, name]
         )
         force_refresh.start()
         self._timers.update({serial_number: force_refresh})
@@ -431,23 +429,33 @@ class WorxCloud(dict):
             except TypeError:
                 pass
 
-        logger = self._log.getChild("API_Refresh_Scheduler")
-        next_api_refresh = datetime.now() + timedelta(minutes=API_REFRESH_TIME)
-        logger.debug(
-            "Scheduling an API refresh at %s",
-            next_api_refresh,
-        )
-
-        force_api_refresh = threading.Timer(
-            API_REFRESH_TIME * 60, self._fetch, args=[True]
-        )
-        force_api_refresh.start()
-        self._timers.update({"api": force_api_refresh})
+        self._schedule_api_refresh()
 
         if forced:
             self._events.call(
                 LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
             )
+
+    def _schedule_api_refresh(self) -> None:
+        """Schedule the API refresh."""
+        logger = self._log.getChild("API_Refresh_Scheduler")
+
+        refresh_secs = API_REFRESH_TIME * 60
+        timezone = (
+            ZoneInfo(self._tz)
+            if not isinstance(self._tz, type(None))
+            else ZoneInfo("UTC")
+        )
+        now = datetime.now().astimezone(timezone)
+        next_api_refresh = now + timedelta(seconds=refresh_secs)
+        logger.debug(
+            "Scheduling an API refresh at %s",
+            next_api_refresh,
+        )
+
+        force_api_refresh = threading.Timer(refresh_secs, self._fetch, args=[True])
+        force_api_refresh.start()
+        self._timers.update({"api": force_api_refresh})
 
     def get_mower(self, serial_number: str, device: bool = False) -> dict:
         """Get a specific mower object.
