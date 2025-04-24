@@ -17,6 +17,7 @@ class DeviceCapability(IntEnum):
     PARTY_MODE = 4
     TORQUE = 8
     OFF_LIMITS = 16
+    CUTTING_HEIGHT = 32
 
 
 CAPABILITY_TO_TEXT = {
@@ -25,6 +26,7 @@ CAPABILITY_TO_TEXT = {
     DeviceCapability.PARTY_MODE: "Party Mode",
     DeviceCapability.TORQUE: "Motor Torque",
     DeviceCapability.OFF_LIMITS: "Off Limits",
+    DeviceCapability.CUTTING_HEIGHT: "Cutting Height",
 }
 
 
@@ -72,6 +74,12 @@ class Capability:
         try:
             if "tq" in cfg:
                 self.add(DeviceCapability.TORQUE)
+        except TypeError:
+            pass
+
+        try:
+            if "EA" in cfg["modules"]:
+                self.add(DeviceCapability.CUTTING_HEIGHT)
         except TypeError:
             pass
 

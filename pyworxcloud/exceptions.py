@@ -99,3 +99,7 @@ class ZoneNotDefined(Exception):
 
 class ZoneNoProbability(Exception):
     """Raised when the requested zone is has no probability set."""
+
+
+class NoCuttingHeightError(Exception):
+    """Raised when the mower doesn't support setting or retrieving cutting height."""
