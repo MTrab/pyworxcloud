@@ -115,6 +115,8 @@ class EventHandler:
                 level=kwargs["level"],
             )
             return True
+        elif LandroidEvent.API == event:
+            self.__events[event]()
         else:
             # Not a valid LandroidEvent
             return False
