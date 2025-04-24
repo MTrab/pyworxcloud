@@ -354,8 +354,6 @@ class WorxCloud(dict):
         except json.decoder.JSONDecodeError:
             logger.debug("Malformed MQTT message received")
 
-        self._schedule_api_refresh()
-
     def _on_api_update(self, data):  # , topic, payload, dup, qos, retain, **kwargs):
         """Triggered when API has been updated."""
         logger = self._log.getChild("API_update")
