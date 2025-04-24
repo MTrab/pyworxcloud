@@ -391,9 +391,10 @@ class WorxCloud(dict):
         self._schedule_api_refresh()
 
         if forced:
-            self._events.call(
-                LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
-            )
+            # self._events.call(
+            #     LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
+            # )
+            self._events.call(LandroidEvent.API)
 
     def _schedule_api_refresh(self) -> None:
         """Schedule the API refresh."""
