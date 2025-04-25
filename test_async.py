@@ -28,10 +28,7 @@ async def async_worx():
     cloud.authenticate()
     cloud.connect()
     cloud.set_callback(LandroidEvent.DATA_RECEIVED, receive_data)
-
-    ## Force an data update
-    # device = cloud.devices[environ["DEV_NAME"]]
-    # cloud.update(device.serial_number)
+    cloud.set_callback(LandroidEvent.API, receive_api_data)
 
     for _, device in cloud.devices.items():
         cloud.update(device.serial_number)
@@ -52,5 +49,9 @@ def receive_data(
     print(name + " last status: " + str(device.last_status))
 
 
-print(tz)
+def receive_api_data() -> None:
+    """Callback function when the API data was updated."""
+    print("API data was refreshed")
+
+
 asyncio.run(main())
