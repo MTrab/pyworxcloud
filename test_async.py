@@ -30,7 +30,6 @@ async def async_worx():
     cloud.set_callback(LandroidEvent.DATA_RECEIVED, receive_data)
     cloud.set_callback(LandroidEvent.API, receive_api_data)
 
-
     print("Listening for new data")
     while 1:
         pass
@@ -47,7 +46,9 @@ def receive_data(
     print(name + " last status: " + str(device.last_status))
 
 
-def receive_api_data(api_data: list) -> None:
+def receive_api_data(
+    name: str, device: DeviceHandler  # pylint: disable=unused-argument
+) -> None:
     """Callback function when the API data was updated."""
     print("API data was refreshed")
 
