@@ -368,14 +368,13 @@ class WorxCloud(dict):
         # self.devices = {}
         for mower in self._mowers:
             try:
-                device = DeviceHandler(self._api, mower, self._tz)
-                _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
-                self.devices.update({mower["name"]: device})
-
+                device = DeviceHandler(self._api, mower, self._tz,False)
                 if not isinstance(mower["last_status"], type(None)):
                     device.raw_data = mower["last_status"]["payload"]
 
                 device = DeviceHandler(self._api, mower, self._tz)
+                _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
+                self.devices.update({mower["name"]: device})
 
                 if isinstance(mower["mac_address"], type(None)):
                     mower["mac_address"] = (
@@ -392,7 +391,7 @@ class WorxCloud(dict):
             # self._events.call(
             #     LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
             # )
-            self._events.call(LandroidEvent.API)
+            self._events.call(LandroidEvent.API, api_data=self._mowers)
 
     def _schedule_api_refresh(self) -> None:
         """Schedule the API refresh."""

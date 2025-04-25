@@ -116,7 +116,14 @@ class EventHandler:
             )
             return True
         elif LandroidEvent.API == event:
-            self.__events[event]()
+            if not check_syntax(kwargs, ["api_data"], list):
+                _LOGGER.warning(
+                    "requirements for attributes was not fulfilled, not sending event!"
+                )
+                return False
+
+            self.__events[event](api_data=kwargs["api_data"])
+            return True
         else:
             # Not a valid LandroidEvent
             return False
