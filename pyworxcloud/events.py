@@ -63,7 +63,7 @@ class EventHandler:
             # Event was not set
             return False
 
-        if LandroidEvent.DATA_RECEIVED == event:
+        if LandroidEvent.DATA_RECEIVED == event or LandroidEvent.API == event:
             from .utils.devices import DeviceHandler
 
             if not check_syntax(kwargs, ["name"], str) or not check_syntax(
@@ -114,15 +114,6 @@ class EventHandler:
                 message=kwargs["message"],
                 level=kwargs["level"],
             )
-            return True
-        elif LandroidEvent.API == event:
-            if not check_syntax(kwargs, ["api_data"], list):
-                _LOGGER.warning(
-                    "requirements for attributes was not fulfilled, not sending event!"
-                )
-                return False
-
-            self.__events[event](api_data=kwargs["api_data"])
             return True
         else:
             # Not a valid LandroidEvent

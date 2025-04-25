@@ -382,16 +382,17 @@ class WorxCloud(dict):
                         if "mac" in device.raw_data["dat"]
                         else "__UUID__"
                     )
+
+                if forced:
+                    self._events.call(
+                        LandroidEvent.API, name=mower["name"], device=device
+                    )
+
             except TypeError:
                 pass
 
         self._schedule_api_refresh()
 
-        if forced:
-            # self._events.call(
-            #     LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
-            # )
-            self._events.call(LandroidEvent.API, api_data=self._mowers)
 
     def _schedule_api_refresh(self) -> None:
         """Schedule the API refresh."""
