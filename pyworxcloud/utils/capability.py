@@ -66,20 +66,19 @@ class Capability:
 
         try:
             if "modules" in dat:
+                # Offlimits module
                 if "DF" in dat["modules"]:
                     self.add(DeviceCapability.OFF_LIMITS)
+
+                # Set cutting height
+                if "EA" in dat["modules"]:
+                    self.add(DeviceCapability.CUTTING_HEIGHT)
         except TypeError:
             pass
 
         try:
             if "tq" in cfg:
                 self.add(DeviceCapability.TORQUE)
-        except TypeError:
-            pass
-
-        try:
-            if "EA" in cfg["modules"]:
-                self.add(DeviceCapability.CUTTING_HEIGHT)
         except TypeError:
             pass
 
