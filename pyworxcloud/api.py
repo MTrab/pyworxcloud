@@ -83,7 +83,6 @@ class LandroidCloudAPI:
         now = int(time.time())
         self._token_expire = now + int(resp["expires_in"])
 
-
     def _get_headers(self, tokenheaders: bool = False) -> dict:
         """Create header object for communication packets."""
         header_data = {}
