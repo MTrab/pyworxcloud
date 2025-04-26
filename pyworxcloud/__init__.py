@@ -20,6 +20,7 @@ from .exceptions import (
     AuthorizationError,
     MowerNotFoundError,
     NoConnectionError,
+    NoCuttingHeightError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
     NoPartymodeError,
@@ -917,3 +918,49 @@ class WorxCloud(dict):
                 HEADERS(self._api.access_token),
             )
             self._fetch(True)
+
+    def get_cutting_height(self, serial_number: str) -> int:
+        """Get the current cutting height of the device.
+
+        Args:
+            serial_number (str): Serial number of the device
+
+        Returns:
+            int: Cutting height in mm
+
+        Raises:
+            NoCuttingHeightError: Raised if the device does not support cutting height.
+        """
+        mower = self.get_mower(serial_number)
+        try:
+            return int(mower["last_status"]["payload"]["cfg"]["EA"]["h"])
+        except KeyError:
+            raise NoCuttingHeightError("This device does not support cutting height")
+
+    def set_cutting_height(self, serial_number: str, height: int) -> None:
+        """Set the cutting height of the device.
+
+        Args:
+            serial_number (str): Serial number of the device
+            height (int): Cutting height in mm
+
+        Raises:
+            NoCuttingHeightError: Raised if the device does not support cutting height.
+            OfflineError: Raised if the device is offline.
+        """
+        mower = self.get_mower(serial_number)
+        if mower["online"]:
+            device = DeviceHandler(self._api, mower, self._tz)
+            if device.capabilities.check(DeviceCapability.CUTTING_HEIGHT):
+                self.mqtt.publish(
+                    serial_number if mower["protocol"] == 0 else mower["uuid"],
+                    mower["mqtt_topics"]["command_in"],
+                    {"cmd": 0, "modules": {"EA": {"h": height}}},
+                    mower["protocol"],
+                )
+            else:
+                raise NoCuttingHeightError(
+                    "This device does not support cutting height"
+                )
+        else:
+            raise OfflineError("The device is currently offline, no action was sent.")
