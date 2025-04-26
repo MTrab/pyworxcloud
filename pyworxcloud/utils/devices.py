@@ -38,7 +38,11 @@ class DeviceHandler(LDict):
     __json_data: str = None
 
     def __init__(
-        self, api: Any = None, mower: Any = None, tz: str | None = None
+        self,
+        api: Any = None,
+        mower: Any = None,
+        tz: str | None = None,
+        decode: bool = True,
     ) -> dict:
         """Initialize the object."""
         super().__init__()
@@ -46,6 +50,7 @@ class DeviceHandler(LDict):
         self._api = api
         self.mower = mower
         self._tz = tz
+        self._decode = decode
 
         self.battery = Battery()
         self.blades = Blades()
@@ -142,9 +147,9 @@ class DeviceHandler(LDict):
             if hasattr(self, attr):
                 delattr(self, attr)
 
-        self.decode_data()
-
-        self.is_decoded = True
+        if self._decode:
+            self.decode_data()
+            self.is_decoded = True
 
     def decode_data(self) -> None:
         """Decode incoming JSON data."""

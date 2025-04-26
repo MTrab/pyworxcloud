@@ -63,7 +63,7 @@ class EventHandler:
             # Event was not set
             return False
 
-        if LandroidEvent.DATA_RECEIVED == event:
+        if LandroidEvent.DATA_RECEIVED == event or LandroidEvent.API == event:
             from .utils.devices import DeviceHandler
 
             if not check_syntax(kwargs, ["name"], str) or not check_syntax(

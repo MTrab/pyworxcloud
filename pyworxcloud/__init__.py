@@ -354,8 +354,6 @@ class WorxCloud(dict):
         except json.decoder.JSONDecodeError:
             logger.debug("Malformed MQTT message received")
 
-        self._schedule_api_refresh()
-
     def _on_api_update(self, data):  # , topic, payload, dup, qos, retain, **kwargs):
         """Triggered when API has been updated."""
         logger = self._log.getChild("API_update")
@@ -370,14 +368,12 @@ class WorxCloud(dict):
         # self.devices = {}
         for mower in self._mowers:
             try:
-                device = DeviceHandler(self._api, mower, self._tz)
-                _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
-                self.devices.update({mower["name"]: device})
-
+                device = DeviceHandler(self._api, mower, self._tz, False)
                 if not isinstance(mower["last_status"], type(None)):
                     device.raw_data = mower["last_status"]["payload"]
 
-                device = DeviceHandler(self._api, mower, self._tz)
+                _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
+                self.devices.update({mower["name"]: device})
 
                 if isinstance(mower["mac_address"], type(None)):
                     mower["mac_address"] = (
@@ -385,15 +381,15 @@ class WorxCloud(dict):
                         if "mac" in device.raw_data["dat"]
                         else "__UUID__"
                     )
+
+                if forced:
+                    self._events.call(
+                        LandroidEvent.API, name=mower["name"], device=device
+                    )
             except TypeError:
                 pass
 
         self._schedule_api_refresh()
-
-        if forced:
-            self._events.call(
-                LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
-            )
 
     def _schedule_api_refresh(self) -> None:
         """Schedule the API refresh."""
