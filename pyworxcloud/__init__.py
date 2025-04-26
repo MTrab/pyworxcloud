@@ -12,6 +12,7 @@ import threading
 from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
+from random import randint
 
 from .api import LandroidCloudAPI
 from .clouds import CloudType
@@ -39,7 +40,8 @@ if sys.version_info < (3, 9, 0):
 
 _LOGGER = logging.getLogger(__name__)
 
-API_REFRESH_TIME = 5
+API_REFRESH_TIME_MIN = 5
+API_REFRESH_TIME_MAX = 10
 
 
 class WorxCloud(dict):
@@ -401,7 +403,7 @@ class WorxCloud(dict):
         except KeyError:
             pass
 
-        refresh_secs = API_REFRESH_TIME * 60
+        refresh_secs = (randint(API_REFRESH_TIME_MIN, API_REFRESH_TIME_MAX)) * 60
         timezone = (
             ZoneInfo(self._tz)
             if not isinstance(self._tz, type(None))
