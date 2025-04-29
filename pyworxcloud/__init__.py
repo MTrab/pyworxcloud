@@ -935,7 +935,7 @@ class WorxCloud(dict):
         """
         mower = self.get_mower(serial_number)
         try:
-            return int(mower["last_status"]["payload"]["cfg"]["EA"]["h"])
+            return int(mower["last_status"]["payload"]["cfg"]["modules"]["EA"]["h"])
         except KeyError:
             raise NoCuttingHeightError("This device does not support cutting height")
 
