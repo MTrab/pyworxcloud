@@ -26,14 +26,15 @@ while iter <= max:
     cloud.connect()
 
     # for _, device in cloud.devices.items():
-    #     cloud.update(device.serial_number)
-    #     pprint(vars(device))
-    #     print(f"{device.name} online: {device.online}")
+        #     cloud.update(device.serial_number)
+        #     pprint(vars(device))
+        #     print(f"{device.name} online: {device.online}")
 
-    #     cloud.set_offlimits(device.serial_number, False)
-    #     cloud.set_offlimits_shortcut(device.serial_number, True)
-    #     cloud.set_cutting_height(device.serial_number, 45)
-    #     print(f"Cutting height: {cloud.get_cutting_height(device.serial_number)}")
+        #     cloud.set_offlimits(device.serial_number, False)
+        #     cloud.set_offlimits_shortcut(device.serial_number, True)
+        #     cloud.set_cutting_height(device.serial_number, 45)
+        #     print(f"Cutting height: {cloud.get_cutting_height(device.serial_number)}")
+        # cloud.set_acs(device.serial_number, False)
 
     cloud.disconnect()
     iter += 1

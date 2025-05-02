@@ -443,6 +443,12 @@ class DeviceHandler(LDict):
                             str(data["cfg"]["modules"]["DF"]["fh"]) == "1"
                         )
 
+                    if "US" in data["cfg"]["modules"]:
+                        self.capabilities.add(DeviceCapability.ACS)
+                        self.acs_enabled = bool(
+                            str(data["cfg"]["modules"]["US"]["enabled"]) == "1"
+                        )
+
             self.schedules.update_progress_and_next(
                 tz=(
                     self._tz if not isinstance(self._tz, type(None)) else self.time_zone

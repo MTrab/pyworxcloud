@@ -18,6 +18,7 @@ class DeviceCapability(IntEnum):
     TORQUE = 8
     OFF_LIMITS = 16
     CUTTING_HEIGHT = 32
+    ACS = 64
 
 
 CAPABILITY_TO_TEXT = {
@@ -27,6 +28,7 @@ CAPABILITY_TO_TEXT = {
     DeviceCapability.TORQUE: "Motor Torque",
     DeviceCapability.OFF_LIMITS: "Off Limits",
     DeviceCapability.CUTTING_HEIGHT: "Cutting Height",
+    DeviceCapability.ACS: "ACS",
 }
 
 
@@ -73,6 +75,10 @@ class Capability:
                 # Set cutting height
                 if "EA" in dat["modules"]:
                     self.add(DeviceCapability.CUTTING_HEIGHT)
+
+                # ACS module
+                if "US" in dat["modules"]:
+                    self.add(DeviceCapability.ACS)
         except TypeError:
             pass
 
