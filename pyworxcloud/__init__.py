@@ -10,9 +10,9 @@ import logging
 import sys
 import threading
 from datetime import datetime, timedelta
+from random import randint
 from typing import Any
 from zoneinfo import ZoneInfo
-from random import randint
 
 from .api import LandroidCloudAPI
 from .clouds import CloudType
