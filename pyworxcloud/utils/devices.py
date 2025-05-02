@@ -304,115 +304,72 @@ class DeviceHandler(LDict):
                 sch_type = ScheduleType.PRIMARY
                 self.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
 
-                for day in range(
-                    0,
-                    (
-                        len(data["cfg"]["sc"]["d"])
-                        if self.protocol == 0
-                        else len(data["cfg"]["sc"]["slots"])
-                    ),
-                ):
-                    dayOfWeek = (  # pylint: disable=invalid-name
-                        day
-                        if self.protocol == 0
-                        else data["cfg"]["sc"]["slots"][day]["d"]
-                    )
-                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                        "start"
-                    ] = (
-                        data["cfg"]["sc"]["d"][day][0]
-                        if self.protocol == 0
-                        else (
-                            datetime.strptime("00:00", "%H:%M")
-                            + timedelta(minutes=data["cfg"]["sc"]["slots"][day]["s"])
-                        ).strftime("%H:%M")
-                    )
-                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                        "duration"
-                    ] = (
-                        data["cfg"]["sc"]["d"][day][1]
-                        if self.protocol == 0
-                        else data["cfg"]["sc"]["slots"][day]["t"]
-                    )
-                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                        "boundary"
-                    ] = (
-                        bool(data["cfg"]["sc"]["d"][day][2])
-                        if self.protocol == 0
-                        else (
-                            bool(data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]["b"])
-                            if "b" in data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]
-                            else None
-                        )
-                    )
-
-                    time_start = datetime.strptime(
-                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                            "start"
-                        ],
-                        "%H:%M",
-                    )
-
-                    if isinstance(
-                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                            "duration"
-                        ],
-                        type(None),
+                try:
+                    for day in range(
+                        0,
+                        (
+                            len(data["cfg"]["sc"]["d"])
+                            if self.protocol == 0
+                            else len(data["cfg"]["sc"]["slots"])
+                        ),
                     ):
+                        dayOfWeek = (  # pylint: disable=invalid-name
+                            day
+                            if self.protocol == 0
+                            else data["cfg"]["sc"]["slots"][day]["d"]
+                        )
                         self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                            "duration"
-                        ] = "0"
-
-                    duration = int(
-                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                            "duration"
-                        ]
-                    )
-
-                    duration = duration * (
-                        1 + (int(self.schedules["time_extension"]) / 100)
-                    )
-                    end_time = time_start + timedelta(minutes=duration)
-
-                    self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
-                        "end"
-                    ] = end_time.time().strftime("%H:%M")
-
-                # Fetch secondary schedule
-                if "dd" in data["cfg"]["sc"]:
-                    sch_type = ScheduleType.SECONDARY
-                    self.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
-
-                    for day in range(0, len(data["cfg"]["sc"]["dd"])):
-                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
                             "start"
-                        ] = data["cfg"]["sc"]["dd"][day][0]
-                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        ] = (
+                            data["cfg"]["sc"]["d"][day][0]
+                            if self.protocol == 0
+                            else (
+                                datetime.strptime("00:00", "%H:%M")
+                                + timedelta(
+                                    minutes=data["cfg"]["sc"]["slots"][day]["s"]
+                                )
+                            ).strftime("%H:%M")
+                        )
+                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "duration"
-                        ] = data["cfg"]["sc"]["dd"][day][1]
-                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        ] = (
+                            data["cfg"]["sc"]["d"][day][1]
+                            if self.protocol == 0
+                            else data["cfg"]["sc"]["slots"][day]["t"]
+                        )
+                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "boundary"
-                        ] = bool(data["cfg"]["sc"]["dd"][day][2])
+                        ] = (
+                            bool(data["cfg"]["sc"]["d"][day][2])
+                            if self.protocol == 0
+                            else (
+                                bool(data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]["b"])
+                                if "b" in data["cfg"]["sc"]["slots"][day]["cfg"]["cut"]
+                                else None
+                            )
+                        )
 
                         time_start = datetime.strptime(
-                            data["cfg"]["sc"]["dd"][day][0],
+                            self.schedules[TYPE_TO_STRING[sch_type]][
+                                DAY_MAP[dayOfWeek]
+                            ]["start"],
                             "%H:%M",
                         )
 
                         if isinstance(
-                            self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                                "duration"
-                            ],
+                            self.schedules[TYPE_TO_STRING[sch_type]][
+                                DAY_MAP[dayOfWeek]
+                            ]["duration"],
                             type(None),
                         ):
-                            self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                                "duration"
-                            ] = "0"
+                            self.schedules[TYPE_TO_STRING[sch_type]][
+                                DAY_MAP[dayOfWeek]
+                            ]["duration"] = "0"
 
                         duration = int(
-                            self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
-                                "duration"
-                            ]
+                            self.schedules[TYPE_TO_STRING[sch_type]][
+                                DAY_MAP[dayOfWeek]
+                            ]["duration"]
                         )
 
                         duration = duration * (
@@ -420,9 +377,60 @@ class DeviceHandler(LDict):
                         )
                         end_time = time_start + timedelta(minutes=duration)
 
-                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                        self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[dayOfWeek]][
                             "end"
                         ] = end_time.time().strftime("%H:%M")
+                except KeyError:
+                    pass
+
+                # Fetch secondary schedule
+                try:
+                    if "dd" in data["cfg"]["sc"]:
+                        sch_type = ScheduleType.SECONDARY
+                        self.schedules.update({TYPE_TO_STRING[sch_type]: Weekdays()})
+
+                        for day in range(0, len(data["cfg"]["sc"]["dd"])):
+                            self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                "start"
+                            ] = data["cfg"]["sc"]["dd"][day][0]
+                            self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                "duration"
+                            ] = data["cfg"]["sc"]["dd"][day][1]
+                            self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                "boundary"
+                            ] = bool(data["cfg"]["sc"]["dd"][day][2])
+
+                            time_start = datetime.strptime(
+                                data["cfg"]["sc"]["dd"][day][0],
+                                "%H:%M",
+                            )
+
+                            if isinstance(
+                                self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                    "duration"
+                                ],
+                                type(None),
+                            ):
+                                self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                    "duration"
+                                ] = "0"
+
+                            duration = int(
+                                self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                    "duration"
+                                ]
+                            )
+
+                            duration = duration * (
+                                1 + (int(self.schedules["time_extension"]) / 100)
+                            )
+                            end_time = time_start + timedelta(minutes=duration)
+
+                            self.schedules[TYPE_TO_STRING[sch_type]][DAY_MAP[day]][
+                                "end"
+                            ] = end_time.time().strftime("%H:%M")
+                except KeyError:
+                    pass
 
                 # Check for addon modules
                 if "modules" in data["cfg"]:
