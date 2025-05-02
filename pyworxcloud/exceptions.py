@@ -103,3 +103,7 @@ class ZoneNoProbability(Exception):
 
 class NoCuttingHeightError(Exception):
     """Raised when the mower doesn't support setting or retrieving cutting height."""
+
+
+class NoACSModuleError(Exception):
+    """Raised when the mower doesn't have ACS module."""

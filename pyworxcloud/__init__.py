@@ -20,6 +20,7 @@ from .events import EventHandler, LandroidEvent
 from .exceptions import (
     AuthorizationError,
     MowerNotFoundError,
+    NoACSModuleError,
     NoConnectionError,
     NoCuttingHeightError,
     NoOfflimitsError,
@@ -963,6 +964,34 @@ class WorxCloud(dict):
             else:
                 raise NoCuttingHeightError(
                     "This device does not support cutting height"
+                )
+        else:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+    def set_acs(self, serial_number: str, state: bool) -> None:
+        """Enable or disable the ACS module.
+
+        Args:
+            serial_number (str): Serial number of the device
+            state (bool): True is enabling ACS, False is disabling ACS.
+
+        Raises:
+            NoACSModuleError: Raised if the device does not support ACS.
+            OfflineError: Raised if the device is offline.
+        """
+        mower = self.get_mower(serial_number)
+        if mower["online"]:
+            device = DeviceHandler(self._api, mower, self._tz)
+            if device.capabilities.check(DeviceCapability.ACS):
+                self.mqtt.publish(
+                    serial_number if mower["protocol"] == 0 else mower["uuid"],
+                    mower["mqtt_topics"]["command_in"],
+                    {"cmd": 0, "modules": {"US": {"enabled": 1 if state else 0}}},
+                    mower["protocol"],
+                )
+            else:
+                raise NoACSModuleError(
+                    "This device does not have an ACS module installed."
                 )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
