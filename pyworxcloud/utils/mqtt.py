@@ -231,22 +231,22 @@ class MQTT(LDict):
         self._is_connected = False
         if rc > 0:
             if rc == 7:
-                if not self._reconnected:
-                    self._reconnected = True
-                    logger.debug("Reconnecting MQTT")
-                    self._api.check_token()
-                    accesstokenparts = (
-                        self._api.access_token.replace("_", "/")
-                        .replace("-", "+")
-                        .split(".")
-                    )
-                    self.client.username_pw_set(
-                        username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
-                        password=None,
-                    )
-                else:
-                    self.disconnect()
-                    raise NoConnectionError("Error connecting to AwSIoT MQTT")
+                # if not self._reconnected:
+                self._reconnected = True
+                logger.debug("Reconnecting MQTT")
+                self._api.check_token()
+                accesstokenparts = (
+                    self._api.access_token.replace("_", "/")
+                    .replace("-", "+")
+                    .split(".")
+                )
+                self.client.username_pw_set(
+                    username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
+                    password=None,
+                )
+                # else:
+                #     self.disconnect()
+                #     raise NoConnectionError("Error connecting to AwSIoT MQTT")
             else:
                 logger.debug(
                     "Unexpected MQTT disconnect (%s: %s) - retrying",
