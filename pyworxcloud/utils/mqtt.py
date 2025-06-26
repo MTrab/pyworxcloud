@@ -105,7 +105,6 @@ class MQTT(LDict):
         self._on_update = callback
         self._endpoint = endpoint
         self._log = logger.getChild("MQTT")
-        self._disconnected: bool = False
         self._reconnected: bool = False
         self._topic: list = []
         self._api = api
@@ -201,7 +200,6 @@ class MQTT(LDict):
         logger = self._log.getChild("Conn_State")
         logger.debug(connack_string(rc))
         if rc == 0:
-            self._disconnected = False
             self._is_connected = True
             self._reconnected = False
             logger.debug("MQTT connected")
@@ -284,7 +282,6 @@ class MQTT(LDict):
             logger.debug("Unsubscribing '%s'", topic)
             self.client.unsubscribe(topic)
         self._topic = []
-        self._disconnected = True
         self.client.loop_stop()
         self.client.disconnect()
         logger.debug("MQTT disconnected")
@@ -312,7 +309,7 @@ class MQTT(LDict):
         """Publish message to the mower."""
         if not self.connected:
             self.update_token()
-            # raise NoConnectionError("No connection to AwSIoT MQTT")
+            #raise NoConnectionError("No connection to AwSIoT MQTT")
 
         while self._await_publish:
             if self._await_timestamp + 30 >= time.time():
