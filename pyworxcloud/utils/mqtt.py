@@ -268,7 +268,11 @@ class MQTT(LDict):
             username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
             password=None,
         )
-        self.client.reconnect()
+        if self.connected:
+            self.client.reconnect()
+        else:
+            self.connect()
+
         self._log.debug("Token updated")
 
     def disconnect(
@@ -307,7 +311,8 @@ class MQTT(LDict):
     ) -> None:
         """Publish message to the mower."""
         if not self.connected:
-            raise NoConnectionError("No connection to AwSIoT MQTT")
+            self.update_token()
+            # raise NoConnectionError("No connection to AwSIoT MQTT")
 
         while self._await_publish:
             if self._await_timestamp + 30 >= time.time():
