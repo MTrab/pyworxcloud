@@ -105,7 +105,6 @@ class MQTT(LDict):
         self._on_update = callback
         self._endpoint = endpoint
         self._log = logger.getChild("MQTT")
-        self._disconnected: bool = False
         self._reconnected: bool = False
         self._topic: list = []
         self._api = api
@@ -201,7 +200,6 @@ class MQTT(LDict):
         logger = self._log.getChild("Conn_State")
         logger.debug(connack_string(rc))
         if rc == 0:
-            self._disconnected = False
             self._is_connected = True
             self._reconnected = False
             logger.debug("MQTT connected")
@@ -231,22 +229,22 @@ class MQTT(LDict):
         self._is_connected = False
         if rc > 0:
             if rc == 7:
-                if not self._reconnected:
-                    self._reconnected = True
-                    logger.debug("Reconnecting MQTT")
-                    self._api.check_token()
-                    accesstokenparts = (
-                        self._api.access_token.replace("_", "/")
-                        .replace("-", "+")
-                        .split(".")
-                    )
-                    self.client.username_pw_set(
-                        username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
-                        password=None,
-                    )
-                else:
-                    self.disconnect()
-                    raise NoConnectionError("Error connecting to AwSIoT MQTT")
+                # if not self._reconnected:
+                self._reconnected = True
+                logger.debug("Reconnecting MQTT")
+                self._api.check_token()
+                accesstokenparts = (
+                    self._api.access_token.replace("_", "/")
+                    .replace("-", "+")
+                    .split(".")
+                )
+                self.client.username_pw_set(
+                    username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
+                    password=None,
+                )
+                # else:
+                #     self.disconnect()
+                #     raise NoConnectionError("Error connecting to AwSIoT MQTT")
             else:
                 logger.debug(
                     "Unexpected MQTT disconnect (%s: %s) - retrying",
@@ -268,7 +266,11 @@ class MQTT(LDict):
             username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
             password=None,
         )
-        self.client.reconnect()
+        if self.connected:
+            self.client.reconnect()
+        else:
+            self.connect()
+
         self._log.debug("Token updated")
 
     def disconnect(
@@ -280,7 +282,6 @@ class MQTT(LDict):
             logger.debug("Unsubscribing '%s'", topic)
             self.client.unsubscribe(topic)
         self._topic = []
-        self._disconnected = True
         self.client.loop_stop()
         self.client.disconnect()
         logger.debug("MQTT disconnected")
@@ -307,7 +308,8 @@ class MQTT(LDict):
     ) -> None:
         """Publish message to the mower."""
         if not self.connected:
-            raise NoConnectionError("No connection to AwSIoT MQTT")
+            self.update_token()
+            #raise NoConnectionError("No connection to AwSIoT MQTT")
 
         while self._await_publish:
             if self._await_timestamp + 30 >= time.time():
