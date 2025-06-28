@@ -134,7 +134,9 @@ class DeviceHandler(LDict):
         if data in ["lawn_perimeter", "lawn_size"]:
             self.lawn = Lawn(data["lawn_perimeter"], data["lawn_size"])
 
-        self.name = data["name"]
+        self.name = (
+            data["name"] if not isinstance(data["name"], type(None)) else "No Name"
+        )
         self.model = str.format(
             "{} ({})", data["model"]["friendly_name"], data["model"]["code"]
         )
