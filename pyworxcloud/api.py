@@ -125,6 +125,10 @@ class LandroidCloudAPI:
             HEADERS(self.access_token),
         )
         for mower in mowers:
+            if mower["name"] is None:
+                # Add default name when mower is unnamed
+                mower["name"] = "No Name"
+
             _LOGGER.debug("Matching models for mower '%s'", mower["name"])
             model = self.get_model(mower["product_id"])
             mower["model"] = {
