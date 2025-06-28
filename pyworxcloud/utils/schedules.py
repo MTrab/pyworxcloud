@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import calendar
 from datetime import datetime, timedelta
 from enum import IntEnum
 from typing import Any
@@ -46,7 +45,8 @@ class Weekdays(LDict):
     def __init__(self) -> dict:
         super().__init__()
 
-        for day in list(calendar.day_name):
+        for day in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+            # Initialize each weekday with default settings
             self.update({day.lower(): WeekdaySettings()})
 
 
