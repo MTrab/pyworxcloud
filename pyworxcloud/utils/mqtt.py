@@ -309,7 +309,7 @@ class MQTT(LDict):
         """Publish message to the mower."""
         if not self.connected:
             self.update_token()
-            #raise NoConnectionError("No connection to AwSIoT MQTT")
+            # raise NoConnectionError("No connection to AwSIoT MQTT")
 
         while self._await_publish:
             if self._await_timestamp + 30 >= time.time():

@@ -45,7 +45,15 @@ class Weekdays(LDict):
     def __init__(self) -> dict:
         super().__init__()
 
-        for day in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+        for day in [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
+        ]:
             # Initialize each weekday with default settings
             self.update({day.lower(): WeekdaySettings()})
 
