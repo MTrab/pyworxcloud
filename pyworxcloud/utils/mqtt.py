@@ -13,6 +13,7 @@ from datetime import datetime
 from logging import Logger
 from typing import Any
 from uuid import uuid4
+import socket
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import connack_string
@@ -114,6 +115,14 @@ class MQTT(LDict):
         self._is_connected: bool = False
         self._brandprefix = brandprefix
         self._user_id = user_id
+
+        # Monkeypatch getaddrinfo til kun at returnere IPv4-adresser
+        original_getaddrinfo = socket.getaddrinfo
+
+        def getaddrinfo_ipv4(host, port, family=0, type=0, proto=0, flags=0):
+            return original_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+
+        socket.getaddrinfo = getaddrinfo_ipv4
 
         self.client = mqtt.Client(
             client_id=f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}",
