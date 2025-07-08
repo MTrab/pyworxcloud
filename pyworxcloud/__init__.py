@@ -845,12 +845,27 @@ class WorxCloud(dict):
                     runtime = int(runtime)
 
                 device = DeviceHandler(self._api, mower, self._tz)
-                self.mqtt.publish(
-                    serial_number if mower["protocol"] == 0 else mower["uuid"],
-                    mower["mqtt_topics"]["command_in"],
-                    {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}},
-                    mower["protocol"],
-                )
+                if mower["protocol"] == 0:
+                    self.mqtt.publish(
+                        serial_number,
+                        mower["mqtt_topics"]["command_in"],
+                        {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}},
+                        mower["protocol"],
+                    )
+                else:
+                    self.mqtt.publish(
+                        mower["uuid"],
+                        mower["mqtt_topics"]["command_in"],
+                        {
+                            "sc": {
+                                "once": {
+                                    "cfg": {"cut": {"b": int(boundary)}},
+                                    "time": runtime,
+                                }
+                            }
+                        },
+                        mower["protocol"],
+                    )
             elif not device.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE):
                 raise NoOneTimeScheduleError(
                     "This device does not support Edgecut-on-demand"

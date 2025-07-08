@@ -12,5 +12,6 @@
   "files.trimTrailingWhitespace": true,
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter"
-  }
+  },
+  "idf.pythonInstallPath": "/usr/bin/python3"
 }
