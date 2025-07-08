@@ -5,6 +5,7 @@ from __future__ import annotations
 from time import sleep
 
 import requests
+import urllib3
 
 from ..exceptions import (
     APIError,
@@ -79,10 +80,13 @@ def POST(URL: str, REQUEST_BODY: str, HEADER: dict | None = None) -> str:
                 raise ServiceUnavailableError()
             elif code == 504:
                 sleep(backoff(retry))
-                pass
+                continue
             else:
                 raise APIError(err)
-
+        except requests.exceptions.ConnectionError:
+            raise TooManyRequestsError()
+        except urllib3.exceptions.MaxRetryError:
+            raise TooManyRequestsError()
     raise NoConnectionError()
 
 
