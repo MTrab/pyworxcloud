@@ -859,7 +859,7 @@ class WorxCloud(dict):
                         {
                             "sc": {
                                 "once": {
-                                    "cfg": {"cut": {"b": int(boundary)}},
+                                    "cfg": {"cut": {"b": int(boundary), "z": []}},
                                     "time": runtime,
                                 }
                             }
