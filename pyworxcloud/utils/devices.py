@@ -291,7 +291,7 @@ class DeviceHandler(LDict):
                     self.partymode_enabled = (
                         bool(str(data["cfg"]["sc"]["m"]) == "2")
                         if self.protocol == 0
-                        else bool(str(data["cfg"]["sc"]["paused"]) == "0")
+                        else bool(str(data["cfg"]["sc"]["paused"]) == "1")
                     )
                     self.schedules["active"] = (
                         bool(str(data["cfg"]["sc"]["m"]) in ["1", "2"])
