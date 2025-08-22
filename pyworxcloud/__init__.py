@@ -857,12 +857,13 @@ class WorxCloud(dict):
                         mower["uuid"],
                         mower["mqtt_topics"]["command_in"],
                         {
+                            "cmd": 10,
                             "sc": {
                                 "once": {
                                     "cfg": {"cut": {"b": int(boundary), "z": []}},
                                     "time": runtime,
                                 }
-                            }
+                            },
                         },
                         mower["protocol"],
                     )
