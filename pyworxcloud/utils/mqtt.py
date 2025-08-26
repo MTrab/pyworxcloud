@@ -266,10 +266,9 @@ class MQTT(LDict):
             username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
             password=None,
         )
-        if self.connected:
-            self.client.reconnect()
-        else:
-            self.connect()
+
+        self.disconnect()
+        self.connect()
 
         self._log.debug("Token updated")
 
