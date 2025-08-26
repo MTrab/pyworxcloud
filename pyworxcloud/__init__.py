@@ -825,6 +825,31 @@ class WorxCloud(dict):
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
+    def edgecut(self, serial_number: str) -> None:
+        """Start an edge cutting task.
+
+        Args:
+            serial_number (str): Serial number of the device
+        """
+        mower = self.get_mower(serial_number)
+        if mower["online"]:
+            device = DeviceHandler(self._api, mower, self._tz)
+            if device.capabilities.check(DeviceCapability.EDGE_CUT):
+                if mower["protocol"] == 0:
+                    self.mqtt.publish(
+                        serial_number,
+                        mower["mqtt_topics"]["command_in"],
+                        {"sc": {"ots": {"bc": 1, "wtm": 0}}},
+                        mower["protocol"],
+                    )
+                else:
+                    self.mqtt.publish(
+                        mower["uuid"],
+                        mower["mqtt_topics"]["command_in"],
+                        {"cmd": 101},
+                        mower["protocol"],
+                    )
+
     def ots(self, serial_number: str, boundary: bool, runtime: str) -> None:
         """Start a One-Time-Schedule task
 
@@ -861,11 +886,7 @@ class WorxCloud(dict):
                             "sc": {
                                 "once": {
                                     "cfg": {"cut": {"b": int(boundary), "z": []}},
-                                    "time": (
-                                        runtime
-                                        if (runtime > 0 and int(boundary) == 0)
-                                        else 120
-                                    ),
+                                    "time": (runtime),
                                 }
                             },
                         },
