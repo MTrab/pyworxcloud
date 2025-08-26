@@ -17,7 +17,7 @@ STATE_TO_DESCRIPTION = {
     5: "searching home",
     6: "searching wire",
     7: "mowing",
-    8: "lifted",
+    8: "mowing",
     9: "trapped",
     10: "blade blocked",
     11: "debug",
