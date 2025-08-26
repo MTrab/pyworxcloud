@@ -861,7 +861,11 @@ class WorxCloud(dict):
                             "sc": {
                                 "once": {
                                     "cfg": {"cut": {"b": int(boundary), "z": []}},
-                                    "time": runtime,
+                                    "time": (
+                                        runtime
+                                        if (runtime > 0 and int(boundary) == 0)
+                                        else 120
+                                    ),
                                 }
                             },
                         },
