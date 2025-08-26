@@ -267,20 +267,24 @@ class MQTT(LDict):
             password=None,
         )
 
-        self.disconnect()
+        self.disconnect(keep_topic=True)
         self.connect()
 
         self._log.debug("Token updated")
 
     def disconnect(
-        self, reasoncode=None, properties=None  # pylint: disable=unused-argument
+        self,
+        reasoncode=None,
+        properties=None,
+        keep_topic: bool = False,  # pylint: disable=unused-argument
     ):
         """Disconnect from AWSIoT MQTT server."""
         logger = self._log.getChild("MQTT_Disconnect")
         for topic in self._topic:
             logger.debug("Unsubscribing '%s'", topic)
             self.client.unsubscribe(topic)
-        self._topic = []
+        if not keep_topic:
+            self._topic = []
         self.client.loop_stop()
         self.client.disconnect()
         logger.debug("MQTT disconnected")
