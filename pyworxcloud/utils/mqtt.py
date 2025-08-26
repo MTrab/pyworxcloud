@@ -266,22 +266,25 @@ class MQTT(LDict):
             username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
             password=None,
         )
-        if self.connected:
-            self.client.reconnect()
-        else:
-            self.connect()
+
+        self.disconnect(keep_topic=True)
+        self.connect()
 
         self._log.debug("Token updated")
 
     def disconnect(
-        self, reasoncode=None, properties=None  # pylint: disable=unused-argument
+        self,
+        reasoncode=None,
+        properties=None,
+        keep_topic: bool = False,  # pylint: disable=unused-argument
     ):
         """Disconnect from AWSIoT MQTT server."""
         logger = self._log.getChild("MQTT_Disconnect")
         for topic in self._topic:
             logger.debug("Unsubscribing '%s'", topic)
             self.client.unsubscribe(topic)
-        self._topic = []
+        if not keep_topic:
+            self._topic = []
         self.client.loop_stop()
         self.client.disconnect()
         logger.debug("MQTT disconnected")
