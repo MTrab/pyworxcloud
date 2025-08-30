@@ -14,6 +14,8 @@ from random import randint
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import requests
+
 from .api import LandroidCloudAPI
 from .clouds import CloudType
 from .events import EventHandler, LandroidEvent
@@ -368,7 +370,15 @@ class WorxCloud(dict):
 
     def _fetch(self, forced: bool = False) -> None:
         """Fetch base API information."""
-        self._mowers = self._api.get_mowers()
+        try:
+            self._mowers = self._api.get_mowers()
+        except requests.exceptions.ConnectionError as err:
+            if forced:
+                self._schedule_api_refresh(True)
+                return
+            else:
+                raise requests.exceptions.ConnectionError(err) from err
+
         # self.devices = {}
         for mower in self._mowers:
             try:
@@ -395,7 +405,7 @@ class WorxCloud(dict):
 
         self._schedule_api_refresh()
 
-    def _schedule_api_refresh(self) -> None:
+    def _schedule_api_refresh(self, is_err: bool = False) -> None:
         """Schedule the API refresh."""
         logger = self._log.getChild("API_Refresh_Scheduler")
 
@@ -404,7 +414,11 @@ class WorxCloud(dict):
         except KeyError:
             pass
 
-        refresh_secs = (randint(API_REFRESH_TIME_MIN, API_REFRESH_TIME_MAX)) * 60
+        if is_err:
+            refresh_secs = 5 * 60
+        else:
+            refresh_secs = (randint(API_REFRESH_TIME_MIN, API_REFRESH_TIME_MAX)) * 60
+
         timezone = (
             ZoneInfo(self._tz)
             if not isinstance(self._tz, type(None))
