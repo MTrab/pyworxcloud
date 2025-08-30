@@ -266,7 +266,7 @@ class DeviceHandler(LDict):
                 date = datetime.now()
 
             self.updated = date
-            self.rainsensor.delay = int(data["cfg"]["rd"])
+            self.rainsensor.delay = int(data["cfg"]["rd"]) if "rd" in data["cfg"] else 0
 
             # Fetch wheel torque
             if "tq" in data["cfg"]:
