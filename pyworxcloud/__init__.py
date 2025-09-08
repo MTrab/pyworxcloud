@@ -21,6 +21,7 @@ from .clouds import CloudType
 from .events import EventHandler, LandroidEvent
 from .exceptions import (
     AuthorizationError,
+    InternalServerError,
     MowerNotFoundError,
     NoACSModuleError,
     NoConnectionError,
@@ -378,6 +379,11 @@ class WorxCloud(dict):
                 return
             else:
                 raise requests.exceptions.ConnectionError(err) from err
+        except InternalServerError:
+            if forced:
+                self._schedule_api_refresh(True)
+
+            return
 
         # self.devices = {}
         for mower in self._mowers:
