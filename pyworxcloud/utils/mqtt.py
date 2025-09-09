@@ -129,12 +129,16 @@ class MQTT(LDict):
         self._brandprefix = brandprefix
         self._user_id = user_id
         self._connection_future: Optional[Future] = None
-        self._client_id = f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}"
+        self._client_id = (
+            f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}"
+        )
 
         # Create event loop group and connection
         self._event_loop_group = awscrt.io.EventLoopGroup(1)
         self._host_resolver = awscrt.io.DefaultHostResolver(self._event_loop_group)
-        self._client_bootstrap = awscrt.io.ClientBootstrap(self._event_loop_group, self._host_resolver)
+        self._client_bootstrap = awscrt.io.ClientBootstrap(
+            self._event_loop_group, self._host_resolver
+        )
 
         # Create the MQTT connection
         self.client = self._create_mqtt_connection()
@@ -169,13 +173,20 @@ class MQTT(LDict):
         logger.debug(f"Connection interrupted. error: {error}")
         self._events.call(LandroidEvent.MQTT_CONNECTION, state=False)
 
-    def _on_connection_resumed(self, connection, return_code, session_present, **kwargs):
+    def _on_connection_resumed(
+        self, connection, return_code, session_present, **kwargs
+    ):
         """Callback when an interrupted connection is re-established."""
         logger = self._log.getChild("Conn_State")
         self._is_connected = True
-        logger.debug(f"Connection resumed. return_code: {return_code}, session_present: {session_present}")
+        logger.debug(
+            f"Connection resumed. return_code: {return_code}, session_present: {session_present}"
+        )
 
-        if return_code == awscrt.mqtt.ConnectReturnCode.ACCEPTED and not session_present:
+        if (
+            return_code == awscrt.mqtt.ConnectReturnCode.ACCEPTED
+            and not session_present
+        ):
             logger.debug("Session did not persist. Resubscribing to existing topics...")
             for topic in self._topic:
                 logger.debug(f"Resubscribing to '{topic}'")
@@ -189,12 +200,7 @@ class MQTT(LDict):
         return self._is_connected
         # return self.client.is_connected()
 
-    def _on_message_received(
-        self,
-        topic: str,
-        payload: bytes,
-        **kwargs
-    ) -> None:
+    def _on_message_received(self, topic: str, payload: bytes, **kwargs) -> None:
         """Callback when a message is received."""
         msg = payload.decode("utf-8")
         self._log.debug("Received MQTT message on topic '%s':\n%s", topic, msg)
@@ -207,9 +213,7 @@ class MQTT(LDict):
             self._topic.append(topic)
 
         subscribe_future, _ = self.client.subscribe(
-            topic=topic,
-            qos=QOS_FLAG,
-            callback=self._on_message_received
+            topic=topic, qos=QOS_FLAG, callback=self._on_message_received
         )
 
         # Wait for a subscription to be confirmed
@@ -296,9 +300,7 @@ class MQTT(LDict):
         # Publish the command
         if self.connected:
             publish_future, _ = self.client.publish(
-                topic=topic,
-                payload=cmd,
-                qos=QOS_FLAG
+                topic=topic, payload=cmd, qos=QOS_FLAG
             )
             # Wait for the message to be published
             publish_future.result()
@@ -328,9 +330,7 @@ class MQTT(LDict):
 
         # Publish the message
         publish_future, _ = self.client.publish(
-            topic=topic,
-            payload=formatted_message,
-            qos=QOS_FLAG
+            topic=topic, payload=formatted_message, qos=QOS_FLAG
         )
 
         # Wait for the message to be published
