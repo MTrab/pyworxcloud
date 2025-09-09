@@ -1,27 +1,42 @@
-"""MQTT information class."""
+"""MQTT information class.
+
+This module provides an MQTT client for connecting to AWS IoT MQTT using the AWS IoT Device SDK for Python v2.
+It handles connection, subscription, and message publishing to AWS IoT MQTT endpoints.
+
+Dependencies:
+- awscrt: AWS Common Runtime library
+- awsiot: AWS IoT Device SDK for Python v2
+
+The MQTT class provides the following functionality:
+- Connection to AWS IoT MQTT with custom authentication using JWT tokens
+- Subscription to topics
+- Publishing messages to topics
+- Handling reconnection and token updates
+- Formatting messages for different protocols
+"""
 
 from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import random
-import ssl
 import time
 import urllib.parse
+from concurrent.futures import Future
 from datetime import datetime
 from logging import Logger
-from typing import Any
+from typing import Any, Optional
 from uuid import uuid4
 
-import paho.mqtt.client as mqtt
-from paho.mqtt.client import connack_string
+import awscrt.io
+import awscrt.mqtt
+from awsiot import mqtt_connection_builder
 
 from ..events import EventHandler, LandroidEvent
 from ..exceptions import NoConnectionError
 from .landroid_class import LDict
 
-QOS_FLAG = 1
+QOS_FLAG = awscrt.mqtt.QoS.AT_LEAST_ONCE
 
 
 class MQTTMsgType(LDict):
@@ -100,7 +115,6 @@ class MQTT(LDict):
         """Initialize AWSIoT MQTT handler."""
 
         super().__init__()
-        # self.client = None
         self._events = EventHandler()
         self._on_update = callback
         self._endpoint = endpoint
@@ -114,31 +128,60 @@ class MQTT(LDict):
         self._is_connected: bool = False
         self._brandprefix = brandprefix
         self._user_id = user_id
+        self._connection_future: Optional[Future] = None
+        self._client_id = f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}"
 
-        self.client = mqtt.Client(
-            client_id=f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}",
-            clean_session=False,
-            userdata=None,
-            reconnect_on_failure=True,
-        )
+        # Create event loop group and connection
+        self._event_loop_group = awscrt.io.EventLoopGroup(1)
+        self._host_resolver = awscrt.io.DefaultHostResolver(self._event_loop_group)
+        self._client_bootstrap = awscrt.io.ClientBootstrap(self._event_loop_group, self._host_resolver)
 
+        # Create the MQTT connection
+        self.client = self._create_mqtt_connection()
+
+    def _create_mqtt_connection(self):
+        """Create an MQTT connection using awsiot.mqtt_connection_builder."""
+        # Format the JWT token for authentication
         accesstokenparts = (
-            api.access_token.replace("_", "/").replace("-", "+").split(".")
+            self._api.access_token.replace("_", "/").replace("-", "+").split(".")
         )
-        self.client.username_pw_set(
-            username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
-            password=None,
+        username = f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}"
+
+        # Create the MQTT connection
+        mqtt_connection = mqtt_connection_builder.websockets_with_custom_authorizer(
+            endpoint=self._endpoint,
+            client_id=self._client_id,
+            auth_username=username,
+            auth_password=None,
+            client_bootstrap=self._client_bootstrap,
+            on_connection_interrupted=self._on_connection_interrupted,
+            on_connection_resumed=self._on_connection_resumed,
+            clean_session=False,
+            keep_alive_secs=30,
         )
 
-        ssl_context = ssl.create_default_context()
-        ssl_context.set_alpn_protocols(["mqtt"])
-        self.client.tls_set_context(context=ssl_context)
+        return mqtt_connection
 
-        self.client.reconnect_delay_set(min_delay=30, max_delay=300)
+    def _on_connection_interrupted(self, connection, error, **kwargs):
+        """Callback when a connection is accidentally lost."""
+        logger = self._log.getChild("Conn_State")
+        self._is_connected = False
+        logger.debug(f"Connection interrupted. error: {error}")
+        self._events.call(LandroidEvent.MQTT_CONNECTION, state=False)
 
-        self.client.on_connect = self._on_connect
-        self.client.on_message = self._forward_on_message
-        self.client.on_disconnect = self._on_disconnect
+    def _on_connection_resumed(self, connection, return_code, session_present, **kwargs):
+        """Callback when an interrupted connection is re-established."""
+        logger = self._log.getChild("Conn_State")
+        self._is_connected = True
+        logger.debug(f"Connection resumed. return_code: {return_code}, session_present: {session_present}")
+
+        if return_code == awscrt.mqtt.ConnectReturnCode.ACCEPTED and not session_present:
+            logger.debug("Session did not persist. Resubscribing to existing topics...")
+            for topic in self._topic:
+                logger.debug(f"Resubscribing to '{topic}'")
+                self.subscribe(topic, False)
+
+        self._events.call(LandroidEvent.MQTT_CONNECTION, state=True)
 
     @property
     def connected(self) -> bool:
@@ -146,16 +189,15 @@ class MQTT(LDict):
         return self._is_connected
         # return self.client.is_connected()
 
-    def _forward_on_message(
+    def _on_message_received(
         self,
-        client: mqtt.Client | None,  # pylint: disable=unused-argument
-        userdata: Any | None,  # pylint: disable=unused-argument
-        message: Any | None,
-        properties: Any | None = None,  # pylint: disable=unused-argument
+        topic: str,
+        payload: bytes,
+        **kwargs
     ) -> None:
-        """MQTT callback method definition."""
-        msg = message.payload.decode("utf-8")
-        self._log.debug("Received MQTT message:\n%s", msg)
+        """Callback when a message is received."""
+        msg = payload.decode("utf-8")
+        self._log.debug("Received MQTT message on topic '%s':\n%s", topic, msg)
         self._await_publish = False
         self._on_update(msg)
 
@@ -163,131 +205,77 @@ class MQTT(LDict):
         """Subscribe to MQTT updates."""
         if append and topic not in self._topic:
             self._topic.append(topic)
-        self.client.subscribe(topic=topic, qos=QOS_FLAG)
+
+        subscribe_future, _ = self.client.subscribe(
+            topic=topic,
+            qos=QOS_FLAG,
+            callback=self._on_message_received
+        )
+
+        # Wait for a subscription to be confirmed
+        subscribe_future.result()
+        self._log.debug(f"Subscribed to topic: {topic}")
 
     def connect(self) -> None:
         """Connect to the MQTT service."""
         try:
-            self.client.connect(
-                self._endpoint,
-                443,
-            )
-            self.client.loop_start()
-            while not self.connected:
-                try:
-                    loop = asyncio.get_running_loop()
-                except (
-                    RuntimeError
-                ):  # 'RuntimeError: There is no current event loop...'
-                    loop = None
+            # Create a connection future
+            self._connection_future = self.client.connect()
 
-                if loop and loop.is_running():
-                    loop.create_task(asyncio.sleep(0.5))
-                else:
-                    asyncio.run(asyncio.sleep(0.5))
-        except NoConnectionError as exc:
-            raise NoConnectionError() from exc
+            # Wait for connection to complete
+            connect_result = self._connection_future.result()
+            self._log.debug(f"Connected with result: {connect_result}")
 
-    def _on_connect(
-        self,
-        client: mqtt.Client | None,  # pylint: disable=unused-argument
-        userdata: Any | None,  # pylint: disable=unused-argument
-        flags: Any | None,  # pylint: disable=unused-argument
-        rc: int | None,
-        properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
-    ) -> None:
-        """MQTT callback method."""
-        logger = self._log.getChild("Conn_State")
-        logger.debug(connack_string(rc))
-        if rc == 0:
+            # Update connection state
             self._is_connected = True
             self._reconnected = False
-            logger.debug("MQTT connected")
-            self._events.call(
-                LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
-            )
-            for topic in self._topic:
-                logger.debug("Subscribing '%s'", topic)
-                self.subscribe(topic, False)
             self._await_publish = False
-        else:
-            self._is_connected = False
-            logger.debug("MQTT connection failed")
-            self._events.call(
-                LandroidEvent.MQTT_CONNECTION, state=self.client.is_connected()
-            )
 
-    def _on_disconnect(
-        self,
-        client: mqtt.Client | None,  # pylint: disable=unused-argument
-        userdata: Any | None,  # pylint: disable=unused-argument
-        rc: int | None,
-        properties: Any | None = None,  # pylint: disable=unused-argument,invalid-name
-    ) -> None:
-        """MQTT callback method."""
-        logger = self._log.getChild("Conn_State")
-        self._is_connected = False
-        if rc > 0:
-            if rc == 7:
-                # if not self._reconnected:
-                self._reconnected = True
-                logger.debug("Reconnecting MQTT")
-                self._api.check_token()
-                accesstokenparts = (
-                    self._api.access_token.replace("_", "/")
-                    .replace("-", "+")
-                    .split(".")
-                )
-                self.client.username_pw_set(
-                    username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
-                    password=None,
-                )
-                # else:
-                #     self.disconnect()
-                #     raise NoConnectionError("Error connecting to AwSIoT MQTT")
-            else:
-                logger.debug(
-                    "Unexpected MQTT disconnect (%s: %s) - retrying",
-                    rc,
-                    connack_string(rc),
-                )
-                try:
-                    self.client.reconnect()
-                except:  # pylint: disable=bare-except
-                    pass
+            # Subscribe to saved topics
+            for topic in self._topic:
+                self._log.debug(f"Subscribing to '{topic}'")
+                self.subscribe(topic, False)
+
+            # Notify about connection
+            self._events.call(LandroidEvent.MQTT_CONNECTION, state=True)
+
+        except Exception as exc:
+            self._is_connected = False
+            self._log.error(f"Failed to connect to MQTT: {exc}")
+            raise NoConnectionError() from exc
 
     def update_token(self) -> None:
         """Update the token."""
         self._log.debug("Updating token")
-        accesstokenparts = (
-            self._api.access_token.replace("_", "/").replace("-", "+").split(".")
-        )
-        self.client.username_pw_set(
-            username=f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}",  # pylint: disable= line-too-long
-            password=None,
-        )
 
-        self.disconnect(keep_topic=True)
+        # Disconnect if connected
+        if self.connected:
+            self.disconnect(keep_topic=True)
+
+        # Create a new connection with updated token
+        self.client = self._create_mqtt_connection()
+
+        # Reconnect
         self.connect()
 
         self._log.debug("Token updated")
 
-    def disconnect(
-        self,
-        reasoncode=None,
-        properties=None,
-        keep_topic: bool = False,  # pylint: disable=unused-argument
-    ):
+    def disconnect(self, keep_topic: bool = False):  # pylint: disable=unused-argument
         """Disconnect from AWSIoT MQTT server."""
         logger = self._log.getChild("MQTT_Disconnect")
-        for topic in self._topic:
-            logger.debug("Unsubscribing '%s'", topic)
-            self.client.unsubscribe(topic)
-        if not keep_topic:
-            self._topic = []
-        self.client.loop_stop()
-        self.client.disconnect()
-        logger.debug("MQTT disconnected")
+
+        if self.connected:
+            # Clear topic list
+            if not keep_topic:
+                self._topic = []
+
+            # Disconnect
+            disconnect_future = self.client.disconnect()
+            disconnect_future.result()
+
+            # Update state
+            self._is_connected = False
+            logger.debug("MQTT disconnected")
 
     def ping(self, serial_number: str, topic: str, protocol: int = 0) -> None:
         """Ping (update) the mower."""
@@ -304,12 +292,23 @@ class MQTT(LDict):
         """Send a specific command to the mower."""
         cmd = self.format_message(serial_number, {"cmd": action}, protocol)
         self._log.debug("Sending '%s' on topic '%s'", cmd, topic)
-        self.client.publish(topic, cmd, QOS_FLAG)
+
+        # Publish the command
+        if self.connected:
+            publish_future, _ = self.client.publish(
+                topic=topic,
+                payload=cmd,
+                qos=QOS_FLAG
+            )
+            # Wait for the message to be published
+            publish_future.result()
+        else:
+            self._log.warning("Cannot send command: not connected")
 
     def publish(
         self, serial_number: str, topic: str, message: dict, protocol: int = 0
     ) -> None:
-        """Publish message to the mower."""
+        """Publish a message to the mower."""
         if not self.connected:
             self.update_token()
             # raise NoConnectionError("No connection to AwSIoT MQTT")
@@ -322,10 +321,20 @@ class MQTT(LDict):
 
         self._await_publish = True
         self._await_timestamp = time.time()
-        self._log.debug("Publishing message '%s'", message)
-        self.client.publish(
-            topic, self.format_message(serial_number, message, protocol), QOS_FLAG
+
+        # Format the message
+        formatted_message = self.format_message(serial_number, message, protocol)
+        self._log.debug("Publishing message '%s'", formatted_message)
+
+        # Publish the message
+        publish_future, _ = self.client.publish(
+            topic=topic,
+            payload=formatted_message,
+            qos=QOS_FLAG
         )
+
+        # Wait for the message to be published
+        publish_future.result()
 
     def format_message(self, serial_number: str, message: dict, protocol: int) -> str:
         """
