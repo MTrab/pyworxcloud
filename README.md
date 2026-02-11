@@ -9,6 +9,10 @@ The module are compatible with cloud enabled devices from [these vendors](https:
 ## Documentation
 
 The documentation have been moved to the [Wiki](https://github.com/MTrab/pyworxcloud/wiki)<br/>
+Additional project docs:
+
+- [Migration Guide](./MIGRATION.md)
+- [Changelog](./CHANGELOG.md)
 
 ## Testing
 
