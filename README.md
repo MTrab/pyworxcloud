@@ -30,6 +30,8 @@ The fixture prepare script copies JSON sample files from `code-ref/data-samples`
 
 Run `python scripts/verify_data_samples.py` (or rely on `tests/test_data_samples.py`) to ensure every `code-ref/data-samples` fixture contains the minimal `payload/cfg/dat` structure (`id`, `conn`, and `uuid`/`mac`). This keeps the fixtures aligned with `DeviceHandler`/`EventHandler` expectations even as you add new samples.
 
+You can also run `python scripts/dump_mapping.py` to print the decoded snapshot for each fixture (status, schedules, rain delay, module data, etc.) so you can visually compare the raw JSON against the values `DeviceHandler` exposes.
+
 ## Data mapping
 
 `DeviceHandler` now keeps the raw `cfg`/`dat` dictionaries alongside the richer surface model that mirrors what is described in `code-ref`. Highlights include:
