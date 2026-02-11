@@ -5,10 +5,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC_DIR="${ROOT_DIR}/code-ref/data-samples"
 DST_DIR="${ROOT_DIR}/tests/fixtures/data-samples"
 
-rm -rf "${DST_DIR}"
-mkdir -p "${DST_DIR}"
-
 if [[ -d "${SRC_DIR}" ]]; then
+  rm -rf "${DST_DIR}"
+  mkdir -p "${DST_DIR}"
   (
     cd "${SRC_DIR}"
     find . -type f -name "*.json" | while read -r file; do
@@ -16,4 +15,6 @@ if [[ -d "${SRC_DIR}" ]]; then
       cp "${file}" "${DST_DIR}/${file}"
     done
   )
+else
+  echo "Skipping fixture copy: source directory not found at ${SRC_DIR}"
 fi
