@@ -252,8 +252,11 @@ class WorxCloud(dict):
         try:
             if self.mqtt is not None:
                 self.mqtt.disconnect()
+                self.mqtt.shutdown()
         except Exception as err:
             logger.debug("Could not disconnect MQTT cleanly: %s", err)
+        finally:
+            self.mqtt = None
 
     def connect(
         self,
