@@ -367,3 +367,4 @@ __pycache__/
 .env
 
 code-ref/
+tests/fixtures/data-samples/
