@@ -6,11 +6,9 @@ from __future__ import annotations
 import logging
 import time
 
-import requests
-
 from .clouds import CloudType
 from .exceptions import TooManyRequestsError
-from .utils.requests import GET, HEADERS, POST
+from .utils.requests import GET, HEADERS, POST, create_session
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +40,7 @@ class LandroidCloudAPI:
         self._api_host = None
         self.api_data = None
         self._products_cache = None
-        self._session = requests.Session()
+        self._session = create_session()
         self._tz = tz
         self._callback = token_callback
 

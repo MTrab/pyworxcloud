@@ -22,14 +22,17 @@ class DummyResponse:
         return self._payload
 
 
-def test_get_retries_connection_errors_and_fails(monkeypatch) -> None:
-    """GET should retry and raise NoConnectionError on repeated transport failures."""
-
-    def _fail(*args, **kwargs):
+class _FailingSession:
+    def get(self, *args: Any, **kwargs: Any) -> None:
         raise requests.exceptions.ConnectionError()
 
-    monkeypatch.setattr(req_utils.requests, "get", _fail)
-    monkeypatch.setattr(req_utils, "sleep", lambda *_args, **_kwargs: None)
+    def post(self, *args: Any, **kwargs: Any) -> None:
+        raise urllib3.exceptions.MaxRetryError(None, None, "max retries exceeded")
+
+
+def test_get_retries_connection_errors_and_fails(monkeypatch) -> None:
+    """GET should retry and raise NoConnectionError on repeated transport failures."""
+    monkeypatch.setattr(req_utils, "_DEFAULT_SESSION", _FailingSession())
 
     try:
         req_utils.GET("https://example.invalid")
@@ -41,12 +44,7 @@ def test_get_retries_connection_errors_and_fails(monkeypatch) -> None:
 
 def test_post_retries_max_retry_error_and_fails(monkeypatch) -> None:
     """POST should retry and raise NoConnectionError on repeated MaxRetryError."""
-
-    def _fail(*args, **kwargs):
-        raise urllib3.exceptions.MaxRetryError(None, None, "max retries exceeded")
-
-    monkeypatch.setattr(req_utils.requests, "post", _fail)
-    monkeypatch.setattr(req_utils, "sleep", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(req_utils, "_DEFAULT_SESSION", _FailingSession())
 
     try:
         req_utils.POST("https://example.invalid", {})
@@ -58,12 +56,11 @@ def test_post_retries_max_retry_error_and_fails(monkeypatch) -> None:
 
 def test_post_returns_json_on_success(monkeypatch) -> None:
     """POST should return JSON payload for successful request."""
+    class _SuccessSession:
+        def post(self, *args: Any, **kwargs: Any) -> DummyResponse:
+            return DummyResponse({"ok": True})
 
-    monkeypatch.setattr(
-        req_utils.requests,
-        "post",
-        lambda *_args, **_kwargs: DummyResponse({"ok": True}),
-    )
+    monkeypatch.setattr(req_utils, "_DEFAULT_SESSION", _SuccessSession())
 
     payload = req_utils.POST("https://example.invalid", {})
     assert payload["ok"] is True

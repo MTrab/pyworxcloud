@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from time import sleep
 from typing import Any
 
 import requests
 import urllib3
+from requests.adapters import HTTPAdapter
+from urllib3.exceptions import MaxRetryError
+from urllib3.util.retry import Retry
 
 from ..exceptions import (
     APIError,
@@ -23,20 +25,7 @@ from ..exceptions import (
 # pylint: disable=invalid-name
 
 NUM_RETRIES = 5
-MAX_BACKOFF = 120
 BACKOFF_FACTOR = 3
-
-
-def backoff(retry: int) -> float:
-    """Calculate backoff time."""
-    val: float = BACKOFF_FACTOR * (2**retry)
-
-    return val if val <= MAX_BACKOFF else MAX_BACKOFF
-
-
-def _is_last_retry(retry: int) -> bool:
-    """Return true if this is the last retry attempt."""
-    return retry >= (NUM_RETRIES - 1)
 
 
 def HEADERS(access_token: str | None = None) -> dict:
@@ -53,108 +42,111 @@ def HEADERS(access_token: str | None = None) -> dict:
     return head
 
 
+def _build_session() -> requests.Session:
+    """Create a session configured with HTTP retry adapters."""
+    retry = Retry(
+        total=NUM_RETRIES,
+        backoff_factor=BACKOFF_FACTOR,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=frozenset(["GET", "POST"]),
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
+    return session
+
+
+def create_session() -> requests.Session:
+    """Return a configured session instance."""
+    return _build_session()
+
+
+_DEFAULT_SESSION = _build_session()
+
+
 def POST(
     URL: str,
     REQUEST_BODY: str,
     HEADER: dict | None = None,
-    session: Any | None = None,
+    session: requests.Session | None = None,
 ) -> str:
-    """A request POST"""
+    """Perform a POST request."""
 
     if isinstance(HEADER, type(None)):
         HEADER = HEADERS()
 
-    for retry in range(NUM_RETRIES):
-        try:
-            client = session if session is not None else requests
-            req = client.post(
-                URL, REQUEST_BODY, headers=HEADER, timeout=60, cookies=None
-            )  # 60 seconds timeout
+    client = session if session is not None else _DEFAULT_SESSION
+    try:
+        req = client.post(
+            URL, REQUEST_BODY, headers=HEADER, timeout=60, cookies=None
+        )  # 60 seconds timeout
 
-            req.raise_for_status()
+        req.raise_for_status()
 
-            return req.json()
-        except requests.exceptions.HTTPError as err:
-            code = err.response.status_code
-            if code == 400:
-                raise RequestError()
-            elif code == 401:
-                raise AuthorizationError()
-            elif code == 403:
-                raise ForbiddenError()
-            elif code == 404:
-                raise NotFoundError()
-            elif code == 429:
-                raise TooManyRequestsError()
-            elif code == 500:
-                raise InternalServerError()
-            elif code == 503:
-                raise ServiceUnavailableError()
-            elif code == 504:
-                if _is_last_retry(retry):
-                    break
-                sleep(backoff(retry))
-                continue
-            else:
-                raise APIError(err)
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout,
-            urllib3.exceptions.MaxRetryError,
-        ):
-            if _is_last_retry(retry):
-                break
-            sleep(backoff(retry))
-            continue
-    raise NoConnectionError()
+        return req.json()
+    except requests.exceptions.HTTPError as err:
+        code = err.response.status_code
+        if code == 400:
+            raise RequestError()
+        if code == 401:
+            raise AuthorizationError()
+        if code == 403:
+            raise ForbiddenError()
+        if code == 404:
+            raise NotFoundError()
+        if code == 429:
+            raise TooManyRequestsError()
+        if code == 500:
+            raise InternalServerError()
+        if code == 503 or code == 504:
+            raise ServiceUnavailableError()
+        raise APIError(err)
+    except (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        MaxRetryError,
+    ):
+        raise NoConnectionError()
 
 
-def GET(URL: str, HEADER: dict | None = None, session: Any | None = None) -> str:
-    """A request GET"""
+def GET(URL: str, HEADER: dict | None = None, session: requests.Session | None = None) -> str:
+    """Perform a GET request."""
     if isinstance(HEADER, type(None)):
         HEADER = HEADERS()
 
-    for retry in range(NUM_RETRIES):
-        try:
-            client = session if session is not None else requests
-            req = client.get(
-                URL, headers=HEADER, timeout=60, cookies=None
-            )  # 60 seconds timeout
+    client = session if session is not None else _DEFAULT_SESSION
+    try:
+        req = client.get(
+            URL, headers=HEADER, timeout=60, cookies=None
+        )  # 60 seconds timeout
 
-            req.raise_for_status()
+        req.raise_for_status()
 
-            return req.json()
-        except requests.exceptions.HTTPError as err:
-            code = err.response.status_code
-            if code == 400:
-                raise RequestError()
-            elif code == 401:
-                raise AuthorizationError()
-            elif code == 403:
-                raise ForbiddenError()
-            elif code == 404:
-                raise NotFoundError()
-            elif code == 429:
-                raise TooManyRequestsError()
-            elif code == 500:
-                raise InternalServerError()
-            elif code == 503:
-                raise ServiceUnavailableError()
-            elif code == 504:
-                if _is_last_retry(retry):
-                    break
-                sleep(backoff(retry))
-                continue
-            else:
-                raise APIError(err)
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout,
-            urllib3.exceptions.MaxRetryError,
-        ):
-            if _is_last_retry(retry):
-                break
-            sleep(backoff(retry))
-            continue
-
-    raise NoConnectionError()
+        return req.json()
+    except requests.exceptions.HTTPError as err:
+        code = err.response.status_code
+        if code == 400:
+            raise RequestError()
+        if code == 401:
+            raise AuthorizationError()
+        if code == 403:
+            raise ForbiddenError()
+        if code == 404:
+            raise NotFoundError()
+        if code == 429:
+            raise TooManyRequestsError()
+        if code == 500:
+            raise InternalServerError()
+        if code == 503 or code == 504:
+            raise ServiceUnavailableError()
+        raise APIError(err)
+    except (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        MaxRetryError,
+    ):
+        raise NoConnectionError()
