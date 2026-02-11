@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from time import sleep
+from typing import Any
 
 import requests
 import urllib3
@@ -52,7 +53,12 @@ def HEADERS(access_token: str | None = None) -> dict:
     return head
 
 
-def POST(URL: str, REQUEST_BODY: str, HEADER: dict | None = None) -> str:
+def POST(
+    URL: str,
+    REQUEST_BODY: str,
+    HEADER: dict | None = None,
+    session: Any | None = None,
+) -> str:
     """A request POST"""
 
     if isinstance(HEADER, type(None)):
@@ -60,7 +66,8 @@ def POST(URL: str, REQUEST_BODY: str, HEADER: dict | None = None) -> str:
 
     for retry in range(NUM_RETRIES):
         try:
-            req = requests.post(
+            client = session if session is not None else requests
+            req = client.post(
                 URL, REQUEST_BODY, headers=HEADER, timeout=60, cookies=None
             )  # 60 seconds timeout
 
@@ -102,14 +109,15 @@ def POST(URL: str, REQUEST_BODY: str, HEADER: dict | None = None) -> str:
     raise NoConnectionError()
 
 
-def GET(URL: str, HEADER: dict | None = None) -> str:
+def GET(URL: str, HEADER: dict | None = None, session: Any | None = None) -> str:
     """A request GET"""
     if isinstance(HEADER, type(None)):
         HEADER = HEADERS()
 
     for retry in range(NUM_RETRIES):
         try:
-            req = requests.get(
+            client = session if session is not None else requests
+            req = client.get(
                 URL, headers=HEADER, timeout=60, cookies=None
             )  # 60 seconds timeout
 

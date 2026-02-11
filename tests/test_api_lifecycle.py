@@ -87,9 +87,10 @@ def test_get_mowers_uses_products_cache(monkeypatch) -> None:
 
     calls = {"products": 0}
 
-    def _get(url: str, _headers: dict) -> list:
+    def _get(url: str, _headers: dict, session=None) -> list:
         if url.endswith("/api/v2/products"):
             calls["products"] += 1
+            assert session is not None
             return [
                 {
                     "id": 42,
@@ -119,6 +120,39 @@ def test_get_mowers_uses_products_cache(monkeypatch) -> None:
     assert first[0]["model"]["code"] == "WG123"
     assert second[0]["model"]["friendly_name"] == "Landroid500"
     assert calls["products"] == 1
+
+
+def test_get_mowers_passes_session_to_request_helper(monkeypatch) -> None:
+    """LandroidCloudAPI should reuse its HTTP session when calling GET helper."""
+    api = LandroidCloudAPI("user@example.com", "secret", CloudType.WORX)
+    api.access_token = "token"
+    api.refresh_token = "refresh"
+    api._token_expire = 9999999999
+
+    seen = {"session": None}
+
+    def _get(url: str, _headers: dict, session=None) -> list:
+        seen["session"] = session
+        if url.endswith("/api/v2/products"):
+            return [
+                {
+                    "id": 42,
+                    "code": "WG123",
+                    "default_name": "Landroid",
+                    "meters": "500",
+                    "product_year": 2024,
+                    "cutting_width": 18,
+                }
+            ]
+        if "product-items" in url:
+            return [{"name": "My Mower", "product_id": 42}]
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr("pyworxcloud.api.GET", _get)
+
+    api.get_mowers()
+
+    assert seen["session"] is api._session
 
 
 def test_disconnect_cancels_timers_and_disconnects_mqtt() -> None:

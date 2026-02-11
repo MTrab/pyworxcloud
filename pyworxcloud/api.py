@@ -6,6 +6,8 @@ from __future__ import annotations
 import logging
 import time
 
+import requests
+
 from .clouds import CloudType
 from .exceptions import TooManyRequestsError
 from .utils.requests import GET, HEADERS, POST
@@ -40,6 +42,7 @@ class LandroidCloudAPI:
         self._api_host = None
         self.api_data = None
         self._products_cache = None
+        self._session = requests.Session()
         self._tz = tz
         self._callback = token_callback
 
@@ -58,7 +61,7 @@ class LandroidCloudAPI:
         }
 
         try:
-            resp = POST(url, request_body, HEADERS())
+            resp = POST(url, request_body, HEADERS(), session=self._session)
             self.access_token = resp["access_token"]
             self.refresh_token = resp["refresh_token"]
             now = int(time.time())
@@ -76,7 +79,7 @@ class LandroidCloudAPI:
             "refresh_token": self.refresh_token,
         }
 
-        resp = POST(url, request_body, HEADERS())
+        resp = POST(url, request_body, HEADERS(), session=self._session)
         self.access_token = resp["access_token"]
         self.refresh_token = resp["refresh_token"]
         now = int(time.time())
@@ -122,6 +125,7 @@ class LandroidCloudAPI:
         mowers = GET(
             f"https://{self.cloud.ENDPOINT}/api/v2/product-items?status=1",
             HEADERS(self.access_token),
+            session=self._session,
         )
         products = self._get_products()
         product_map = {item["id"]: item for item in products}
@@ -178,6 +182,7 @@ class LandroidCloudAPI:
             self._products_cache = GET(
                 f"https://{self.cloud.ENDPOINT}/api/v2/products",
                 HEADERS(self.access_token),
+                session=self._session,
             )
 
         return self._products_cache
