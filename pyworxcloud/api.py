@@ -64,8 +64,6 @@ class LandroidCloudAPI:
             self._token_expire = now + int(resp["expires_in"])
         except TooManyRequestsError:
             raise TooManyRequestsError from None
-        except:
-            return
 
     def _update_token(self) -> None:
         """Refresh the tokens."""
