@@ -22,10 +22,14 @@ def _validate_payload(payload: dict[str, dict]) -> Iterable[str]:
     dat = payload.get("dat", {})
 
     if not REQUIRED_CFG_KEYS.issubset(cfg.keys()):
-        errors.append(f"cfg missing keys: {sorted(REQUIRED_CFG_KEYS - set(cfg.keys()))}")
+        errors.append(
+            f"cfg missing keys: {sorted(REQUIRED_CFG_KEYS - set(cfg.keys()))}"
+        )
 
     if not REQUIRED_DAT_KEYS.issubset(dat.keys()):
-        errors.append(f"dat missing keys: {sorted(REQUIRED_DAT_KEYS - set(dat.keys()))}")
+        errors.append(
+            f"dat missing keys: {sorted(REQUIRED_DAT_KEYS - set(dat.keys()))}"
+        )
 
     if not dat.get("uuid") and not dat.get("mac"):
         errors.append("dat must contain uuid or mac")
@@ -35,7 +39,9 @@ def _validate_payload(payload: dict[str, dict]) -> Iterable[str]:
 
 def validate_data_samples(root: Path | None = None) -> list[ValidationIssue]:
     """Return list of validation issues for each JSON sample."""
-    root_path = root or Path(__file__).resolve().parent.parent / "code-ref" / "data-samples"
+    root_path = (
+        root or Path(__file__).resolve().parent.parent / "code-ref" / "data-samples"
+    )
     issues: list[ValidationIssue] = []
 
     for file in sorted(root_path.rglob("*.json")):

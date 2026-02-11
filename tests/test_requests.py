@@ -56,6 +56,7 @@ def test_post_retries_max_retry_error_and_fails(monkeypatch) -> None:
 
 def test_post_returns_json_on_success(monkeypatch) -> None:
     """POST should return JSON payload for successful request."""
+
     class _SuccessSession:
         def post(self, *args: Any, **kwargs: Any) -> DummyResponse:
             return DummyResponse({"ok": True})

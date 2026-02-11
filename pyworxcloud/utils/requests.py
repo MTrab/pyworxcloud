@@ -113,7 +113,9 @@ def POST(
         raise NoConnectionError()
 
 
-def GET(URL: str, HEADER: dict | None = None, session: requests.Session | None = None) -> str:
+def GET(
+    URL: str, HEADER: dict | None = None, session: requests.Session | None = None
+) -> str:
     """Perform a GET request."""
     if isinstance(HEADER, type(None)):
         HEADER = HEADERS()
