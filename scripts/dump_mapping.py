@@ -9,18 +9,21 @@ from typing import Any
 
 from pyworxcloud.utils.devices import DeviceHandler
 
+from tests.fixture_utils import fixture_paths
+
 
 def _resolve_fixtures() -> list[Path]:
-    project_root = Path(__file__).resolve().parents[1]
-    fixtures = project_root / "tests" / "fixtures" / "data-samples"
-    if not fixtures.exists():
-        fixtures = project_root / "code-ref" / "data-samples"
-    if not fixtures.exists():
+    fixtures = fixture_paths("http.json") + fixture_paths("mqtt.json")
+    if not fixtures:
         raise SystemExit("No fixtures directory found")
-    fixtures_files: list[Path] = []
-    for filename in ("http.json", "mqtt.json"):
-        fixtures_files.extend(fixtures.glob(f"**/{filename}"))
-    return sorted(fixtures_files)
+    seen: set[Path] = set()
+    ordered: list[Path] = []
+    for fixture in fixtures:
+        if fixture in seen:
+            continue
+        seen.add(fixture)
+        ordered.append(fixture)
+    return ordered
 
 
 def _build_mower(payload: dict[str, Any], protocol: int, name: str) -> dict[str, Any]:

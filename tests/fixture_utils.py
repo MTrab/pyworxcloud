@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Iterable, Generator, Sequence
+from typing import Any, Generator, Iterable, Sequence, Set
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "data-samples"
 CODE_REF_DIR = Path(__file__).resolve().parents[1] / "code-ref" / "data-samples"
@@ -26,6 +26,33 @@ def _resolve_fixture_path(file_path: Path) -> Path:
 
     backup_candidate = BACKUP_DIR / relative
     return backup_candidate if backup_candidate.exists() else file_path
+
+
+def _collect_fixture_directories() -> Iterable[Path]:
+    """Return every discovered fixture directory."""
+
+    seen: Set[str] = set()
+    for base in (FIXTURES_DIR, CODE_REF_DIR, BACKUP_DIR):
+        if not base.exists():
+            continue
+        for entry in sorted(base.iterdir()):
+            if not entry.is_dir():
+                continue
+            if entry.name in seen:
+                continue
+            seen.add(entry.name)
+            yield entry
+
+
+def fixture_paths(filename: str) -> Sequence[Path]:
+    """Return the paths to every fixture file with the requested name."""
+
+    paths: list[Path] = []
+    for directory in _collect_fixture_directories():
+        candidate = directory / filename
+        if candidate.exists():
+            paths.append(candidate)
+    return paths
 
 
 def iter_json_documents(text: str) -> Generator[dict[str, Any], None, None]:
