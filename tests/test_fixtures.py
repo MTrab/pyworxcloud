@@ -11,5 +11,5 @@ def test_generated_data_samples_are_valid_json(fixtures_dir) -> None:
     if not data_samples_dir.exists():
         return
 
-    for file_path in data_samples_dir.glob("*.json"):
+    for file_path in data_samples_dir.rglob("*.json"):
         assert json.loads(file_path.read_text(encoding="utf-8")) is not None
