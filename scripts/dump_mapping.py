@@ -17,7 +17,10 @@ def _resolve_fixtures() -> list[Path]:
         fixtures = project_root / "code-ref" / "data-samples"
     if not fixtures.exists():
         raise SystemExit("No fixtures directory found")
-    return sorted(fixtures.glob("**/http.json"))
+    fixtures_files: list[Path] = []
+    for filename in ("http.json", "mqtt.json"):
+        fixtures_files.extend(fixtures.glob(f"**/{filename}"))
+    return sorted(fixtures_files)
 
 
 def _build_mower(payload: dict[str, Any], protocol: int, name: str) -> dict[str, Any]:

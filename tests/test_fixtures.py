@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import json
+from tests.fixture_utils import load_fixture_entries
 
 
 def test_generated_data_samples_are_valid_json(fixtures_dir) -> None:
@@ -12,4 +12,5 @@ def test_generated_data_samples_are_valid_json(fixtures_dir) -> None:
         return
 
     for file_path in data_samples_dir.rglob("*.json"):
-        assert json.loads(file_path.read_text(encoding="utf-8")) is not None
+        entries = load_fixture_entries(file_path)
+        assert entries
