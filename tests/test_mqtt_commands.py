@@ -28,7 +28,9 @@ class _DummyClient:
         self.published: list[dict[str, Any]] = []
         self.publish_events: list[threading.Event] = []
 
-    def publish(self, topic: str, payload: str, qos: Any) -> tuple[_ImmediateFuture, int]:
+    def publish(
+        self, topic: str, payload: str, qos: Any
+    ) -> tuple[_ImmediateFuture, int]:
         entry = {"topic": topic, "payload": payload, "qos": qos}
         self.published.append(entry)
         event = threading.Event()
@@ -142,7 +144,9 @@ def test_publish_waits_for_matching_response(monkeypatch: pytest.MonkeyPatch) ->
     assert finished.is_set() is True
 
 
-def test_publish_serializes_concurrent_commands(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_publish_serializes_concurrent_commands(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Second command should wait until first command completes."""
     mqtt, dummy = _build_mqtt(monkeypatch)
     failures: list[str] = []

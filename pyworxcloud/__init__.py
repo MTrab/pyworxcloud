@@ -442,7 +442,9 @@ class WorxCloud(dict):
             if is_err:
                 refresh_secs = 5 * 60
             else:
-                refresh_secs = (randint(API_REFRESH_TIME_MIN, API_REFRESH_TIME_MAX)) * 60
+                refresh_secs = (
+                    randint(API_REFRESH_TIME_MIN, API_REFRESH_TIME_MAX)
+                ) * 60
 
             timezone = (
                 ZoneInfo(self._tz)
