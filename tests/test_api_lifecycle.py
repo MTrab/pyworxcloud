@@ -27,9 +27,13 @@ class DummyMQTT:
 
     def __init__(self) -> None:
         self.disconnect_called = False
+        self.shutdown_called = False
 
     def disconnect(self) -> None:
         self.disconnect_called = True
+
+    def shutdown(self) -> None:
+        self.shutdown_called = True
 
 
 class DummyDevice:
@@ -171,6 +175,8 @@ def test_disconnect_cancels_timers_and_disconnects_mqtt() -> None:
     assert cloud._timers == {}
     assert mqtt.disconnect_called is True
     assert cloud._disconnecting.is_set() is True
+    assert mqtt.shutdown_called is True
+    assert cloud.mqtt is None
 
 
 def test_fetch_skips_api_call_when_disconnecting() -> None:

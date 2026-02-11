@@ -139,6 +139,7 @@ class MQTT(LDict):
         self._client_id = (
             f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}"
         )
+        self._shutdown_event = False
 
         # Create event loop group and connection
         self._event_loop_group = awscrt.io.EventLoopGroup(1)
@@ -328,6 +329,34 @@ class MQTT(LDict):
             # Update state
             self._is_connected = False
             logger.debug("MQTT disconnected")
+
+    def shutdown(self) -> None:
+        """Release background AWS CRT resources."""
+        if not self._shutdown_event:
+            self._shutdown_event = True
+
+            # Force disconnect in case we're still connected.
+            if self.connected:
+                try:
+                    self.disconnect(keep_topic=True)
+                except Exception:  # pragma: no cover - defensive
+                    pass
+
+            self.client = None
+            host_resolver = self._host_resolver
+            client_bootstrap = self._client_bootstrap
+            event_loop_group = self._event_loop_group
+
+            self._host_resolver = None
+            self._client_bootstrap = None
+            self._event_loop_group = None
+
+            if host_resolver is not None and hasattr(host_resolver, "shutdown_event"):
+                host_resolver.shutdown_event.wait(5)
+            if client_bootstrap is not None and hasattr(client_bootstrap, "shutdown_event"):
+                client_bootstrap.shutdown_event.wait(5)
+            if event_loop_group is not None and hasattr(event_loop_group, "shutdown_event"):
+                event_loop_group.shutdown_event.wait(5)
 
     def ping(
         self,
