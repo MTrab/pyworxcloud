@@ -7,7 +7,7 @@ from time import sleep
 
 from pyworxcloud import WorxCloud
 
-# logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
@@ -16,19 +16,15 @@ TYPE = environ["TYPE"]
 # Clear the screen for better visibility when debugging
 print("\033c", end="")
 
-iter = 1
-max = 1
+# Initialize the class
+cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")
+cloud.authenticate()
+cloud.connect()
 
-while iter <= max:
-    # Initialize the class
-    cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")
-    cloud.authenticate()
-    cloud.connect()
-
-    # for _, device in cloud.devices.items():
+for _, device in cloud.devices.items():
     #     cloud.update(device.serial_number)
     #     pprint(vars(device))
-    #     print(f"{device.name} online: {device.online}")
+    print(f"{device.name} online: {device.online}")
 
     #     cloud.set_offlimits(device.serial_number, False)
     #     cloud.set_offlimits_shortcut(device.serial_number, True)
@@ -36,5 +32,4 @@ while iter <= max:
     #     print(f"Cutting height: {cloud.get_cutting_height(device.serial_number)}")
     # cloud.set_acs(device.serial_number, False)
 
-    cloud.disconnect()
-    iter += 1
+cloud.disconnect()
