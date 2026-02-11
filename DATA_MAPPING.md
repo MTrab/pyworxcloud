@@ -28,6 +28,7 @@ This document visualizes how the JSON `cfg`/`dat` payloads from the Worx/Kress/L
 | `mz` / `mzv` | Multi-zone start distances and index map. | Sets `zone.starting_point` / `zone.indicies` and derived `zone.current`. |
 | `modules` | Module configuration (`DF`, `US`, etc.). | Grants capabilities (Off-Limits / ACS) and flags `offlimit`, `offlimit_shortcut`, `acs_enabled`. |
 | `sc` | Schedule definition (legacy `d` arrays or new `slots`). | Drives the `schedules` object with `primary`, `secondary`, `active`, `time_extension`, and party-mode metadata. |
+| `slots` | Derived slot list for every configured run. | Exposed via `schedules["slots"]`, so protocol 1 devices with more than two programs can still enumerate each entry verbatim. |
 
 ### Schedule visualization
 
