@@ -404,15 +404,15 @@ class WorxCloud(dict):
         if self._disconnecting.is_set():
             return
 
-        # self.devices = {}
         for mower in self._mowers:
             try:
                 device = DeviceHandler(self._api, mower, self._tz, False)
+                self.devices[mower["name"]] = device
+
                 if not isinstance(mower["last_status"], type(None)):
                     device.raw_data = mower["last_status"]["payload"]
 
                 _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
-                self.devices.update({mower["name"]: device})
 
                 if isinstance(mower["mac_address"], type(None)):
                     mower["mac_address"] = (
@@ -426,6 +426,7 @@ class WorxCloud(dict):
                         LandroidEvent.API, name=mower["name"], device=device
                     )
             except TypeError:
+                _LOGGER.exception("Failed to decode mower '%s'", mower["name"])
                 pass
 
         self._schedule_api_refresh()
