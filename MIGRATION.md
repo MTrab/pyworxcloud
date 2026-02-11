@@ -44,6 +44,7 @@ What this means for integrations:
 
 - Treat `NoConnectionError` as network/transient endpoint availability failure.
 - Keep `TooManyRequestsError` handling for actual quota/rate-limit cases.
+- Introduced a shared `requests.Session` with `HTTPAdapter`/`Retry` for consistent HTTP request retries on `429`/`5xx` responses and connection failures.
 
 ### 4. Disconnect semantics are stricter
 
