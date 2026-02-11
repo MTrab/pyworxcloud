@@ -354,9 +354,13 @@ class MQTT(LDict):
 
             if host_resolver is not None and hasattr(host_resolver, "shutdown_event"):
                 host_resolver.shutdown_event.wait(5)
-            if client_bootstrap is not None and hasattr(client_bootstrap, "shutdown_event"):
+            if client_bootstrap is not None and hasattr(
+                client_bootstrap, "shutdown_event"
+            ):
                 client_bootstrap.shutdown_event.wait(5)
-            if event_loop_group is not None and hasattr(event_loop_group, "shutdown_event"):
+            if event_loop_group is not None and hasattr(
+                event_loop_group, "shutdown_event"
+            ):
                 event_loop_group.shutdown_event.wait(5)
 
     def ping(
@@ -439,9 +443,7 @@ class MQTT(LDict):
                 publish_future.result()
 
                 if not self._response_event.wait(effective_timeout):
-                    payload = (
-                        self._last_command_payload or {}
-                    )
+                    payload = self._last_command_payload or {}
                     self._log.warning(
                         "Timeout waiting for device response; serial=%s command_id=%s topic=%s payload=%s",
                         payload.get("serial", serial_number),
