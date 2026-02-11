@@ -28,6 +28,10 @@ The fixture prepare script copies JSON sample files from `code-ref/data-samples`
 
 ## Networking helpers
 
+`pyworxcloud.utils.requests` now builds a shared `requests.Session` configured with an `HTTPAdapter`/`Retry` for `429`/`5xx` responses. Use the exported `create_session()` when you need to decorate or inspect the session (for example, the new `scripts/session_trace.py` shows how to log every response that goes through this shared session). The default `GET/POST` helpers still work without manual retries, so existing callers remain compatible with the same retry policy used internally.
+
+## Networking helpers
+
 `pyworxcloud.utils.requests` now builds a shared `requests.Session` configured with an `HTTPAdapter`/`Retry` pair targeting `429`, `500`, `502`, `503` and `504` so every API call benefits from exponential retries without duplicating session setup. You can still inject a custom session via the `session` parameter if you need special logging or tracing.
 
 ## Command timeout configuration
