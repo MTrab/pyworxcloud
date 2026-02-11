@@ -46,6 +46,7 @@ _LOGGER = logging.getLogger(__name__)
 
 API_REFRESH_TIME_MIN = 5
 API_REFRESH_TIME_MAX = 10
+DEFAULT_COMMAND_TIMEOUT = 30.0
 
 
 class WorxCloud(dict):
@@ -69,6 +70,7 @@ class WorxCloud(dict):
         ) = CloudType.WORX,
         verify_ssl: bool = True,
         tz: str | None = None,  # pylint: disable=invalid-name
+        command_timeout: float = DEFAULT_COMMAND_TIMEOUT,
     ) -> None:
         """
         Initialize :class:WorxCloud class and set default attribute values.
@@ -157,6 +159,9 @@ class WorxCloud(dict):
 
         self._save_zones = None
         self._verify_ssl = verify_ssl
+        if command_timeout <= 0:
+            raise ValueError("command_timeout must be greater than 0")
+        self._command_timeout = float(command_timeout)
         _LOGGER.debug("Initializing EventHandler ...")
         self._events = EventHandler()
 
@@ -280,6 +285,7 @@ class WorxCloud(dict):
             self._user_id,
             self._log,
             self._on_update,
+            response_timeout=self._command_timeout,
         )
 
         self.mqtt.connect()
