@@ -9,6 +9,7 @@ import pytest
 from pyworxcloud import WorxCloud
 from pyworxcloud.api import LandroidCloudAPI
 from pyworxcloud.clouds import CloudType
+from pyworxcloud.events import LandroidEvent
 
 
 class DummyTimer:
@@ -127,3 +128,13 @@ def test_token_updated_is_noop_without_mqtt() -> None:
     cloud = WorxCloud("user@example.com", "secret", "worx")
     cloud.mqtt = None
     cloud._token_updated()
+
+
+def test_on_api_update_dispatches_api_event_callback() -> None:
+    """API update callback should dispatch event payload to registered handler."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    received: list[dict[str, Any]] = []
+    cloud.set_callback(LandroidEvent.API, lambda api_data: received.append(api_data))
+    cloud._on_api_update({"key": "value"})
+
+    assert received == [{"key": "value"}]
