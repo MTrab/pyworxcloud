@@ -325,14 +325,10 @@ class DeviceHandler(LDict):
             if "DF" in modules_cfg:
                 self.capabilities.add(DeviceCapability.OFF_LIMITS)
                 self.offlimit = bool(str(modules_cfg["DF"].get("cut")) == "1")
-                self.offlimit_shortcut = bool(
-                    str(modules_cfg["DF"].get("fh")) == "1"
-                )
+                self.offlimit_shortcut = bool(str(modules_cfg["DF"].get("fh")) == "1")
             if "US" in modules_cfg:
                 self.capabilities.add(DeviceCapability.ACS)
-                self.acs_enabled = bool(
-                    str(modules_cfg["US"].get("enabled")) == "1"
-                )
+                self.acs_enabled = bool(str(modules_cfg["US"].get("enabled")) == "1")
 
         sc_payload = cfg_payload.get("sc")
         if not isinstance(sc_payload, dict):
@@ -346,9 +342,7 @@ class DeviceHandler(LDict):
             self.capabilities.add(DeviceCapability.PARTY_MODE)
             if self.protocol == 0:
                 self.partymode_enabled = bool(str(sc_payload.get("m")) == "2")
-                self.schedules["active"] = bool(
-                    str(sc_payload.get("m")) in ["1", "2"]
-                )
+                self.schedules["active"] = bool(str(sc_payload.get("m")) in ["1", "2"])
             else:
                 enabled_flag = sc_payload.get("enabled")
                 self.partymode_enabled = bool(str(enabled_flag) == "0")
@@ -382,11 +376,9 @@ class DeviceHandler(LDict):
                 slot = sc_payload["slots"][idx]
                 day_of_week = slot.get("d", 0)
                 start = (
-                    (
-                        datetime.strptime("00:00", "%H:%M")
-                        + timedelta(minutes=slot.get("s", 0))
-                    ).strftime("%H:%M")
-                )
+                    datetime.strptime("00:00", "%H:%M")
+                    + timedelta(minutes=slot.get("s", 0))
+                ).strftime("%H:%M")
                 duration = slot.get("t")
                 cfg_cut = slot.get("cfg", {}).get("cut", {})
                 boundary = (
