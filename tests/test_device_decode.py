@@ -89,3 +89,21 @@ def test_devicehandler_raw_data_setter_redecodes_payload(fixtures_dir: Path) -> 
 
     assert device.status.id == 34
     assert device.error.id == 5
+
+
+def test_devicehandler_exposes_raw_cfg_dat(fixtures_dir: Path) -> None:
+    """DeviceHandler keeps cfg/dat structures accessible."""
+    payload = _load_payload(
+        fixtures_dir / "data-samples" / "52461d2e-918b-4dd6-a04f-b3120f46dfb3/http.json"
+    )
+    mower = _build_mower(payload, 1, "Fixture Mower")
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.raw_cfg is not None
+    assert device.raw_dat is not None
+    assert device.raw_cfg["id"] == payload["cfg"]["id"]
+    assert device.raw_dat["conn"] == payload["dat"]["conn"]
+    assert device.module_config is not None
+    assert device.module_status is not None
+    assert device.raindelay_active == bool(str(payload["dat"]["rain"]["s"]) == "1")

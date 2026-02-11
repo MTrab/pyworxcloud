@@ -30,6 +30,18 @@ The fixture prepare script copies JSON sample files from `code-ref/data-samples`
 
 Run `python scripts/verify_data_samples.py` (or rely on `tests/test_data_samples.py`) to ensure every `code-ref/data-samples` fixture contains the minimal `payload/cfg/dat` structure (`id`, `conn`, and `uuid`/`mac`). This keeps the fixtures aligned with `DeviceHandler`/`EventHandler` expectations even as you add new samples.
 
+You can also run `python scripts/dump_mapping.py` to print the decoded snapshot for each fixture (status, schedules, rain delay, module data, etc.) so you can visually compare the raw JSON against the values `DeviceHandler` exposes.
+
+## Data mapping
+
+`DeviceHandler` now keeps the raw `cfg`/`dat` dictionaries alongside the richer surface model that mirrors what is described in `code-ref`. Highlights include:
+
+- full `primary`/`secondary` schedule generation for both legacy `d` arrays and the newer `slots` model, with calculated `end` times, party-mode awareness, and time-extension handling.
+- complete rain-delay state tracking (raw counter, active flag, remaining minutes) plus module status/configuration (ACS, Off Limits shortcuts, etc.).
+- real-time updates of lock state, battery/blade statistics, orientation, GPS hooks, and module-specific metadata so MQTT and API consumers stay synchronized.
+
+The fixture-driven `tests/test_device_decode.py` now asserts that the raw payloads, module data, and rain delay flags survive the round-trip, making regressions obvious as the refactor continues.
+
 ## Networking helpers
 
 `pyworxcloud.utils.requests` now builds a shared `requests.Session` configured with an `HTTPAdapter`/`Retry` pair targeting `429`, `500`, `502`, `503` and `504` so every API call benefits from exponential retries without duplicating session setup. Use the exported `create_session()` when you need to decorate or instrument this session (see `scripts/session_trace.py`), while the default `GET/POST` helpers continue working without additional configuration.
