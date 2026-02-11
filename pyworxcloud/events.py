@@ -44,10 +44,9 @@ def check_syntax(args: dict[str, Any], objs: list[str], expected_type: Any) -> b
 class EventHandler:
     """Event handler for Landroid Cloud."""
 
-    __events: dict[LandroidEvent, Any] = {}
-
     def __init__(self) -> None:
         """Initialize the event handler object."""
+        self.__events: dict[LandroidEvent, Any] = {}
 
     def set_handler(self, event: LandroidEvent, func: Any) -> None:
         """Set handler for a LandroidEvent"""
@@ -55,7 +54,7 @@ class EventHandler:
 
     def del_handler(self, event: LandroidEvent) -> None:
         """Remove a handler for a LandroidEvent."""
-        self.__events.pop(event)
+        self.__events.pop(event, None)
 
     def call(self, event: LandroidEvent, **kwargs) -> bool:
         """Call a handler if it was set."""
