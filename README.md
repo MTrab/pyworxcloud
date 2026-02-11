@@ -39,7 +39,7 @@ You can also run `python scripts/dump_mapping.py` to print the decoded snapshot 
 - `schedules["slots"]` retains every slot that was present in `sc.slots` or `sc.d`, so protocol 1 devices with more end-of-day runs can be inspected.
 
 
-- full `primary`/`secondary` schedule generation for both legacy `d` arrays and the newer `slots` model, with calculated `end` times, party-mode awareness, and time-extension handling.
+- slot-first schedule generation that captures each configured run (legacy `d` arrays and protocol 1 `slots`) along with calculated `end` times, party-mode awareness, and time-extension handling.
 - complete rain-delay state tracking (raw counter, active flag, remaining minutes) plus module status/configuration (ACS, Off Limits shortcuts, etc.).
 - real-time updates of lock state, battery/blade statistics, orientation, GPS hooks, and module-specific metadata so MQTT and API consumers stay synchronized.
 

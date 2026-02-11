@@ -1,9 +1,8 @@
-"""Defines schedule classes."""
+"""Defines schedule handling and progress helpers."""
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from enum import IntEnum
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -11,192 +10,94 @@ from ..day_map import DAY_MAP
 from .landroid_class import LDict
 
 
-class ScheduleType(IntEnum):
-    """Schedule types."""
-
-    PRIMARY = 0
-    SECONDARY = 1
-
-
-TYPE_TO_STRING = {ScheduleType.PRIMARY: "primary", ScheduleType.SECONDARY: "secondary"}
-
-
-class WeekdaySettings(LDict):
-    """Class representing a weekday setting."""
-
-    def __init__(
-        self,
-        start: str = "00:00",
-        end: str = "00:00",
-        duration: int = 0,
-        boundary: bool = False,
-    ) -> None:
-        """Initialize the settings."""
-        super().__init__()
-        self["start"] = start
-        self["end"] = end
-        self["duration"] = duration
-        self["boundary"] = boundary
-
-
-class Weekdays(LDict):
-    """Represents all weekdays."""
-
-    def __init__(self) -> dict:
-        super().__init__()
-
-        for day in [
-            "monday",
-            "tuesday",
-            "wednesday",
-            "thursday",
-            "friday",
-            "saturday",
-            "sunday",
-        ]:
-            # Initialize each weekday with default settings
-            self.update({day.lower(): WeekdaySettings()})
-
-
 class ScheduleInfo:
-    """Used for calculate the current schedule progress and show next schedule start."""
+    """Provide slot-based progress calculations."""
 
     def __init__(self, schedule: Schedule, tz: str | None = None) -> None:
-        """Initialize the ScheduleInfo object and set values."""
         self.__schedule = schedule
         now = datetime.now()
         timezone = ZoneInfo(tz) if not isinstance(tz, type(None)) else ZoneInfo("UTC")
         self._tz = tz
         self.__now = now.astimezone(timezone)
-        self.__today = self.__now.strftime("%d/%m/%Y")
+        self.__slots = schedule.get("slots", []) or []
 
-    def _get_schedules(
-        self, date: datetime, next: bool = False, add_offset: bool = False
-    ) -> WeekdaySettings | None:
-        """Get primary and secondary schedule for today or tomorrow."""
+    def _slots_for_date(self, date: datetime) -> list[dict[str, Any]]:
         day = DAY_MAP[int(date.strftime("%w"))]
+        slots = [slot for slot in self.__slots if slot.get("day") == day]
+        return sorted(slots, key=lambda slot: slot.get("start", "00:00"))
 
-        primary = self.__schedule[TYPE_TO_STRING[ScheduleType.PRIMARY]][day]
-        if primary["duration"] == 0:
-            return None, None, date
+    def _slot_datetimes(self, slot: dict[str, Any], date: datetime) -> tuple[datetime, datetime]:
+        from ..helpers.time_format import string_to_time
 
-        secondary = (
-            self.__schedule[TYPE_TO_STRING[ScheduleType.SECONDARY]][day]
-            if TYPE_TO_STRING[ScheduleType.SECONDARY] in self.__schedule
-            else None
-        )
-
-        if (not isinstance(secondary, type(None))) and secondary["duration"] == 0:
-            secondary = None
-
-        return primary, secondary, date
+        day_string = date.strftime("%d/%m/%Y")
+        start = string_to_time(f"{day_string} {slot['start']}:00", self._tz)
+        end = string_to_time(f"{day_string} {slot['end']}:00", self._tz)
+        return start, end
 
     def calculate_progress(self) -> int:
-        """Calculate and return current progress in percent."""
-        from ..helpers.time_format import string_to_time
-
-        primary, secondary, date = self._get_schedules(self.__now)
-
-        if isinstance(primary, type(None)) and isinstance(secondary, type(None)):
+        """Return the percentage of the day already covered by slots."""
+        slots = self._slots_for_date(self.__now)
+        total_run = sum(slot.get("duration_extended", 0) for slot in slots)
+        if total_run == 0:
             return 100
 
-        start = string_to_time(f"{self.__today} {primary['start']}:00", self._tz)
-        end = string_to_time(f"{self.__today} {primary['end']}:00", self._tz)
-
-        total_run = primary["duration"]
-        has_run = 0
-
-        if self.__now >= start and self.__now < end:
-            has_run = (self.__now - start).total_seconds() / 60
-        elif self.__now < start:
-            has_run = 0
-        else:
-            has_run = primary["duration"]
-
-        if (not isinstance(secondary, type(None))) and secondary["duration"] > 0:
-            start = string_to_time(f"{self.__today} {secondary['start']}:00", self._tz)
-            end = string_to_time(f"{self.__today} {secondary['end']}:00", self._tz)
-            total_run += secondary["duration"]
-            if self.__now >= start and self.__now < end:
-                has_run += (self.__now - start).total_seconds() / 60
-            elif self.__now < start:
-                has_run += 0
-            else:
-                has_run += primary["duration"]
+        has_run = 0.0
+        for slot in slots:
+            start, end = self._slot_datetimes(slot, self.__now)
+            if self.__now >= end:
+                has_run += slot.get("duration_extended", 0)
+            elif self.__now > start:
+                elapsed = (self.__now - start).total_seconds() / 60
+                has_run += min(elapsed, slot.get("duration_extended", 0))
 
         pct = (has_run / total_run) * 100
-        return int(round(pct))
+        return int(round(min(pct, 100)))
 
-    def next_schedule(self) -> str:
-        """Find next schedule starting point."""
+    def next_schedule(self) -> str | None:
+        """Return the wall-clock of the next slot start."""
         from ..helpers.time_format import string_to_time
 
-        primary, secondary, date = self._get_schedules(self.__now)
-        next = None
-        cnt = 0
-        while isinstance(primary, type(None)):
-            if cnt == 7:
-                # No schedule active for any weekday, return None
-                return None
+        candidates: list[datetime] = []
+        for offset in range(0, 14):
+            target_date = self.__now + timedelta(days=offset)
+            slots = self._slots_for_date(target_date)
+            for slot in slots:
+                start, _ = self._slot_datetimes(slot, target_date)
+                if offset == 0 and start <= self.__now:
+                    continue
+                candidates.append(start)
 
-            primary, secondary, date = self._get_schedules(date + timedelta(days=1))
-            cnt += 1
+        if not candidates:
+            return None
 
-        start = string_to_time(
-            f"{date.strftime('%d/%m/%Y')} {primary['start']}:00", self._tz
-        )
-
-        if self.__now < start:
-            next = start
-        elif (
-            (not isinstance(secondary, type(None)))
-            and start
-            < string_to_time(
-                f"{date.strftime('%d/%m/%Y')} {secondary['start']}:00", self._tz
-            )
-            and secondary["duration"] > 0
-        ):
-            next = string_to_time(
-                f"{date.strftime('%d/%m/%Y')} {secondary['start']}:00", self._tz
-            )
-
-        if isinstance(next, type(None)):
-            primary, secondary, date = self._get_schedules(date + timedelta(days=1))
-            while isinstance(primary, type(None)):
-                primary, secondary, date = self._get_schedules(date + timedelta(days=1))
-            next = string_to_time(
-                f"{date.strftime('%d/%m/%Y')} {primary['start']}:00", self._tz
-            )
-
-        return next.strftime("%Y-%m-%d %H:%M:%S")
+        next_slot = min(candidates)
+        return next_slot.strftime("%Y-%m-%d %H:%M:%S")
 
 
 class Schedule(LDict):
-    """Represents a schedule."""
+    """Represents an aggregate schedule snapshot."""
 
     def __init__(self, data: Any | None = None) -> None:
-        """Initialize a schedule."""
-        if isinstance(data, type(None)):
-            return
-
         super().__init__()
-
         self["daily_progress"] = None
         self["next_schedule_start"] = None
         self["time_extension"] = 0
         self["active"] = True
+        self["slots"] = []
+        self["party_mode_enabled"] = False
+        self["one_time_schedule"] = False
         self["auto_schedule"] = {
             "settings": (
                 data["auto_schedule_settings"]
-                if "auto_schedule_settings" in data
+                if isinstance(data, dict) and "auto_schedule_settings" in data
                 else {}
             ),
-            "enabled": data["auto_schedule"] if "auto_schedule" in data else False,
+            "enabled": (
+                data["auto_schedule"] if isinstance(data, dict) and "auto_schedule" in data else False
+            ),
         }
 
     def update_progress_and_next(self, tz: str | None = None) -> None:
-        """Update progress and next scheduled start properties."""
-
         info = ScheduleInfo(self, tz)
         self["daily_progress"] = info.calculate_progress()
         self["next_schedule_start"] = info.next_schedule()

@@ -22,7 +22,7 @@ from .location import Location
 from .orientation import Orientation
 from .rainsensor import Rainsensor
 from .schedule_mapper import ScheduleParser
-from .schedules import TYPE_TO_STRING, Schedule, ScheduleType, Weekdays
+from .schedules import Schedule
 from .state import States, StateType
 from .statistics import Statistic
 from .warranty import Warranty
@@ -345,18 +345,13 @@ class DeviceHandler(LDict):
         self.partymode_enabled = result.party_mode_enabled
         self.schedules["active"] = result.active
         self.schedules["time_extension"] = result.time_extension
+        self.schedules["party_mode_enabled"] = result.party_mode_enabled
         self.schedules["slots"] = [slot.as_dict() for slot in result.slots]
+        self.schedules["one_time_schedule"] = result.one_time_schedule
 
         if result.one_time_schedule:
             self.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
             self.capabilities.add(DeviceCapability.EDGE_CUT)
-
-        self.schedules.update({TYPE_TO_STRING[ScheduleType.PRIMARY]: result.primary})
-
-        if _has_secondary_schedule(result.secondary):
-            self.schedules.update(
-                {TYPE_TO_STRING[ScheduleType.SECONDARY]: result.secondary}
-            )
 
     def _determine_updated_at(
         self,
@@ -400,14 +395,3 @@ class DeviceHandler(LDict):
         elif isinstance(chattr, dict):
             chattr.update({key: value})
 
-
-def _has_secondary_schedule(weekdays: Weekdays) -> bool:
-    """Return True if any weekday contains a non-zero duration."""
-    for day in weekdays.values():
-        try:
-            duration = int(day.get("duration", 0))
-        except (TypeError, ValueError):
-            continue
-        if duration > 0:
-            return True
-    return False

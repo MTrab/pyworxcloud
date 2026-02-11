@@ -54,17 +54,37 @@ def _capture_device_snapshot(device: DeviceHandler) -> dict[str, Any]:
     }
 
 
+def _iter_payloads(text: str) -> list[dict[str, Any]]:
+    decoder = json.JSONDecoder()
+    index = 0
+    length = len(text)
+    payloads: list[dict[str, Any]] = []
+    while index < length:
+        while index < length and text[index].isspace():
+            index += 1
+        if index >= length:
+            break
+        obj, consumed = decoder.raw_decode(text[index:])
+        payloads.append(obj)
+        index += consumed
+    return payloads
+
+
 def main() -> None:
     fixtures = _resolve_fixtures()
     for fixture in fixtures:
-        payload = json.loads(fixture.read_text(encoding="utf-8"))["payload"]
-        protocol = 1 if "slots" in payload.get("cfg", {}).get("sc", {}) else 0
-        mower = _build_mower(payload, protocol, fixture.parts[-2])
-        device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+        content = fixture.read_text(encoding="utf-8")
+        entries = _iter_payloads(content)
+        for entry_idx, entry in enumerate(entries):
+            payload = entry["payload"]
+            protocol = 1 if "slots" in payload.get("cfg", {}).get("sc", {}) else 0
+            mower_name = f"{fixture.parts[-2]}#{entry_idx}" if len(entries) > 1 else fixture.parts[-2]
+            mower = _build_mower(payload, protocol, mower_name)
+            device = DeviceHandler(api=object(), mower=mower, tz="UTC")
 
-        snapshot = _capture_device_snapshot(device)
-        print(f"\nFixture: {fixture}\n" + "-" * 60)
-        print(json.dumps(snapshot, indent=2, default=str))
+            snapshot = _capture_device_snapshot(device)
+            print(f"\nFixture: {fixture} (entry {entry_idx})\n" + "-" * 60)
+            print(json.dumps(snapshot, indent=2, default=str))
 
 
 if __name__ == "__main__":

@@ -14,29 +14,36 @@ This document visualizes how the JSON `cfg`/`dat` payloads from the Worx/Kress/L
 | `bt` | Battery telemetry (`t`, `v`, `p`, ...). | Mapped through `Battery` and kept in sync with blade runtime. |
 | `st` | Runtime statistics (`b`, `d`, `wt`, `bl`). | Feeds `Statistic` and `Blades` objects. |
 | `dmp` | Orientation vector (pitch/roll/yaw). | Replaces `device.orientation`. |
-| `modules` | Submodule health (`4G`, `US`, etc.). | Captures `module_status`; `4G` GPS co-ordinates populate `device.gps`. |
+| `modules` | Submodule health/state (`4G`, `US`, `Rain`, ...). | Captures `module_status`, adds GPS from `4G.gps.coo`, and keeps `module_config`/`module_status` aligned with downstream logic. |
 | `rain` | Rain delay state/counter. | Updates `device.rainsensor.triggered`, `remaining`, and `raindelay_active`. |
+| `act` | Last activity timestamp (seconds since epoch). | Stored on `device.last_activity` for UI cues. |
 | `rsi` | Signal strength. | Stored as `device.rssi`. |
-| `conn` | Current connection medium (`wifi`, `4G`). | Used in fixtures/tests for verification.| 
+| `conn` | Current connection medium (`wifi`, `4G`). | Mirrors what fixtures expect and is surfaced through `DeviceHandler`. |
+| `protocol` | Protocol version hinted by the mower. | Written back to `mower["protocol"]` to ensure schedule parsing stays aligned. |
 
 ## `cfg` payload
 
 | Field | Meaning | Usage |
 |---|---|---|
-| `rd` | Rain delay configured minutes. | Drives `device.rainsensor.delay`. |
+| `rd` | Rain delay configured minutes. | Drives `device.rainsensor.delay` and is compared with `rain.cnt` for remaining time. |
 | `tq` | Torque helper flag. | Grants `DeviceCapability.TORQUE`. |
 | `mz` / `mzv` | Multi-zone start distances and index map. | Sets `zone.starting_point` / `zone.indicies` and derived `zone.current`. |
 | `modules` | Module configuration (`DF`, `US`, etc.). | Grants capabilities (Off-Limits / ACS) and flags `offlimit`, `offlimit_shortcut`, `acs_enabled`. |
-| `sc` | Schedule definition (legacy `d` arrays or new `slots`). | Drives the `schedules` object with `primary`, `secondary`, `active`, `time_extension`, and party-mode metadata. |
+| `sc` | Schedule definition (legacy `d` arrays or new `slots`). | Drives `schedules["slots"]` plus `["active"]`, `["time_extension"]`, `["party_mode_enabled"]`, `["one_time_schedule"]` and related metadata. |
 | `slots` | Derived slot list for every configured run. | Exposed via `schedules["slots"]`, so protocol 1 devices with more than two programs can still enumerate each entry verbatim. |
+| `sc.p` | Time extension modifier (minutes to add to each slot). | Stored as `schedules["time_extension"]` and applied to every `slot` end time. |
+| `sc.m` / `sc.enabled` | Party mode toggles. | Trigger `DeviceCapability.PARTY_MODE` and populate `schedules["active"]`. |
+| `sc.ots` | One-time scheduling info. | Adds `DeviceCapability.ONE_TIME_SCHEDULE` and `DeviceCapability.EDGE_CUT` when present (`ots.bc`, `ots.wtm`). |
+| `sc.dd` | Secondary-day schedule matrix. | Mirrors `ScheduleType.SECONDARY` entries so protocol 0 devices keep their legacy extra cuts. |
+| `sc.distm` | Distance multiplier tracking. | Tracked under `schedules["slots"]` for reporting and future UI needs. |
 
 ### Schedule visualization
 
 For every `sc` payload:
 
-- If `sc.d` is present (protocol 0), each entry `<start, duration, boundary>` is stored under `schedules.primary` for `DAY_MAP[idx]`. The duration is adjusted by `time_extension` (`sc.p`).
-- If `sc.slots` exists (protocol 1), each slot includes `d` (weekday), `s` (start offset), `t` (duration), and nested `cfg.cut.b` (boundary). Start times are recalculated from `00:00` plus `s` minutes.
-- Secondary schedules (`sc.dd`) are mapped similarly under `schedules.secondary` by weekday index.
+- If `sc.d` is present (protocol 0), each entry `<start, duration, boundary>` is converted into a slot regardless of weekday order; `time_extension` (`sc.p`) affects the computed `end` and `duration_extended`.
+- `sc.slots` entries (protocol 1) are mapped one-to-one, decoding `d` (weekday), `s` (start offset), `t` (duration), and nested `cfg.cut.b` (boundary) while recalculating actual start times.
+- `sc.dd` produces additional slots tagged with source `secondary`; these are preserved so legacy secondary runs stay visible.
 - Fields such as `sc.m`, `sc.enabled`, `sc.ots`/`ots.bc`/`ots.wtm`, and `sc.distm` influence party mode, one-time cuts, and edge cut flags, matching the reference apps.
 
 ## Additional notes

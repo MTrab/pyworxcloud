@@ -7,8 +7,6 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from ..day_map import DAY_MAP
-from .landroid_class import LDict
-from .schedules import Weekdays
 
 
 def _minutes_to_time(minutes: int) -> str:
@@ -20,32 +18,25 @@ def _apply_time_extension(duration: int, time_extension: int) -> int:
     return int(duration * (1 + (time_extension / 100)))
 
 
-def _set_weekday_entry(weekdays: Weekdays, day_name: str, start: str, duration: int, boundary: bool | None, time_extension: int) -> None:
-    entry = weekdays[day_name]
-    entry["start"] = start
-    entry["duration"] = duration
-    entry["boundary"] = boundary
-    duration_minutes = _apply_time_extension(duration, time_extension)
-    time_start = datetime.strptime(start, "%H:%M")
-    end_time = time_start + timedelta(minutes=duration_minutes)
-    entry["end"] = end_time.time().strftime("%H:%M")
-
-
 @dataclass
 class ScheduleSlot:
-    """Single schedule slot used for protocol 1 and diagnostics."""
+    """Single schedule slot used for protocol analysis."""
 
     day: str
     start: str
     duration: int
     boundary: bool | None
     source: str
+    duration_extended: int
+    end: str
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "day": self.day,
             "start": self.start,
+            "end": self.end,
             "duration": self.duration,
+            "duration_extended": self.duration_extended,
             "boundary": self.boundary,
             "source": self.source,
         }
@@ -55,8 +46,6 @@ class ScheduleSlot:
 class ScheduleParseResult:
     """Normalized schedule output used by DeviceHandler."""
 
-    primary: Weekdays
-    secondary: Weekdays
     slots: list[ScheduleSlot]
     party_mode_enabled: bool
     active: bool
@@ -70,8 +59,6 @@ class ScheduleParser:
     def __init__(self, payload: dict[str, Any], protocol: int):
         self._payload = payload
         self._protocol = protocol
-        self._primary = Weekdays()
-        self._secondary = Weekdays()
         self._slots: list[ScheduleSlot] = []
 
     def parse(self) -> ScheduleParseResult:
@@ -93,8 +80,6 @@ class ScheduleParser:
             self._parse_secondary(sc["dd"], time_extension)
 
         return ScheduleParseResult(
-            primary=self._primary,
-            secondary=self._secondary,
             slots=self._slots,
             party_mode_enabled=party_mode_enabled,
             active=active,
@@ -108,11 +93,18 @@ class ScheduleParser:
             start = slot[0]
             duration = int(slot[1])
             boundary = bool(slot[2]) if len(slot) > 2 else False
-            _set_weekday_entry(self._primary, day_name, start, duration, boundary, time_extension)
-            self._slots.append(ScheduleSlot(day=day_name, start=start, duration=duration, boundary=boundary, source="protocol0"))
+            self._slots.append(
+                self._build_slot(
+                    day_name,
+                    start,
+                    duration,
+                    boundary,
+                    "protocol0",
+                    time_extension,
+                )
+            )
 
     def _parse_protocol_one(self, sc: dict[str, Any], time_extension: int) -> None:
-        seen_days: set[str] = set()
         for slot in sc.get("slots", []):
             day_index = slot.get("d", 0)
             day_name = DAY_MAP.get(day_index, "monday")
@@ -120,10 +112,16 @@ class ScheduleParser:
             duration = int(slot.get("t", 0))
             cfg_cut = slot.get("cfg", {}).get("cut", {})
             boundary = bool(cfg_cut["b"]) if "b" in cfg_cut else None
-            self._slots.append(ScheduleSlot(day=day_name, start=start, duration=duration, boundary=boundary, source="protocol1"))
-            if day_name not in seen_days:
-                _set_weekday_entry(self._primary, day_name, start, duration, boundary, time_extension)
-                seen_days.add(day_name)
+            self._slots.append(
+                self._build_slot(
+                    day_name,
+                    start,
+                    duration,
+                    boundary,
+                    "protocol1",
+                    time_extension,
+                )
+            )
 
     def _parse_secondary(self, dd_payload: Any, time_extension: int) -> None:
         for index, entry in enumerate(dd_payload if isinstance(dd_payload, list) else []):
@@ -133,5 +131,35 @@ class ScheduleParser:
             start = entry[0]
             duration = int(entry[1])
             boundary = bool(entry[2]) if len(entry) > 2 else False
-            _set_weekday_entry(self._secondary, day_name, start, duration, boundary, time_extension)
-            self._slots.append(ScheduleSlot(day=day_name, start=start, duration=duration, boundary=boundary, source="secondary"))
+            self._slots.append(
+                self._build_slot(
+                    day_name,
+                    start,
+                    duration,
+                    boundary,
+                    "secondary",
+                    time_extension,
+                )
+            )
+
+    @staticmethod
+    def _build_slot(
+        day_name: str,
+        start: str,
+        duration: int,
+        boundary: bool | None,
+        source: str,
+        time_extension: int,
+    ) -> ScheduleSlot:
+        duration_extended = int(_apply_time_extension(duration, time_extension))
+        start_dt = datetime.strptime(start, "%H:%M")
+        end_dt = start_dt + timedelta(minutes=duration_extended)
+        return ScheduleSlot(
+            day=day_name,
+            start=start,
+            duration=duration,
+            boundary=boundary,
+            source=source,
+            duration_extended=duration_extended,
+            end=end_dt.strftime("%H:%M"),
+        )
