@@ -91,6 +91,20 @@ def test_devicehandler_raw_data_setter_redecodes_payload(fixtures_dir: Path) -> 
     assert device.error.id == 5
 
 
+def test_protocol1_slots_exposed(fixtures_dir: Path) -> None:
+    """All protocol-1 slots should be listed for visual inspection."""
+    payload = _load_payload(
+        fixtures_dir / "data-samples" / "52461d2e-918b-4dd6-a04f-b3120f46dfb3/http.json"
+    )
+    mower = _build_mower(payload, 1, "Slots Fixture")
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert isinstance(device.schedules["slots"], list)
+    assert len(device.schedules["slots"]) == len(payload["cfg"]["sc"]["slots"])
+    assert all(slot["source"].startswith("protocol") for slot in device.schedules["slots"])
+
+
 def test_devicehandler_exposes_raw_cfg_dat(fixtures_dir: Path) -> None:
     """DeviceHandler keeps cfg/dat structures accessible."""
     payload = _load_payload(

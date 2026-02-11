@@ -21,7 +21,8 @@ from .lawn import Lawn
 from .location import Location
 from .orientation import Orientation
 from .rainsensor import Rainsensor
-from .schedules import TYPE_TO_STRING, Schedule, ScheduleType, Weekdays
+from .schedule_mapper import ScheduleParser
+from .schedules import Schedule
 from .state import States, StateType
 from .statistics import Statistic
 from .warranty import Warranty
@@ -336,103 +337,21 @@ class DeviceHandler(LDict):
         if not isinstance(sc_payload, dict):
             return
 
-        if "ots" in sc_payload or "once" in sc_payload:
-            self.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
-            self.capabilities.add(DeviceCapability.EDGE_CUT)
+        result = ScheduleParser(sc_payload, self.protocol).parse()
 
         if "m" in sc_payload or "enabled" in sc_payload:
             self.capabilities.add(DeviceCapability.PARTY_MODE)
-            if self.protocol == 0:
-                self.partymode_enabled = bool(str(sc_payload.get("m")) == "2")
-                self.schedules["active"] = bool(str(sc_payload.get("m")) in ["1", "2"])
-            else:
-                enabled_flag = sc_payload.get("enabled")
-                self.partymode_enabled = bool(str(enabled_flag) == "0")
-                self.schedules["active"] = bool(str(enabled_flag) == "0")
 
-        time_extension = sc_payload.get("p", 0)
-        self.schedules["time_extension"] = (
-            int(time_extension) if self.protocol == 0 else 0
-        )
+        self.partymode_enabled = result.party_mode_enabled
+        self.schedules["active"] = result.active
+        self.schedules["time_extension"] = result.time_extension
+        self.schedules["party_mode_enabled"] = result.party_mode_enabled
+        self.schedules["slots"] = [slot.as_dict() for slot in result.slots]
+        self.schedules["one_time_schedule"] = result.one_time_schedule
 
-        sch_type = TYPE_TO_STRING[ScheduleType.PRIMARY]
-        self.schedules.update({sch_type: Weekdays()})
-
-        try:
-            total_slots = (
-                len(sc_payload["d"])
-                if self.protocol == 0 and "d" in sc_payload
-                else len(sc_payload.get("slots", []))
-            )
-        except TypeError:
-            total_slots = 0
-
-        for idx in range(total_slots):
-            if self.protocol == 0:
-                slot = sc_payload["d"][idx]
-                day_of_week = idx
-                start = slot[0]
-                duration = slot[1]
-                boundary = bool(slot[2]) if len(slot) > 2 else False
-            else:
-                slot = sc_payload["slots"][idx]
-                day_of_week = slot.get("d", 0)
-                start = (
-                    datetime.strptime("00:00", "%H:%M")
-                    + timedelta(minutes=slot.get("s", 0))
-                ).strftime("%H:%M")
-                duration = slot.get("t")
-                cfg_cut = slot.get("cfg", {}).get("cut", {})
-                boundary = (
-                    bool(cfg_cut["b"])
-                    if isinstance(cfg_cut, dict) and "b" in cfg_cut
-                    else None
-                )
-
-            day_name = DAY_MAP.get(day_of_week)
-            if day_name is None:
-                continue
-
-            entry = self.schedules[sch_type][day_name]
-            entry["start"] = start
-            entry["duration"] = duration
-            entry["boundary"] = boundary
-
-            if entry["duration"] is None:
-                entry["duration"] = "0"
-
-            duration_minutes = int(entry["duration"])
-            duration_minutes = duration_minutes * (
-                1 + (int(self.schedules["time_extension"]) / 100)
-            )
-            time_start = datetime.strptime(entry["start"], "%H:%M")
-            end_time = time_start + timedelta(minutes=duration_minutes)
-            entry["end"] = end_time.time().strftime("%H:%M")
-
-        if "dd" in sc_payload:
-            sec_type = TYPE_TO_STRING[ScheduleType.SECONDARY]
-            self.schedules.update({sec_type: Weekdays()})
-
-            for day, entry_values in enumerate(sc_payload["dd"]):
-                day_name = DAY_MAP.get(day)
-                if day_name is None:
-                    continue
-
-                entry = self.schedules[sec_type][day_name]
-                entry["start"] = entry_values[0]
-                entry["duration"] = entry_values[1]
-                entry["boundary"] = bool(entry_values[2])
-
-                if entry["duration"] is None:
-                    entry["duration"] = "0"
-
-                duration_minutes = int(entry["duration"])
-                duration_minutes = duration_minutes * (
-                    1 + (int(self.schedules["time_extension"]) / 100)
-                )
-                time_start = datetime.strptime(entry["start"], "%H:%M")
-                end_time = time_start + timedelta(minutes=duration_minutes)
-                entry["end"] = end_time.time().strftime("%H:%M")
+        if result.one_time_schedule:
+            self.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
+            self.capabilities.add(DeviceCapability.EDGE_CUT)
 
     def _determine_updated_at(
         self,
@@ -475,3 +394,4 @@ class DeviceHandler(LDict):
             setattr(chattr, key, value)
         elif isinstance(chattr, dict):
             chattr.update({key: value})
+
