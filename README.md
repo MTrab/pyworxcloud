@@ -26,17 +26,13 @@ pytest -q
 
 The fixture prepare script copies JSON sample files from `code-ref/data-samples` to `tests/fixtures/data-samples` when available.
 
-## Networking helpers
-
-`pyworxcloud.utils.requests` now builds a shared `requests.Session` configured with an `HTTPAdapter`/`Retry` for `429`/`5xx` responses. Use the exported `create_session()` when you need to decorate or inspect the session (for example, the new `scripts/session_trace.py` shows how to log every response that goes through this shared session). The default `GET/POST` helpers still work without manual retries, so existing callers remain compatible with the same retry policy used internally.
-
 ## Sample validation
 
 Run `python scripts/verify_data_samples.py` (or rely on `tests/test_data_samples.py`) to ensure every `code-ref/data-samples` fixture contains the minimal `payload/cfg/dat` structure (`id`, `conn`, and `uuid`/`mac`). This keeps the fixtures aligned with `DeviceHandler`/`EventHandler` expectations even as you add new samples.
 
 ## Networking helpers
 
-`pyworxcloud.utils.requests` now builds a shared `requests.Session` configured with an `HTTPAdapter`/`Retry` pair targeting `429`, `500`, `502`, `503` and `504` so every API call benefits from exponential retries without duplicating session setup. You can still inject a custom session via the `session` parameter if you need special logging or tracing.
+`pyworxcloud.utils.requests` now builds a shared `requests.Session` configured with an `HTTPAdapter`/`Retry` pair targeting `429`, `500`, `502`, `503` and `504` so every API call benefits from exponential retries without duplicating session setup. Use the exported `create_session()` when you need to decorate or instrument this session (see `scripts/session_trace.py`), while the default `GET/POST` helpers continue working without additional configuration.
 
 ## Command timeout configuration
 
