@@ -261,7 +261,11 @@ class DeviceHandler(LDict):
                     + data["cfg"]["tm"]
                 )
             elif "tm" in data["dat"]:
-                date = datetime.fromisoformat(data["dat"]["tm"])
+                tm_value = data["dat"]["tm"]
+                # Python 3.10 does not accept trailing "Z" in fromisoformat.
+                if isinstance(tm_value, str) and tm_value.endswith("Z"):
+                    tm_value = f"{tm_value[:-1]}+00:00"
+                date = datetime.fromisoformat(tm_value)
             else:
                 date = datetime.now()
 
