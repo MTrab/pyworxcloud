@@ -102,7 +102,9 @@ def test_protocol1_slots_exposed(fixtures_dir: Path) -> None:
 
     assert isinstance(device.schedules["slots"], list)
     assert len(device.schedules["slots"]) == len(payload["cfg"]["sc"]["slots"])
-    assert all(slot["source"].startswith("protocol") for slot in device.schedules["slots"])
+    assert all(
+        slot["source"].startswith("protocol") for slot in device.schedules["slots"]
+    )
 
 
 def test_devicehandler_exposes_raw_cfg_dat(fixtures_dir: Path) -> None:

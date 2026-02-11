@@ -65,7 +65,9 @@ class ScheduleParser:
         sc = self._payload
         time_extension = int(sc.get("p", 0))
         one_time = "ots" in sc or "once" in sc
-        party_mode_enabled = bool(str(sc.get("m")) == "2" or str(sc.get("enabled")) == "0")
+        party_mode_enabled = bool(
+            str(sc.get("m")) == "2" or str(sc.get("enabled")) == "0"
+        )
         active = bool(
             (self._protocol == 0 and str(sc.get("m")) in {"1", "2"})
             or (self._protocol != 0 and str(sc.get("enabled")) == "0")
@@ -124,7 +126,9 @@ class ScheduleParser:
             )
 
     def _parse_secondary(self, dd_payload: Any, time_extension: int) -> None:
-        for index, entry in enumerate(dd_payload if isinstance(dd_payload, list) else []):
+        for index, entry in enumerate(
+            dd_payload if isinstance(dd_payload, list) else []
+        ):
             day_name = DAY_MAP.get(index)
             if day_name is None:
                 continue

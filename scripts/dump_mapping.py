@@ -78,7 +78,11 @@ def main() -> None:
         for entry_idx, entry in enumerate(entries):
             payload = entry["payload"]
             protocol = 1 if "slots" in payload.get("cfg", {}).get("sc", {}) else 0
-            mower_name = f"{fixture.parts[-2]}#{entry_idx}" if len(entries) > 1 else fixture.parts[-2]
+            mower_name = (
+                f"{fixture.parts[-2]}#{entry_idx}"
+                if len(entries) > 1
+                else fixture.parts[-2]
+            )
             mower = _build_mower(payload, protocol, mower_name)
             device = DeviceHandler(api=object(), mower=mower, tz="UTC")
 

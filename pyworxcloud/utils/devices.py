@@ -394,4 +394,3 @@ class DeviceHandler(LDict):
             setattr(chattr, key, value)
         elif isinstance(chattr, dict):
             chattr.update({key: value})
-

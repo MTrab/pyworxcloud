@@ -26,7 +26,9 @@ class ScheduleInfo:
         slots = [slot for slot in self.__slots if slot.get("day") == day]
         return sorted(slots, key=lambda slot: slot.get("start", "00:00"))
 
-    def _slot_datetimes(self, slot: dict[str, Any], date: datetime) -> tuple[datetime, datetime]:
+    def _slot_datetimes(
+        self, slot: dict[str, Any], date: datetime
+    ) -> tuple[datetime, datetime]:
         from ..helpers.time_format import string_to_time
 
         day_string = date.strftime("%d/%m/%Y")
@@ -93,7 +95,9 @@ class Schedule(LDict):
                 else {}
             ),
             "enabled": (
-                data["auto_schedule"] if isinstance(data, dict) and "auto_schedule" in data else False
+                data["auto_schedule"]
+                if isinstance(data, dict) and "auto_schedule" in data
+                else False
             ),
         }
 
