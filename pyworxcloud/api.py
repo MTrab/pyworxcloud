@@ -39,6 +39,7 @@ class LandroidCloudAPI:
         self.uuid = None
         self._api_host = None
         self.api_data = None
+        self._products_cache = None
         self._tz = tz
         self._callback = token_callback
 
@@ -124,13 +125,24 @@ class LandroidCloudAPI:
             f"https://{self.cloud.ENDPOINT}/api/v2/product-items?status=1",
             HEADERS(self.access_token),
         )
+        products = self._get_products()
+        product_map = {item["id"]: item for item in products}
+
         for mower in mowers:
             if mower["name"] is None:
                 # Add default name when mower is unnamed
                 mower["name"] = "No Name"
 
             _LOGGER.debug("Matching models for mower '%s'", mower["name"])
-            model = self.get_model(mower["product_id"])
+            model = product_map.get(mower["product_id"])
+            if model is None:
+                _LOGGER.debug(
+                    "Could not match model for mower '%s' (product_id=%s)",
+                    mower["name"],
+                    mower["product_id"],
+                )
+                continue
+
             mower["model"] = {
                 "code": model["code"],
                 "friendly_name": str.format(
@@ -151,10 +163,7 @@ class LandroidCloudAPI:
         """
         self.check_token()
 
-        products = GET(
-            f"https://{self.cloud.ENDPOINT}/api/v2/products",
-            HEADERS(self.access_token),
-        )
+        products = self._get_products()
 
         product_info = None
         for product in products:
@@ -163,6 +172,17 @@ class LandroidCloudAPI:
                 break
 
         return product_info
+
+    def _get_products(self) -> list:
+        """Get product list from cache or API."""
+        self.check_token()
+        if self._products_cache is None:
+            self._products_cache = GET(
+                f"https://{self.cloud.ENDPOINT}/api/v2/products",
+                HEADERS(self.access_token),
+            )
+
+        return self._products_cache
 
     @property
     def data(self) -> str:

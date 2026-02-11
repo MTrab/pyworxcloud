@@ -28,9 +28,14 @@ BACKOFF_FACTOR = 3
 
 def backoff(retry: int) -> float:
     """Calculate backoff time."""
-    val: float = BACKOFF_FACTOR * (2 ** (retry - 1))
+    val: float = BACKOFF_FACTOR * (2**retry)
 
     return val if val <= MAX_BACKOFF else MAX_BACKOFF
+
+
+def _is_last_retry(retry: int) -> bool:
+    """Return true if this is the last retry attempt."""
+    return retry >= (NUM_RETRIES - 1)
 
 
 def HEADERS(access_token: str | None = None) -> dict:
@@ -79,14 +84,21 @@ def POST(URL: str, REQUEST_BODY: str, HEADER: dict | None = None) -> str:
             elif code == 503:
                 raise ServiceUnavailableError()
             elif code == 504:
+                if _is_last_retry(retry):
+                    break
                 sleep(backoff(retry))
                 continue
             else:
                 raise APIError(err)
-        except requests.exceptions.ConnectionError:
-            raise TooManyRequestsError()
-        except urllib3.exceptions.MaxRetryError:
-            raise TooManyRequestsError()
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            urllib3.exceptions.MaxRetryError,
+        ):
+            if _is_last_retry(retry):
+                break
+            sleep(backoff(retry))
+            continue
     raise NoConnectionError()
 
 
@@ -121,9 +133,20 @@ def GET(URL: str, HEADER: dict | None = None) -> str:
             elif code == 503:
                 raise ServiceUnavailableError()
             elif code == 504:
+                if _is_last_retry(retry):
+                    break
                 sleep(backoff(retry))
-                pass
+                continue
             else:
                 raise APIError(err)
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            urllib3.exceptions.MaxRetryError,
+        ):
+            if _is_last_retry(retry):
+                break
+            sleep(backoff(retry))
+            continue
 
     raise NoConnectionError()
