@@ -133,6 +133,7 @@ class MQTT(LDict):
         self._response_event = threading.Event()
         self._pending_response_target: str | None = None
         self._pending_response_message_id: int | None = None
+        self._last_command_payload: dict[str, Any] | None = None
         if response_timeout <= 0:
             raise ValueError("response_timeout must be greater than 0")
         self._response_timeout = float(response_timeout)
@@ -406,7 +407,20 @@ class MQTT(LDict):
         # Format the message
         formatted_message = self.format_message(serial_number, message, protocol)
         command_message_id = json.loads(formatted_message)["id"]
-        self._log.debug("Publishing message '%s'", formatted_message)
+        self._last_command_payload = {
+            "serial": serial_number,
+            "topic": topic,
+            "message": message,
+            "command_id": command_message_id,
+            "payload": formatted_message,
+        }
+        self._log.debug(
+            "Publishing message id=%s serial=%s topic=%s payload=%s",
+            command_message_id,
+            serial_number,
+            topic,
+            formatted_message,
+        )
 
         # Only allow one in-flight command until response/timeout.
         with self._command_lock:
@@ -425,6 +439,16 @@ class MQTT(LDict):
                 publish_future.result()
 
                 if not self._response_event.wait(effective_timeout):
+                    payload = (
+                        self._last_command_payload or {}
+                    )
+                    self._log.warning(
+                        "Timeout waiting for device response; serial=%s command_id=%s topic=%s payload=%s",
+                        payload.get("serial", serial_number),
+                        payload.get("command_id"),
+                        payload.get("topic"),
+                        payload.get("payload"),
+                    )
                     raise TimeoutException(
                         f"Timed out waiting for device response from '{serial_number}'"
                     )
