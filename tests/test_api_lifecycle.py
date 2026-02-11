@@ -32,6 +32,39 @@ class DummyMQTT:
         self.disconnect_called = True
 
 
+class DummyDevice:
+    """Simple device stub."""
+
+    time_zone = "UTC"
+
+
+class CapturingMQTT:
+    """MQTT constructor stub capturing provided timeout."""
+
+    last_response_timeout: float | None = None
+
+    def __init__(
+        self,
+        _api: Any,
+        _brandprefix: str,
+        _endpoint: str,
+        _user_id: int,
+        _logger: Any,
+        _callback: Any,
+        response_timeout: float,
+    ) -> None:
+        self.__class__.last_response_timeout = response_timeout
+
+    def connect(self) -> None:
+        return None
+
+    def subscribe(self, _topic: str, _append: bool = True) -> None:
+        return None
+
+    def disconnect(self) -> None:
+        return None
+
+
 def test_get_token_propagates_unexpected_errors(monkeypatch) -> None:
     """Unexpected token fetch errors should not be swallowed."""
     api = LandroidCloudAPI("user@example.com", "secret", CloudType.WORX)
@@ -138,3 +171,37 @@ def test_on_api_update_dispatches_api_event_callback() -> None:
     cloud._on_api_update({"key": "value"})
 
     assert received == [{"key": "value"}]
+
+
+def test_constructor_rejects_non_positive_command_timeout() -> None:
+    """WorxCloud should validate command timeout."""
+    with pytest.raises(ValueError):
+        WorxCloud("user@example.com", "secret", "worx", command_timeout=0)
+
+
+def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
+    """Configured command timeout should be forwarded to MQTT layer."""
+    cloud = WorxCloud(
+        "user@example.com",
+        "secret",
+        "worx",
+        command_timeout=12.5,
+    )
+
+    def _fake_fetch() -> None:
+        cloud._mowers = [
+            {
+                "name": "My Mower",
+                "mqtt_endpoint": "mqtt.example.invalid",
+                "user_id": 99,
+                "mqtt_topics": {"command_out": "topic/out"},
+            }
+        ]
+        cloud.devices = {"My Mower": DummyDevice()}
+
+    monkeypatch.setattr(cloud, "_fetch", _fake_fetch)
+    monkeypatch.setattr("pyworxcloud.MQTT", CapturingMQTT)
+    monkeypatch.setattr("pyworxcloud.convert_to_time", lambda *_args, **_kwargs: None)
+
+    assert cloud.connect() is True
+    assert CapturingMQTT.last_response_timeout == 12.5

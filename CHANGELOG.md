@@ -11,6 +11,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - Hardened HTTP transport retry behavior for connection and timeout failures.
 - Reduced API pressure by avoiding repeated product catalog lookups during mower listing.
 - Enforced serialized MQTT command handling: a new command is blocked until the prior command is acknowledged or times out.
+- Added configurable MQTT command timeout via `WorxCloud(..., command_timeout=...)`.
 
 ### Fixed
 - Removed silent token retrieval failure masking in authentication flow.
