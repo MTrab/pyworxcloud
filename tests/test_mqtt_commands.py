@@ -60,18 +60,22 @@ def _build_mqtt(
     return mqtt, dummy_client
 
 
-def test_publish_times_out_when_no_response(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_publish_times_out_when_no_response(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     """Publish should raise TimeoutException when no matching response arrives."""
     mqtt, _dummy = _build_mqtt(monkeypatch)
 
     with pytest.raises(TimeoutException):
-        mqtt.publish(
-            serial_number="SN-1",
-            topic="topic/in",
-            message={"cmd": 1},
-            protocol=0,
-            timeout=0.05,
-        )
+        with caplog.at_level("WARNING", logger="pyworxcloud.utils.mqtt"):
+            mqtt.publish(
+                serial_number="SN-1",
+                topic="topic/in",
+                message={"cmd": 1},
+                protocol=0,
+                timeout=0.05,
+            )
+    assert "Timeout waiting for device response" in caplog.text
 
 
 def test_publish_uses_default_response_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
