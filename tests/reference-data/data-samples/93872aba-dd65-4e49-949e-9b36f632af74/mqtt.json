@@ -1,0 +1,21 @@
+{
+  "ts": 0,
+  "payload": {
+    "cfg": {
+      "id": 0,
+      "sn": "fixture",
+      "sc": {
+        "slots": [
+          {"d": 0, "s": 600, "t": 240, "cfg": {"cut": {"b": 0}}}
+        ]
+      }
+    },
+    "dat": {
+      "mac": "00",
+      "ls": 1,
+      "le": 0,
+      "conn": "wifi",
+      "rain": {"s": 0, "cnt": 0}
+    }
+  }
+}

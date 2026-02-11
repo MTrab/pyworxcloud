@@ -4,17 +4,40 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence, Tuple
 
 import pytest
 
 from pyworxcloud.utils.capability import DeviceCapability
 from pyworxcloud.utils.devices import DeviceHandler
+from tests.fixture_utils import fixture_paths, load_fixture_payloads
 
 
-def _load_payload(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return data["payload"]
+def _load_payloads(path: Path) -> Sequence[dict[str, Any]]:
+    return load_fixture_payloads(path)
+
+
+def _first_payload(path: Path) -> dict[str, Any]:
+    payloads = _load_payloads(path)
+    assert payloads
+    return payloads[0]
+
+
+def _protocol_from_payload(payload: dict[str, Any]) -> int:
+    sc = payload.get("cfg", {}).get("sc", {})
+    return 1 if sc.get("slots") else 0
+
+
+HTTP_FIXTURES: Tuple[tuple[Path, dict[str, Any]], ...] = tuple(
+    (path, _first_payload(path)) for path in fixture_paths("http.json")
+)
+
+
+def _find_http_fixture(predicate) -> tuple[Path, dict[str, Any]]:
+    for path, payload in HTTP_FIXTURES:
+        if predicate(payload):
+            return path, payload
+    pytest.skip("No HTTP fixture matches the requested criteria")
 
 
 def _build_mower(payload: dict[str, Any], protocol: int, name: str) -> dict[str, Any]:
@@ -36,19 +59,13 @@ def _build_mower(payload: dict[str, Any], protocol: int, name: str) -> dict[str,
 
 
 @pytest.mark.parametrize(
-    ("fixture_path", "protocol"),
-    [
-        ("52461d2e-918b-4dd6-a04f-b3120f46dfb3/http.json", 1),
-        ("9066087f-8591-456c-a75c-43e434b23164/http.json", 0),
-        ("9c3a0295-36eb-415f-9bc1-4d41466d4a95/http.json", 0),
-        ("e2703c73-4811-4756-a389-bfdc6bbedca9/http.json", 0),
-    ],
+    ("path", "payload", "protocol"),
+    tuple((path, payload, _protocol_from_payload(payload)) for path, payload in HTTP_FIXTURES),
 )
 def test_devicehandler_decodes_fixture_payloads(
-    fixtures_dir: Path, fixture_path: str, protocol: int
+    path: Path, payload: dict[str, Any], protocol: int
 ) -> None:
     """Decode sample payloads and verify core mapped fields."""
-    payload = _load_payload(fixtures_dir / "data-samples" / fixture_path)
     mower = _build_mower(payload, protocol, "Fixture Mower")
 
     device = DeviceHandler(api=object(), mower=mower, tz="UTC")
@@ -61,11 +78,9 @@ def test_devicehandler_decodes_fixture_payloads(
     assert device.schedules["active"] is not None
 
 
-def test_devicehandler_maps_module_capabilities(fixtures_dir: Path) -> None:
+def test_devicehandler_maps_module_capabilities() -> None:
     """Capability flags should be inferred from fixture module payload."""
-    payload = _load_payload(
-        fixtures_dir / "data-samples" / "52461d2e-918b-4dd6-a04f-b3120f46dfb3/http.json"
-    )
+    _, payload = _find_http_fixture(lambda p: bool(p.get("cfg", {}).get("modules")))
     mower = _build_mower(payload, 1, "Vision Fixture")
 
     device = DeviceHandler(api=object(), mower=mower, tz="UTC")
@@ -74,11 +89,9 @@ def test_devicehandler_maps_module_capabilities(fixtures_dir: Path) -> None:
     assert device.capabilities.check(DeviceCapability.ACS) is True
 
 
-def test_devicehandler_raw_data_setter_redecodes_payload(fixtures_dir: Path) -> None:
+def test_devicehandler_raw_data_setter_redecodes_payload() -> None:
     """Raw payload updates should trigger re-decoding of status fields."""
-    payload = _load_payload(
-        fixtures_dir / "data-samples" / "9c3a0295-36eb-415f-9bc1-4d41466d4a95/http.json"
-    )
+    _, payload = _find_http_fixture(lambda p: isinstance(p.get("dat", {}).get("ls"), int))
     mower = _build_mower(payload, 0, "Classic Fixture")
     device = DeviceHandler(api=object(), mower=mower, tz="UTC")
 
@@ -91,11 +104,9 @@ def test_devicehandler_raw_data_setter_redecodes_payload(fixtures_dir: Path) -> 
     assert device.error.id == 5
 
 
-def test_protocol1_slots_exposed(fixtures_dir: Path) -> None:
+def test_protocol1_slots_exposed() -> None:
     """All protocol-1 slots should be listed for visual inspection."""
-    payload = _load_payload(
-        fixtures_dir / "data-samples" / "52461d2e-918b-4dd6-a04f-b3120f46dfb3/http.json"
-    )
+    _, payload = _find_http_fixture(lambda p: bool(p.get("cfg", {}).get("sc", {}).get("slots")))
     mower = _build_mower(payload, 1, "Slots Fixture")
 
     device = DeviceHandler(api=object(), mower=mower, tz="UTC")
@@ -107,11 +118,9 @@ def test_protocol1_slots_exposed(fixtures_dir: Path) -> None:
     )
 
 
-def test_devicehandler_exposes_raw_cfg_dat(fixtures_dir: Path) -> None:
+def test_devicehandler_exposes_raw_cfg_dat() -> None:
     """DeviceHandler keeps cfg/dat structures accessible."""
-    payload = _load_payload(
-        fixtures_dir / "data-samples" / "52461d2e-918b-4dd6-a04f-b3120f46dfb3/http.json"
-    )
+    _, payload = _find_http_fixture(lambda p: bool(p.get("cfg", {}).get("modules")))
     mower = _build_mower(payload, 1, "Fixture Mower")
 
     device = DeviceHandler(api=object(), mower=mower, tz="UTC")
@@ -123,3 +132,28 @@ def test_devicehandler_exposes_raw_cfg_dat(fixtures_dir: Path) -> None:
     assert device.module_config is not None
     assert device.module_status is not None
     assert device.raindelay_active == bool(str(payload["dat"]["rain"]["s"]) == "1")
+
+
+MQTT_FIXTURES = tuple(fixture_paths("mqtt.json"))
+
+
+def test_devicehandler_handles_mqtt_payloads() -> None:
+    """MQTT fixtures decode the same way as HTTP responses."""
+    assert MQTT_FIXTURES, "No MQTT fixtures were discovered"
+
+    for fixture_path in MQTT_FIXTURES:
+        payloads = _load_payloads(fixture_path)
+
+    assert payloads
+    for index, payload in enumerate(payloads):
+        mower = _build_mower(payload, 1, f"MQTT Fixture {index}")
+        device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+        assert device.is_decoded is True
+        assert device.protocol == 1
+        assert device.raw_dat["mac"] == payload["dat"]["mac"]
+        sc_slots = payload["cfg"]["sc"].get("slots", [])
+        slots = device.schedules.get("slots", [])
+        assert slots
+        assert len(slots) == len(sc_slots)
+        assert any(slot["source"].startswith("protocol") for slot in slots)
