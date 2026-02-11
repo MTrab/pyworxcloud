@@ -237,6 +237,8 @@ class DeviceHandler(LDict):
             return self.json_data
 
         if self.raw_data:
+            if isinstance(self.raw_data, dict):
+                return self.raw_data
             try:
                 return json.loads(self.raw_data)
             except json.JSONDecodeError:
