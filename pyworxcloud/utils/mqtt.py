@@ -209,10 +209,15 @@ class MQTT(LDict):
         self._log.debug("Received MQTT message on topic '%s':\n%s", topic, msg)
         identifiers, message_ids = self._extract_response_markers(msg)
         with self._response_lock:
+            id_matches = (
+                not message_ids
+                or self._pending_response_message_id is None
+                or self._pending_response_message_id in message_ids
+            )
             if (
                 self._pending_response_target is not None
                 and self._pending_response_target in identifiers
-                and self._pending_response_message_id in message_ids
+                and id_matches
             ):
                 self._response_event.set()
         self._on_update(msg)
