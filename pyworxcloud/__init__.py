@@ -168,6 +168,8 @@ class WorxCloud(dict):
 
         # Dict holding refresh timers
         self._timers = {}
+        self._state_lock = threading.Lock()
+        self._disconnecting = threading.Event()
 
         # Dict of devices, identified by name
         self.devices: DeviceHandler = {}
@@ -232,21 +234,21 @@ class WorxCloud(dict):
 
     def disconnect(self) -> None:
         """Close API connections."""
-        # pylint: disable=bare-except
         logger = self._log.getChild("Disconnect")
+        self._disconnecting.set()
 
         # Cancel force refresh timer on disconnect
-        try:
+        with self._state_lock:
             for _, tmr in self._timers.items():
                 tmr.cancel()
-        except:
-            logger.debug("Could not cancel timers - skipping.")
+            self._timers.clear()
 
         # Disconnect MQTT connection
         try:
-            self.mqtt.disconnect()
-        except:
-            logger.debug("Could not disconnect MQTT - skipping.")
+            if self.mqtt is not None:
+                self.mqtt.disconnect()
+        except Exception as err:
+            logger.debug("Could not disconnect MQTT cleanly: %s", err)
 
     def connect(
         self,
@@ -257,6 +259,7 @@ class WorxCloud(dict):
         Returns:
             bool: True if connection was successful, otherwise False.
         """
+        self._disconnecting.clear()
         self._log.debug("Fetching basic API data")
         self._fetch()
         self._log.debug("Done fetching basic API data")
@@ -296,7 +299,8 @@ class WorxCloud(dict):
 
     def _token_updated(self) -> None:
         """Called when token is updated."""
-        self.mqtt.update_token()
+        if self.mqtt is not None:
+            self.mqtt.update_token()
 
     @property
     def auth_result(self) -> bool:
@@ -371,18 +375,24 @@ class WorxCloud(dict):
 
     def _fetch(self, forced: bool = False) -> None:
         """Fetch base API information."""
+        if self._disconnecting.is_set():
+            return
+
         try:
             self._mowers = self._api.get_mowers()
-        except requests.exceptions.ConnectionError as err:
+        except (requests.exceptions.ConnectionError, NoConnectionError) as err:
             if forced:
                 self._schedule_api_refresh(True)
                 return
             else:
-                raise requests.exceptions.ConnectionError(err) from err
+                raise NoConnectionError() from err
         except InternalServerError:
             if forced:
                 self._schedule_api_refresh(True)
 
+            return
+
+        if self._disconnecting.is_set():
             return
 
         # self.devices = {}
@@ -414,32 +424,36 @@ class WorxCloud(dict):
     def _schedule_api_refresh(self, is_err: bool = False) -> None:
         """Schedule the API refresh."""
         logger = self._log.getChild("API_Refresh_Scheduler")
+        if self._disconnecting.is_set():
+            return
 
-        try:
-            self._timers["api"].cancel()
-        except KeyError:
-            pass
+        with self._state_lock:
+            try:
+                self._timers["api"].cancel()
+            except KeyError:
+                pass
 
-        if is_err:
-            refresh_secs = 5 * 60
-        else:
-            refresh_secs = (randint(API_REFRESH_TIME_MIN, API_REFRESH_TIME_MAX)) * 60
+            if is_err:
+                refresh_secs = 5 * 60
+            else:
+                refresh_secs = (randint(API_REFRESH_TIME_MIN, API_REFRESH_TIME_MAX)) * 60
 
-        timezone = (
-            ZoneInfo(self._tz)
-            if not isinstance(self._tz, type(None))
-            else ZoneInfo("UTC")
-        )
-        now = datetime.now().astimezone(timezone)
-        next_api_refresh = now + timedelta(seconds=refresh_secs)
-        logger.debug(
-            "Scheduling an API refresh at %s",
-            next_api_refresh,
-        )
+            timezone = (
+                ZoneInfo(self._tz)
+                if not isinstance(self._tz, type(None))
+                else ZoneInfo("UTC")
+            )
+            now = datetime.now().astimezone(timezone)
+            next_api_refresh = now + timedelta(seconds=refresh_secs)
+            logger.debug(
+                "Scheduling an API refresh at %s",
+                next_api_refresh,
+            )
 
-        force_api_refresh = threading.Timer(refresh_secs, self._fetch, args=[True])
-        force_api_refresh.start()
-        self._timers.update({"api": force_api_refresh})
+            force_api_refresh = threading.Timer(refresh_secs, self._fetch, args=[True])
+            force_api_refresh.daemon = True
+            force_api_refresh.start()
+            self._timers.update({"api": force_api_refresh})
 
     def get_mower(self, serial_number: str, device: bool = False) -> dict:
         """Get a specific mower object.
