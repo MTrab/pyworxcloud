@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from pyworxcloud.utils.devices import DeviceHandler
-
 from tests.fixture_utils import fixture_paths
 
 

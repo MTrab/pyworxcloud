@@ -60,7 +60,10 @@ def _build_mower(payload: dict[str, Any], protocol: int, name: str) -> dict[str,
 
 @pytest.mark.parametrize(
     ("path", "payload", "protocol"),
-    tuple((path, payload, _protocol_from_payload(payload)) for path, payload in HTTP_FIXTURES),
+    tuple(
+        (path, payload, _protocol_from_payload(payload))
+        for path, payload in HTTP_FIXTURES
+    ),
 )
 def test_devicehandler_decodes_fixture_payloads(
     path: Path, payload: dict[str, Any], protocol: int
@@ -91,7 +94,9 @@ def test_devicehandler_maps_module_capabilities() -> None:
 
 def test_devicehandler_raw_data_setter_redecodes_payload() -> None:
     """Raw payload updates should trigger re-decoding of status fields."""
-    _, payload = _find_http_fixture(lambda p: isinstance(p.get("dat", {}).get("ls"), int))
+    _, payload = _find_http_fixture(
+        lambda p: isinstance(p.get("dat", {}).get("ls"), int)
+    )
     mower = _build_mower(payload, 0, "Classic Fixture")
     device = DeviceHandler(api=object(), mower=mower, tz="UTC")
 
@@ -106,7 +111,9 @@ def test_devicehandler_raw_data_setter_redecodes_payload() -> None:
 
 def test_protocol1_slots_exposed() -> None:
     """All protocol-1 slots should be listed for visual inspection."""
-    _, payload = _find_http_fixture(lambda p: bool(p.get("cfg", {}).get("sc", {}).get("slots")))
+    _, payload = _find_http_fixture(
+        lambda p: bool(p.get("cfg", {}).get("sc", {}).get("slots"))
+    )
     mower = _build_mower(payload, 1, "Slots Fixture")
 
     device = DeviceHandler(api=object(), mower=mower, tz="UTC")
