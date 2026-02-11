@@ -62,7 +62,7 @@ class EventHandler:
             # Event was not set
             return False
 
-        if LandroidEvent.DATA_RECEIVED == event or LandroidEvent.API == event:
+        if LandroidEvent.DATA_RECEIVED == event:
             from .utils.devices import DeviceHandler
 
             if not check_syntax(kwargs, ["name"], str) or not check_syntax(
@@ -75,6 +75,25 @@ class EventHandler:
 
             self.__events[event](name=kwargs["name"], device=kwargs["device"])
             return True
+        elif LandroidEvent.API == event:
+            # Preferred API callback payload.
+            if check_syntax(kwargs, ["api_data"], dict):
+                self.__events[event](api_data=kwargs["api_data"])
+                return True
+
+            # Backward-compatible payload shape used in forced refresh flow.
+            from .utils.devices import DeviceHandler
+
+            if check_syntax(kwargs, ["name"], str) and check_syntax(
+                kwargs, ["device"], DeviceHandler
+            ):
+                self.__events[event](name=kwargs["name"], device=kwargs["device"])
+                return True
+
+            _LOGGER.warning(
+                "requirements for API event attributes were not fulfilled, not sending event!"
+            )
+            return False
         elif LandroidEvent.MQTT_CONNECTION == event:
             if not check_syntax(kwargs, ["state"], bool):
                 return False

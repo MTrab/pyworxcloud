@@ -16,6 +16,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 ### Fixed
 - Removed silent token retrieval failure masking in authentication flow.
 - Fixed MQTT command flow that previously could continue without bounded response handling.
+- Fixed API event callback dispatch so `LandroidEvent.API` supports `api_data` payloads.
 
 ### Notes
 - This section currently reflects merged refactor hardening PRs: `#294`, `#295`, `#296`.
