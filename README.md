@@ -9,3 +9,15 @@ The module are compatible with cloud enabled devices from [these vendors](https:
 ## Documentation
 
 The documentation have been moved to the [Wiki](https://github.com/MTrab/pyworxcloud/wiki)<br/>
+
+## Testing
+
+Run tests locally with:
+
+```bash
+python -m pip install -e . pytest
+bash scripts/prepare_test_fixtures.sh
+pytest -q
+```
+
+The fixture prepare script copies JSON sample files from `code-ref/data-samples` to `tests/fixtures/data-samples` when available.
