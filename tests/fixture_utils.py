@@ -8,6 +8,7 @@ from typing import Any, Iterable, Generator, Sequence
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "data-samples"
 CODE_REF_DIR = Path(__file__).resolve().parents[1] / "code-ref" / "data-samples"
+BACKUP_DIR = Path(__file__).resolve().parent / "reference-data" / "data-samples"
 
 
 def _resolve_fixture_path(file_path: Path) -> Path:
@@ -20,7 +21,11 @@ def _resolve_fixture_path(file_path: Path) -> Path:
         return file_path
 
     candidate = CODE_REF_DIR / relative
-    return candidate if candidate.exists() else file_path
+    if candidate.exists():
+        return candidate
+
+    backup_candidate = BACKUP_DIR / relative
+    return backup_candidate if backup_candidate.exists() else file_path
 
 
 def iter_json_documents(text: str) -> Generator[dict[str, Any], None, None]:
