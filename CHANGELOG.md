@@ -10,6 +10,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - Stabilized connector lifecycle so disconnect stops scheduled API refresh work.
 - Hardened HTTP transport retry behavior for connection and timeout failures.
 - Reduced API pressure by avoiding repeated product catalog lookups during mower listing.
+- Reused HTTP sessions in API calls to improve connection pooling and request performance.
 - Enforced serialized MQTT command handling: a new command is blocked until the prior command is acknowledged or times out.
 - Added configurable MQTT command timeout via `WorxCloud(..., command_timeout=...)`.
 
