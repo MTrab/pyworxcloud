@@ -25,3 +25,13 @@ pytest -q
 ```
 
 The fixture prepare script copies JSON sample files from `code-ref/data-samples` to `tests/fixtures/data-samples` when available.
+
+## Command timeout configuration
+
+`WorxCloud` accepts a `command_timeout` argument (seconds) that controls how long MQTT command calls wait for a matching mower response before raising `TimeoutException`.
+
+```python
+from pyworxcloud import WorxCloud
+
+cloud = WorxCloud("user@example.com", "secret", "worx", command_timeout=15.0)
+```

@@ -111,6 +111,7 @@ class MQTT(LDict):
         user_id: int,
         logger: Logger,
         callback: Any,
+        response_timeout: float = DEFAULT_RESPONSE_TIMEOUT,
     ) -> dict:
         """Initialize AWSIoT MQTT handler."""
 
@@ -132,6 +133,9 @@ class MQTT(LDict):
         self._response_event = threading.Event()
         self._pending_response_target: str | None = None
         self._pending_response_message_id: int | None = None
+        if response_timeout <= 0:
+            raise ValueError("response_timeout must be greater than 0")
+        self._response_timeout = float(response_timeout)
         self._client_id = (
             f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}"
         )
@@ -325,11 +329,17 @@ class MQTT(LDict):
             self._is_connected = False
             logger.debug("MQTT disconnected")
 
-    def ping(self, serial_number: str, topic: str, protocol: int = 0) -> None:
+    def ping(
+        self,
+        serial_number: str,
+        topic: str,
+        protocol: int = 0,
+        timeout: float | None = None,
+    ) -> None:
         """Ping (update) the mower."""
         cmd = {"cmd": Command.FORCE_REFRESH}
         self._log.debug("Sending '%s' on topic '%s'", cmd, topic)
-        self.publish(serial_number, topic, cmd, protocol)
+        self.publish(serial_number, topic, cmd, protocol, timeout=timeout)
 
     def command(
         self,
@@ -337,7 +347,7 @@ class MQTT(LDict):
         topic: str,
         action: Command,
         protocol: int = 0,
-        timeout: float = DEFAULT_RESPONSE_TIMEOUT,
+        timeout: float | None = None,
     ) -> None:
         """Send a specific command to the mower."""
         self.publish(
@@ -354,9 +364,13 @@ class MQTT(LDict):
         topic: str,
         message: dict,
         protocol: int = 0,
-        timeout: float = DEFAULT_RESPONSE_TIMEOUT,
+        timeout: float | None = None,
     ) -> None:
         """Publish a message to the mower and wait for response."""
+        effective_timeout = self._response_timeout if timeout is None else timeout
+        if effective_timeout <= 0:
+            raise ValueError("timeout must be greater than 0")
+
         if not self.connected:
             self.update_token()
 
@@ -381,7 +395,7 @@ class MQTT(LDict):
                 # Wait for the message to be published
                 publish_future.result()
 
-                if not self._response_event.wait(timeout):
+                if not self._response_event.wait(effective_timeout):
                     raise TimeoutException(
                         f"Timed out waiting for device response from '{serial_number}'"
                     )

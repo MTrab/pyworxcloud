@@ -32,6 +32,10 @@ What this means for integrations:
 - Surface timeout errors in UI/automation logic as retryable failures.
 - Avoid infinite waiting states in calling code.
 
+`WorxCloud` now supports explicit timeout configuration:
+
+- `WorxCloud(..., command_timeout=<seconds>)`
+
 ### 3. Transport-level failures are no longer misclassified
 
 Connection and timeout failures in HTTP transport now map to connection-style failures after retries, not rate-limit errors.

@@ -37,7 +37,9 @@ class _DummyClient:
         return _ImmediateFuture(), 1
 
 
-def _build_mqtt(monkeypatch: pytest.MonkeyPatch) -> tuple[MQTT, _DummyClient]:
+def _build_mqtt(
+    monkeypatch: pytest.MonkeyPatch, response_timeout: float = 30.0
+) -> tuple[MQTT, _DummyClient]:
     dummy_client = _DummyClient()
     dummy_api = type("API", (), {"access_token": "a.b.c"})()
 
@@ -50,6 +52,7 @@ def _build_mqtt(monkeypatch: pytest.MonkeyPatch) -> tuple[MQTT, _DummyClient]:
         user_id=42,
         logger=logging.getLogger("test"),
         callback=lambda _payload: None,
+        response_timeout=response_timeout,
     )
     mqtt._is_connected = True
     return mqtt, dummy_client
@@ -67,6 +70,27 @@ def test_publish_times_out_when_no_response(monkeypatch: pytest.MonkeyPatch) -> 
             protocol=0,
             timeout=0.05,
         )
+
+
+def test_publish_uses_default_response_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Publish without explicit timeout should use MQTT default response timeout."""
+    mqtt, _dummy = _build_mqtt(monkeypatch, response_timeout=0.05)
+
+    with pytest.raises(TimeoutException):
+        mqtt.publish(
+            serial_number="SN-1",
+            topic="topic/in",
+            message={"cmd": 1},
+            protocol=0,
+        )
+
+
+def test_mqtt_rejects_non_positive_default_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """MQTT constructor should validate response timeout input."""
+    with pytest.raises(ValueError):
+        _build_mqtt(monkeypatch, response_timeout=0.0)
 
 
 def test_publish_waits_for_matching_response(monkeypatch: pytest.MonkeyPatch) -> None:
