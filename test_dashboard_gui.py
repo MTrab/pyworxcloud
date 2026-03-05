@@ -433,6 +433,7 @@ class DashboardApp:
         self.connected = False
         self._closing = False
         self._shutdown_popup: Toplevel | None = None
+        self._status_popup: Toplevel | None = None
         self._requires_connection_widgets: list[Any] = []
         self._pending_connection_action: str | None = None
 
@@ -614,6 +615,7 @@ class DashboardApp:
 
     def _set_controls(self, connected: bool) -> None:
         self._pending_connection_action = None
+        self._hide_status_popup()
         self.connected = connected
         mower_state = "readonly" if connected else "disabled"
         self.mower_combo.configure(state=mower_state)
@@ -627,6 +629,7 @@ class DashboardApp:
 
     def _set_connecting_pending(self) -> None:
         self._pending_connection_action = "connect"
+        self._show_status_popup("Connecting", "Connecting to cloud and MQTT...\nPlease wait...")
         self.connect_button.configure(state="disabled")
         self.disconnect_button.configure(state="disabled")
         self.email_entry.configure(state="disabled")
@@ -638,6 +641,9 @@ class DashboardApp:
 
     def _set_disconnecting_pending(self) -> None:
         self._pending_connection_action = "disconnect"
+        self._show_status_popup(
+            "Disconnecting", "Disconnecting from cloud and MQTT...\nPlease wait..."
+        )
         self.connect_button.configure(state="disabled")
         self.disconnect_button.configure(state="disabled")
         self.email_entry.configure(state="disabled")
@@ -646,6 +652,41 @@ class DashboardApp:
         self.mower_combo.configure(state="disabled")
         for widget in self._requires_connection_widgets:
             widget.configure(state="disabled")
+
+    def _show_status_popup(self, title: str, message: str) -> None:
+        self._hide_status_popup()
+        popup = Toplevel(self.root)
+        popup.title(title)
+        popup.transient(self.root)
+        popup.grab_set()
+        popup.resizable(False, False)
+        popup.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        frame = ttk.Frame(popup, padding=14)
+        frame.grid(row=0, column=0, sticky="nsew")
+        ttk.Label(frame, text=message, justify="center").grid(row=0, column=0, sticky="nsew")
+
+        popup.update_idletasks()
+        self.root.update_idletasks()
+        root_x = self.root.winfo_rootx()
+        root_y = self.root.winfo_rooty()
+        root_w = self.root.winfo_width()
+        root_h = self.root.winfo_height()
+        pop_w = popup.winfo_width()
+        pop_h = popup.winfo_height()
+        x = root_x + max((root_w - pop_w) // 2, 0)
+        y = root_y + max((root_h - pop_h) // 2, 0)
+        popup.geometry(f"+{x}+{y}")
+        self._status_popup = popup
+
+    def _hide_status_popup(self) -> None:
+        if self._status_popup is None:
+            return
+        with contextlib.suppress(Exception):
+            self._status_popup.grab_release()
+        with contextlib.suppress(Exception):
+            self._status_popup.destroy()
+        self._status_popup = None
 
     def _connect(self) -> None:
         email = self.email_var.get().strip()
