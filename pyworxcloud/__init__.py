@@ -569,6 +569,26 @@ class WorxCloud(dict):
             f"Mower with serialnumber {serial_number} was not found."
         )
 
+    @staticmethod
+    def _require_bool(value: Any, name: str) -> bool:
+        """Require a strict bool input value."""
+        if not isinstance(value, bool):
+            raise ValueError(f"{name} must be a boolean value")
+        return value
+
+    @staticmethod
+    def _coerce_int(value: Any, name: str, minimum: int | None = None) -> int:
+        """Coerce an integer-like input and optionally enforce a minimum."""
+        if isinstance(value, bool):
+            raise ValueError(f"{name} must be an integer value")
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError) as err:
+            raise ValueError(f"{name} must be an integer value") from err
+        if minimum is not None and parsed < minimum:
+            raise ValueError(f"{name} must be greater than or equal to {minimum}")
+        return parsed
+
     async def update(self, serial_number: str) -> None:
         """Request a state refresh."""
         mower = self.get_mower(serial_number)
@@ -679,8 +699,7 @@ class WorxCloud(dict):
         """
         mower = self.get_mower(serial_number)
         if mower["online"]:
-            if not isinstance(rain_delay, int):
-                rain_delay = int(rain_delay)
+            rain_delay = self._coerce_int(rain_delay, "rain_delay", minimum=0)
             await self.mqtt.apublish(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
@@ -699,6 +718,7 @@ class WorxCloud(dict):
         Raises:
             OfflineError: Raised if the device is offline.
         """
+        state = self._require_bool(state, "state")
         mower = self.get_mower(serial_number)
         if mower["online"]:
             await self.mqtt.acommand(
@@ -721,6 +741,7 @@ class WorxCloud(dict):
             NoPartymodeError: Raised if the device does not support partymode.
             OfflineError: Raised if the device is offline.
         """
+        state = self._require_bool(state, "state")
         mower = self.get_mower(serial_number)
 
         if mower["online"]:
@@ -760,6 +781,7 @@ class WorxCloud(dict):
             NoOfflimitsError: Raised if the device does not support off limits.
             OfflineError: Raised if the device is offline.
         """
+        state = self._require_bool(state, "state")
         mower = self.get_mower(serial_number)
 
         if mower["online"]:
@@ -806,6 +828,7 @@ class WorxCloud(dict):
             NoOfflimitsError: Raised if the device does not support off limits.
             OfflineError: Raised if the device is offline.
         """
+        state = self._require_bool(state, "state")
         mower = self.get_mower(serial_number)
 
         if mower["online"]:
@@ -854,8 +877,7 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             device = DeviceHandler(self._api, mower, self._tz)
-            if not isinstance(zone, int):
-                zone = int(zone)
+            zone = self._coerce_int(zone, "zone", minimum=0)
 
             if (
                 zone >= len(device.zone["starting_point"])
@@ -942,6 +964,7 @@ class WorxCloud(dict):
         Raises:
             OfflineError: Raised if the device is offline.
         """
+        enable = self._require_bool(enable, "enable")
         mower = self.get_mower(serial_number)
         if mower["online"]:
             await self.mqtt.apublish(
@@ -990,12 +1013,12 @@ class WorxCloud(dict):
             NoOneTimeScheduleError: OTS is not supported by the device.
             OfflineError: Raised when the device is offline.
         """
+        boundary = self._require_bool(boundary, "boundary")
         mower = self.get_mower(serial_number)
         if mower["online"]:
             device = DeviceHandler(self._api, mower, self._tz)
             if device.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE):
-                if not isinstance(runtime, int):
-                    runtime = int(runtime)
+                runtime = self._coerce_int(runtime, "runtime", minimum=0)
 
                 device = DeviceHandler(self._api, mower, self._tz)
                 if mower["protocol"] == 0:
@@ -1122,6 +1145,7 @@ class WorxCloud(dict):
             NoCuttingHeightError: Raised if the device does not support cutting height.
             OfflineError: Raised if the device is offline.
         """
+        height = self._coerce_int(height, "height", minimum=0)
         mower = self.get_mower(serial_number)
         if mower["online"]:
             device = DeviceHandler(self._api, mower, self._tz)
@@ -1150,6 +1174,7 @@ class WorxCloud(dict):
             NoACSModuleError: Raised if the device does not support ACS.
             OfflineError: Raised if the device is offline.
         """
+        state = self._require_bool(state, "state")
         mower = self.get_mower(serial_number)
         if mower["online"]:
             device = DeviceHandler(self._api, mower, self._tz)
