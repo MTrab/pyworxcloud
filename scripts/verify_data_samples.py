@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Iterable, NamedTuple
+from typing import Any, Generator, Iterable, NamedTuple
 
 
 class ValidationIssue(NamedTuple):
@@ -14,6 +14,23 @@ class ValidationIssue(NamedTuple):
 
 REQUIRED_CFG_KEYS = {"id"}
 REQUIRED_DAT_KEYS = {"conn"}
+
+
+def _iter_json_documents(text: str) -> Generator[dict[str, Any], None, None]:
+    """Yield all JSON objects stored sequentially in a file."""
+    decoder = json.JSONDecoder()
+    index = 0
+    length = len(text)
+
+    while index < length:
+        while index < length and text[index].isspace():
+            index += 1
+        if index >= length:
+            break
+        obj, consumed = decoder.raw_decode(text[index:])
+        if isinstance(obj, dict):
+            yield obj
+        index += consumed
 
 
 def _validate_payload(payload: dict[str, dict]) -> Iterable[str]:
@@ -46,18 +63,26 @@ def validate_data_samples(root: Path | None = None) -> list[ValidationIssue]:
 
     for file in sorted(root_path.rglob("*.json")):
         try:
-            data = json.loads(file.read_text(encoding="utf-8"))
+            text = file.read_text(encoding="utf-8")
+            data = list(_iter_json_documents(text))
         except json.JSONDecodeError as err:
             issues.append(ValidationIssue(file, f"invalid JSON: {err}"))
             continue
 
-        payload = data.get("payload")
-        if not isinstance(payload, dict):
-            issues.append(ValidationIssue(file, "missing payload dict"))
+        if not data:
+            issues.append(ValidationIssue(file, "no JSON objects found"))
             continue
 
-        for error in _validate_payload(payload):
-            issues.append(ValidationIssue(file, error))
+        for index, entry in enumerate(data, start=1):
+            payload = entry.get("payload")
+            if not isinstance(payload, dict):
+                issues.append(
+                    ValidationIssue(file, f"entry {index}: missing payload dict")
+                )
+                continue
+
+            for error in _validate_payload(payload):
+                issues.append(ValidationIssue(file, f"entry {index}: {error}"))
 
     return issues
 
