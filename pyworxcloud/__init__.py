@@ -10,10 +10,10 @@ import json
 import logging
 import sys
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from random import randint
 from typing import Any
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .api import LandroidCloudAPI
 from .clouds import CloudType
@@ -547,12 +547,15 @@ class WorxCloud(dict):
         else:
             refresh_secs = randint(API_REFRESH_TIME_MIN, API_REFRESH_TIME_MAX) * 60
 
-        timezone = (
-            ZoneInfo(self._tz)
-            if not isinstance(self._tz, type(None))
-            else ZoneInfo("UTC")
-        )
-        now = datetime.now().astimezone(timezone)
+        try:
+            timezone_info = (
+                ZoneInfo(self._tz)
+                if not isinstance(self._tz, type(None))
+                else timezone.utc
+            )
+        except ZoneInfoNotFoundError:
+            timezone_info = timezone.utc
+        now = datetime.now().astimezone(timezone_info)
         next_api_refresh = now + timedelta(seconds=refresh_secs)
         logger.debug(
             "Scheduling an API refresh at %s",

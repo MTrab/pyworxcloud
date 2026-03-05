@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ..day_map import DAY_MAP
 from .landroid_class import LDict
@@ -16,10 +16,19 @@ class ScheduleInfo:
     def __init__(self, schedule: Schedule, tz: str | None = None) -> None:
         self.__schedule = schedule
         now = datetime.now()
-        timezone = ZoneInfo(tz) if not isinstance(tz, type(None)) else ZoneInfo("UTC")
+        timezone_info = self._resolve_timezone(tz)
         self._tz = tz
-        self.__now = now.astimezone(timezone)
+        self.__now = now.astimezone(timezone_info)
         self.__slots = schedule.get("slots", []) or []
+
+    @staticmethod
+    def _resolve_timezone(tz: str | None) -> datetime.tzinfo:
+        if tz is None:
+            return timezone.utc
+        try:
+            return ZoneInfo(tz)
+        except ZoneInfoNotFoundError:
+            return timezone.utc
 
     def _slots_for_date(self, date: datetime) -> list[dict[str, Any]]:
         day = DAY_MAP[int(date.strftime("%w"))]

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ..utils.schedules import Schedule
 
@@ -22,6 +22,16 @@ DATE_FORMATS = [
 ]
 
 
+def _resolve_timezone(tz: str | None) -> datetime.tzinfo:
+    """Return a resilient tzinfo object for known/unknown timezone keys."""
+    if tz is None:
+        return timezone.utc
+    try:
+        return ZoneInfo(tz)
+    except ZoneInfoNotFoundError:
+        return timezone.utc
+
+
 def string_to_time(dt_string: str, tz: str = "UTC") -> datetime | str:
     """Convert string to datetime object.
     Trying all known date/time formats as defined in DATE_FORMATS constant.
@@ -33,11 +43,11 @@ def string_to_time(dt_string: str, tz: str = "UTC") -> datetime | str:
     Returns:
         datetime: datatime object
     """
-    timezone = ZoneInfo(tz) if not isinstance(tz, type(None)) else ZoneInfo("UTC")
+    timezone_info = _resolve_timezone(tz)
     for format in DATE_FORMATS:
         try:
             dt_object = datetime.strptime(dt_string, format).replace(
-                tzinfo=timezone
+                tzinfo=timezone_info
             )  # .astimezone(timezone)
             break
         except ValueError:
