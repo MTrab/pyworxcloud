@@ -490,10 +490,13 @@ class MQTT(LDict):
         # Format the message
         formatted_message = self.format_message(serial_number, message, protocol)
         command_message_id = json.loads(formatted_message)["id"]
+        identifier_type = "sn" if protocol == 0 else "uuid" if protocol == 1 else "id"
         self._last_command_payload = {
             "serial": serial_number,
+            "identifier_type": identifier_type,
             "topic": topic,
             "message": message,
+            "protocol": protocol,
             "command_id": command_message_id,
             "payload": formatted_message,
         }
@@ -524,8 +527,10 @@ class MQTT(LDict):
                 if not self._response_event.wait(effective_timeout):
                     payload = self._last_command_payload or {}
                     self._log.warning(
-                        "Timeout waiting for device response; serial=%s command_id=%s topic=%s payload=%s",
+                        "Timeout waiting for device response; identifier_type=%s identifier=%s protocol=%s command_id=%s topic=%s payload=%s",
+                        payload.get("identifier_type", identifier_type),
                         payload.get("serial", serial_number),
+                        payload.get("protocol", protocol),
                         payload.get("command_id"),
                         payload.get("topic"),
                         payload.get("payload"),
