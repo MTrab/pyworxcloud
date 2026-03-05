@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from pyworxcloud.events import EventHandler, LandroidEvent
 
 
@@ -59,3 +61,35 @@ def test_api_event_rejects_invalid_payload() -> None:
     result = handler.call(LandroidEvent.API, message="invalid")
 
     assert result is False
+
+
+def test_event_handler_supports_async_callback_inside_running_loop() -> None:
+    """Async callbacks should be scheduled when called from an active loop."""
+    handler = EventHandler()
+    calls: list[bool] = []
+
+    async def _on_conn(state: bool) -> None:
+        calls.append(state)
+
+    handler.set_handler(LandroidEvent.MQTT_CONNECTION, _on_conn)
+
+    async def _run() -> None:
+        assert handler.call(LandroidEvent.MQTT_CONNECTION, state=True) is True
+        await asyncio.sleep(0)
+
+    asyncio.run(_run())
+    assert calls == [True]
+
+
+def test_event_handler_supports_async_callback_without_running_loop() -> None:
+    """Async callbacks should run to completion even without active loop."""
+    handler = EventHandler()
+    calls: list[dict] = []
+
+    async def _on_api(api_data: dict) -> None:
+        calls.append(api_data)
+
+    handler.set_handler(LandroidEvent.API, _on_api)
+
+    assert handler.call(LandroidEvent.API, api_data={"status": "ok"}) is True
+    assert calls == [{"status": "ok"}]
