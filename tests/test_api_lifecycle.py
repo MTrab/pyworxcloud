@@ -247,6 +247,63 @@ def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
     assert CapturingMQTT.last_response_timeout == 12.5
 
 
+def test_async_context_manager_runs_lifecycle(monkeypatch) -> None:
+    """async with should call authenticate/connect on enter and disconnect on exit."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    calls: list[str] = []
+
+    async def _auth() -> bool:
+        calls.append("auth")
+        return True
+
+    async def _connect() -> bool:
+        calls.append("connect")
+        return True
+
+    async def _disconnect() -> None:
+        calls.append("disconnect")
+
+    monkeypatch.setattr(cloud, "authenticate", _auth)
+    monkeypatch.setattr(cloud, "connect", _connect)
+    monkeypatch.setattr(cloud, "disconnect", _disconnect)
+
+    async def _run() -> None:
+        async with cloud:
+            calls.append("inside")
+
+    asyncio.run(_run())
+    assert calls == ["auth", "connect", "inside", "disconnect"]
+
+
+def test_async_context_manager_disconnects_on_exception(monkeypatch) -> None:
+    """disconnect should still run when async with block raises."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    calls: list[str] = []
+
+    async def _auth() -> bool:
+        calls.append("auth")
+        return True
+
+    async def _connect() -> bool:
+        calls.append("connect")
+        return True
+
+    async def _disconnect() -> None:
+        calls.append("disconnect")
+
+    monkeypatch.setattr(cloud, "authenticate", _auth)
+    monkeypatch.setattr(cloud, "connect", _connect)
+    monkeypatch.setattr(cloud, "disconnect", _disconnect)
+
+    async def _run() -> None:
+        with pytest.raises(RuntimeError):
+            async with cloud:
+                raise RuntimeError("boom")
+
+    asyncio.run(_run())
+    assert calls == ["auth", "connect", "disconnect"]
+
+
 def test_match_mower_uses_identifier_priority() -> None:
     """Matcher should prefer serial, then uuid, then mac."""
     cloud = WorxCloud("user@example.com", "secret", "worx")
