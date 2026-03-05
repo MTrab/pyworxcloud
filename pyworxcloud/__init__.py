@@ -336,12 +336,17 @@ class WorxCloud(dict):
         logger = self._log.getChild("MQTT_data_in")
         try:
             data = json.loads(payload)
-            logger.debug("MQTT data received")
             cfg = data.get("cfg", {}) if isinstance(data, dict) else {}
             dat = data.get("dat", {}) if isinstance(data, dict) else {}
             serial = cfg.get("sn")
             uuid = dat.get("uuid")
             mac = dat.get("mac")
+            logger.debug(
+                "MQTT data received (sn=%s uuid=%s mac=%s)",
+                serial,
+                uuid,
+                mac,
+            )
 
             # "Malformed" message, we are missing a serial number and
             # MAC address to identify the mower.
@@ -377,6 +382,7 @@ class WorxCloud(dict):
             mower["raw_data"] = data
             device: DeviceHandler = self.devices[mower["name"]]
             device.raw_data = data
+            logger.debug("MQTT data refreshed for mower '%s'", mower["name"])
 
             self._events.call(
                 LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
@@ -454,6 +460,7 @@ class WorxCloud(dict):
 
     async def _fetch(self, forced: bool = False) -> None:
         """Fetch base API information."""
+        logger = self._log.getChild("API_Fetch")
         if self._disconnecting.is_set():
             return
 
@@ -491,10 +498,10 @@ class WorxCloud(dict):
                         else "__UUID__"
                     )
 
-                if forced:
-                    self._events.call(
-                        LandroidEvent.API, name=mower["name"], device=device
-                    )
+                logger.debug("API data refreshed for mower '%s'", mower["name"])
+                self._events.call(
+                    LandroidEvent.API, name=mower["name"], device=device
+                )
             except TypeError:
                 pass
 

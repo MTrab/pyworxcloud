@@ -45,7 +45,7 @@ def receive_api_data(
     name: str, device: DeviceHandler  # pylint: disable=unused-argument
 ) -> None:
     """Callback function when the API data was updated."""
-    print("API data was refreshed")
+    print(f"API data was refreshed for {name}")
 
 
 asyncio.run(main())
