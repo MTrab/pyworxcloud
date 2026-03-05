@@ -14,6 +14,16 @@ from pyworxcloud import WorxCloud
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.utils import DeviceHandler
 
+try:
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.patch_stdout import patch_stdout
+
+    _PROMPT_TOOLKIT_AVAILABLE = True
+except ImportError:
+    PromptSession = None
+    patch_stdout = None
+    _PROMPT_TOOLKIT_AVAILABLE = False
+
 
 def _clear() -> None:
     print("\033c", end="")
@@ -220,6 +230,13 @@ async def _run_dashboard(cloud: WorxCloud) -> None:
     input_task: asyncio.Task[str] | None = None
     input_in_progress = False
     dirty = True
+    prompt_session = PromptSession() if _PROMPT_TOOLKIT_AVAILABLE else None
+
+    async def _prompt_input(prompt: str) -> str:
+        if prompt_session is None:
+            return await _ainput(prompt)
+        with patch_stdout(raw=True):
+            return await prompt_session.prompt_async(prompt)
 
     def _on_data(name: str, device: DeviceHandler) -> None:
         nonlocal event_text, dirty
@@ -246,13 +263,14 @@ async def _run_dashboard(cloud: WorxCloud) -> None:
             device = cloud.devices[selected]
             serial = device.serial_number
 
-            if dirty and not input_in_progress:
+            # prompt_toolkit can redraw prompt safely while user is typing.
+            if dirty and (not input_in_progress or prompt_session is not None):
                 _render_device(device, selected, event_text)
                 print("Format: command [args] | e.g.: l on, rd 90, ch 45, acs off")
                 dirty = False
 
             if input_task is None:
-                input_task = asyncio.create_task(_ainput("\ncmd> "))
+                input_task = asyncio.create_task(_prompt_input("\ncmd> "))
                 input_in_progress = True
 
             if now - last_poll >= poll_interval:
@@ -356,6 +374,10 @@ async def _run_dashboard(cloud: WorxCloud) -> None:
 async def main() -> None:
     _load_dotenv()
     log_level = _configure_logging()
+    if not _PROMPT_TOOLKIT_AVAILABLE:
+        print(
+            "Info: install 'prompt_toolkit' for fully non-blocking CLI prompt behavior."
+        )
     email = environ.get("EMAIL") or await _ainput("EMAIL: ")
     password = environ.get("PASSWORD") or await _ainput("PASSWORD: ")
     cloud_type = environ.get("TYPE") or await _ainput("TYPE (worx/kress/landxcape): ")
