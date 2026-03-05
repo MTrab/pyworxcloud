@@ -44,6 +44,28 @@ async with WorxCloud("user@example.com", "secret", "worx") as cloud:
     ...
 ```
 
+### Async migration cheat sheet
+
+Before (sync):
+
+```python
+cloud = WorxCloud("user@example.com", "secret", "worx")
+cloud.authenticate()
+cloud.connect()
+cloud.start("SERIAL")
+cloud.disconnect()
+```
+
+After (async):
+
+```python
+cloud = WorxCloud("user@example.com", "secret", "worx")
+await cloud.authenticate()
+await cloud.connect()
+await cloud.start("SERIAL")
+await cloud.disconnect()
+```
+
 ## Testing
 
 Run tests locally with:

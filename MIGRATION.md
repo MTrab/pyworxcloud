@@ -32,6 +32,24 @@ What this means for integrations:
 - Ensure lifecycle setup/teardown runs inside an event loop.
 - For Home Assistant, call methods from async setup/update/service handlers directly.
 
+Quick before/after:
+
+```python
+# Before
+cloud.authenticate()
+cloud.connect()
+cloud.update("SERIAL")
+cloud.disconnect()
+```
+
+```python
+# After
+await cloud.authenticate()
+await cloud.connect()
+await cloud.update("SERIAL")
+await cloud.disconnect()
+```
+
 ### 1. MQTT commands are now serialized
 
 Only one command can be in flight per MQTT client at a time.
