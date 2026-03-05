@@ -17,6 +17,23 @@
         "focus": true
       },
       "problemMatcher": []
+    },
+    {
+      "label": "> Live Dashboard GUI",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": [
+        "${workspaceFolder}/test_dashboard_gui.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": []
     }
   ]
 }
