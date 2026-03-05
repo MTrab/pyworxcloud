@@ -27,20 +27,29 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e . pyinstaller
 
-      - name: Build EXE
+      - name: Build CLI EXE
         shell: bash
         run: |
           pyinstaller --noconfirm --clean --onefile --name pyworxcloud-dashboard test_dashboard.py
+
+      - name: Build GUI EXE
+        shell: bash
+        run: |
+          pyinstaller --noconfirm --clean --onefile --name pyworxcloud-dashboard-gui test_dashboard_gui.py
 
       - name: Upload workflow artifact
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: pyworxcloud-dashboard-windows-exe
-          path: dist/pyworxcloud-dashboard.exe
+          name: pyworxcloud-dashboards-windows-exe
+          path: |
+            dist/pyworxcloud-dashboard.exe
+            dist/pyworxcloud-dashboard-gui.exe
 
       - name: Upload release asset
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/pyworxcloud-dashboard.exe
+          files: |
+            dist/pyworxcloud-dashboard.exe
+            dist/pyworxcloud-dashboard-gui.exe
