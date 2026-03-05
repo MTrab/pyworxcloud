@@ -182,6 +182,8 @@ class CloudWorker:
         self._poll_task: asyncio.Task | None = None
         self._selected_name: str | None = None
         self._log_level = _configure_logging()
+        self._update_event = asyncio.Event()
+        self._update_event_name: str | None = None
 
     def _run_loop(self) -> None:
         asyncio.set_event_loop(self._loop)
@@ -204,9 +206,13 @@ class CloudWorker:
         _configure_logging()
 
         def _on_data(name: str, device: DeviceHandler) -> None:
+            self._update_event_name = name
+            self._update_event.set()
             self._emit("device_update", source="mqtt", name=name, snapshot=_snapshot_device(device))
 
         def _on_api(name: str, device: DeviceHandler) -> None:
+            self._update_event_name = name
+            self._update_event.set()
             self._emit("device_update", source="api", name=name, snapshot=_snapshot_device(device))
 
         self._cloud.set_callback(LandroidEvent.DATA_RECEIVED, _on_data)
@@ -276,13 +282,26 @@ class CloudWorker:
         device = self._cloud.devices.get(selected)
         if not device:
             return
+        self._update_event.clear()
+        self._update_event_name = None
         await self._cloud.update(device.serial_number)
-        # Even if payload is unchanged, emit a refresh completion snapshot for UI feedback.
+        got_live_update = False
+        try:
+            await asyncio.wait_for(self._update_event.wait(), timeout=3.0)
+            got_live_update = self._update_event_name == selected
+        except TimeoutError:
+            got_live_update = False
+
+        if not got_live_update:
+            # Fallback to API fetch if mower does not publish a changed MQTT payload.
+            await self._cloud._fetch()  # noqa: SLF001
+
         self._emit(
             "refresh_done",
             name=selected,
             snapshot=_snapshot_device(device),
             at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            source="mqtt" if got_live_update else "api-fallback",
         )
 
     async def _with_selected_serial(self) -> str | None:
@@ -696,11 +715,14 @@ class DashboardApp:
                 name = str(message.payload.get("name", "unknown"))
                 snapshot = message.payload.get("snapshot", {})
                 at = str(message.payload.get("at", "unknown"))
+                source = str(message.payload.get("source", "unknown"))
                 if isinstance(snapshot, dict):
                     self.device_cache[name] = snapshot
                 if name == self.mower_var.get() and isinstance(snapshot, dict):
                     self._render_snapshot(snapshot)
-                self.last_event_var.set(f"Manual refresh completed for {name} at {at}")
+                self.last_event_var.set(
+                    f"Manual refresh completed for {name} at {at} ({source})"
+                )
 
         self.root.after(150, self._process_messages)
 
