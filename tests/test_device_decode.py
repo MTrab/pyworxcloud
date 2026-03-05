@@ -150,17 +150,25 @@ def test_devicehandler_handles_mqtt_payloads() -> None:
 
     for fixture_path in MQTT_FIXTURES:
         payloads = _load_payloads(fixture_path)
+        assert payloads
 
-    assert payloads
-    for index, payload in enumerate(payloads):
-        mower = _build_mower(payload, 1, f"MQTT Fixture {index}")
-        device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+        for index, payload in enumerate(payloads):
+            mower = _build_mower(payload, 1, f"MQTT Fixture {index}")
+            device = DeviceHandler(api=object(), mower=mower, tz="UTC")
 
-        assert device.is_decoded is True
-        assert device.protocol == 1
-        assert device.raw_dat["mac"] == payload["dat"]["mac"]
-        sc_slots = payload["cfg"]["sc"].get("slots", [])
-        slots = device.schedules.get("slots", [])
-        assert slots
-        assert len(slots) == len(sc_slots)
-        assert any(slot["source"].startswith("protocol") for slot in slots)
+            assert device.is_decoded is True
+            assert device.protocol == 1
+            expected_mac = payload["dat"].get("mac")
+            if expected_mac is not None:
+                assert device.raw_dat["mac"] == expected_mac
+            else:
+                assert payload["dat"].get("uuid")
+                assert device.uuid == payload["dat"]["uuid"]
+            sc_slots = payload["cfg"]["sc"].get("slots", [])
+            slots = device.schedules.get("slots", [])
+            assert slots
+            if sc_slots:
+                assert len(slots) == len(sc_slots)
+                assert any(slot["source"].startswith("protocol") for slot in slots)
+            else:
+                assert any(slot.get("source") for slot in slots)
