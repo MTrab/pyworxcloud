@@ -26,7 +26,6 @@ _LOGGER = logging.getLogger("pyworxcloud.events")
 
 def check_syntax(args: dict[str, Any], objs: list[str], expected_type: Any) -> bool:
     """Check if the object is of the expected type."""
-    _LOGGER.debug("Checking %s against %s", objs, args)
     for obj in objs:
         if not obj in args:
             _LOGGER.debug("%s was not found in %s", obj, args)

@@ -516,7 +516,6 @@ class WorxCloud(dict):
                 if not isinstance(mower["last_status"], type(None)):
                     device.raw_data = mower["last_status"]["payload"]
 
-                _LOGGER.debug("Mower '%s' data: %s", mower["name"], mower)
                 self.devices.update({mower["name"]: device})
 
                 if isinstance(mower["mac_address"], type(None)):
