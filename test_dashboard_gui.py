@@ -275,16 +275,30 @@ class CloudWorker:
             return
         await self._cloud.update(device.serial_number)
 
-    async def refresh(self) -> None:
-        if self._cloud is None or not self._selected_name:
+    async def refresh(self, selected_name: str | None = None) -> None:
+        if self._cloud is None:
+            return
+        if selected_name:
+            self._selected_name = selected_name
+        if not self._selected_name:
             return
         selected = self._selected_name
         device = self._cloud.devices.get(selected)
         if not device:
             return
+        mower = self._cloud.get_mower(device.serial_number)
+        identifier = (
+            device.serial_number if mower["protocol"] == 0 else str(mower["uuid"])
+        )
+        in_topic = mower["mqtt_topics"]["command_in"]
+
         self._update_event.clear()
         self._update_event_name = None
-        await self._cloud.update(device.serial_number)
+        await self._cloud.mqtt.aping(
+            identifier,
+            in_topic,
+            mower["protocol"],
+        )
         got_live_update = False
         try:
             await asyncio.wait_for(self._update_event.wait(), timeout=3.0)
@@ -302,6 +316,7 @@ class CloudWorker:
             snapshot=_snapshot_device(device),
             at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             source="mqtt" if got_live_update else "api-fallback",
+            target=identifier,
         )
 
     async def _with_selected_serial(self) -> str | None:
@@ -523,7 +538,8 @@ class DashboardApp:
 
     def _refresh(self) -> None:
         self._append_log("Refresh requested...")
-        fut = self.worker.submit(self.worker.refresh())
+        selected_name = self.mower_var.get().strip() or None
+        fut = self.worker.submit(self.worker.refresh(selected_name))
         fut.add_done_callback(self._future_error_to_log)
         fut.add_done_callback(lambda f: self._future_success_to_log(f, "Refresh completed."))
 
@@ -718,12 +734,13 @@ class DashboardApp:
                 snapshot = message.payload.get("snapshot", {})
                 at = str(message.payload.get("at", "unknown"))
                 source = str(message.payload.get("source", "unknown"))
+                target = str(message.payload.get("target", "unknown"))
                 if isinstance(snapshot, dict):
                     self.device_cache[name] = snapshot
                 if name == self.mower_var.get() and isinstance(snapshot, dict):
                     self._render_snapshot(snapshot)
                 self.last_event_var.set(
-                    f"Manual refresh completed for {name} at {at} ({source})"
+                    f"Manual refresh completed for {name} at {at} ({source}, target={target})"
                 )
 
         self.root.after(150, self._process_messages)
