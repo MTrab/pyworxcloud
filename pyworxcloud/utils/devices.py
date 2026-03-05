@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
-
-from pyworxcloud.day_map import DAY_MAP
 
 from ..const import UNWANTED_ATTRIBS
 from ..exceptions import APIException, InvalidDataDecodeException

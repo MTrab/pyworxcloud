@@ -1,7 +1,4 @@
 import asyncio
-import datetime
-import json
-import time
 from os import environ
 
 from pyworxcloud import WorxCloud
@@ -11,8 +8,6 @@ from pyworxcloud.utils import DeviceHandler
 EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
 TYPE = environ["TYPE"]
-
-tz = datetime.datetime.now().astimezone().tzinfo.tzname(None)
 
 
 async def main():

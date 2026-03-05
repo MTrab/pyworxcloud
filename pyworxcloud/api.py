@@ -10,7 +10,7 @@ import aiohttp
 
 from .clouds import CloudType
 from .exceptions import TooManyRequestsError
-from .utils.requests import AGET, APOST, GET, HEADERS, POST, create_async_session
+from .utils.requests import AGET, APOST, HEADERS, create_async_session
 
 _LOGGER = logging.getLogger(__name__)
 

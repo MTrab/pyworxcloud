@@ -57,8 +57,6 @@ class ScheduleInfo:
 
     def next_schedule(self) -> str | None:
         """Return the wall-clock of the next slot start."""
-        from ..helpers.time_format import string_to_time
-
         candidates: list[datetime] = []
         for offset in range(0, 14):
             target_date = self.__now + timedelta(days=offset)
