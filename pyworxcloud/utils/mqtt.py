@@ -134,6 +134,7 @@ class MQTT(LDict):
         self._pending_response_target: str | None = None
         self._pending_response_message_id: int | None = None
         self._last_command_payload: dict[str, Any] | None = None
+        self._lifecycle_lock = threading.RLock()
         if response_timeout <= 0:
             raise ValueError("response_timeout must be greater than 0")
         self._response_timeout = float(response_timeout)
@@ -317,51 +318,65 @@ class MQTT(LDict):
     def disconnect(self, keep_topic: bool = False):  # pylint: disable=unused-argument
         """Disconnect from AWSIoT MQTT server."""
         logger = self._log.getChild("MQTT_Disconnect")
+        with self._lifecycle_lock:
+            if self._shutdown_event:
+                self._is_connected = False
+                return
 
-        if self.connected:
             # Clear topic list
             if not keep_topic:
                 self._topic = []
 
-            # Disconnect
-            disconnect_future = self.client.disconnect()
-            disconnect_future.result()
+            client = self.client
+            if client is None:
+                self._is_connected = False
+                return
 
-            # Update state
-            self._is_connected = False
-            logger.debug("MQTT disconnected")
+            try:
+                if self._is_connected:
+                    disconnect_future = client.disconnect()
+                    disconnect_future.result()
+                    logger.debug("MQTT disconnected")
+            except Exception as err:  # pragma: no cover - defensive
+                logger.debug("MQTT disconnect raised during teardown: %s", err)
+            finally:
+                # Ensure internal state remains consistent after teardown attempts.
+                self._is_connected = False
 
     def shutdown(self) -> None:
         """Release background AWS CRT resources."""
-        if not self._shutdown_event:
+        with self._lifecycle_lock:
+            if self._shutdown_event:
+                return
             self._shutdown_event = True
 
-            # Force disconnect in case we're still connected.
-            if self.connected:
-                try:
-                    self.disconnect(keep_topic=True)
-                except Exception:  # pragma: no cover - defensive
-                    pass
-
-            self.client = None
             host_resolver = self._host_resolver
             client_bootstrap = self._client_bootstrap
             event_loop_group = self._event_loop_group
+            client = self.client
 
+            self.client = None
             self._host_resolver = None
             self._client_bootstrap = None
             self._event_loop_group = None
+            self._is_connected = False
 
-            if host_resolver is not None and hasattr(host_resolver, "shutdown_event"):
-                host_resolver.shutdown_event.wait(5)
-            if client_bootstrap is not None and hasattr(
-                client_bootstrap, "shutdown_event"
-            ):
-                client_bootstrap.shutdown_event.wait(5)
-            if event_loop_group is not None and hasattr(
-                event_loop_group, "shutdown_event"
-            ):
-                event_loop_group.shutdown_event.wait(5)
+        # Disconnect after detaching internals, so concurrent calls see teardown state.
+        if client is not None:
+            try:
+                disconnect_future = client.disconnect()
+                disconnect_future.result()
+            except Exception:  # pragma: no cover - defensive
+                pass
+
+        if host_resolver is not None and hasattr(host_resolver, "shutdown_event"):
+            host_resolver.shutdown_event.wait(5)
+        if client_bootstrap is not None and hasattr(
+            client_bootstrap, "shutdown_event"
+        ):
+            client_bootstrap.shutdown_event.wait(5)
+        if event_loop_group is not None and hasattr(event_loop_group, "shutdown_event"):
+            event_loop_group.shutdown_event.wait(5)
 
     def ping(
         self,
