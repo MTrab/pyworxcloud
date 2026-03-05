@@ -897,6 +897,14 @@ class DashboardApp:
                     self.device_cache[name] = snapshot
                 if name == self.mower_var.get():
                     self._render_snapshot(snapshot)
+                if isinstance(snapshot, dict):
+                    status = str(snapshot.get("status", "unknown"))
+                    battery = str(snapshot.get("battery", "unknown"))
+                    self._append_log(
+                        f"{source.upper()} update received for {name}: status={status}, battery={battery}%."
+                    )
+                else:
+                    self._append_log(f"{source.upper()} update received for {name}.")
                 self.last_event_var.set(f"{source.upper()} update for {name}")
             elif message.msg_type == "error":
                 text = str(message.payload.get("text", "Unknown error"))
