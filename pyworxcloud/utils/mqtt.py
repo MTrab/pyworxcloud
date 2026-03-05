@@ -114,6 +114,7 @@ class MQTT(LDict):
         logger: Logger,
         callback: Any,
         identifier_resolver: Callable[[str], set[str]] | None = None,
+        deduplicate_inflight_commands: bool = False,
         response_timeout: float = DEFAULT_RESPONSE_TIMEOUT,
     ) -> dict:
         """Initialize AWSIoT MQTT handler."""
@@ -122,6 +123,7 @@ class MQTT(LDict):
         self._events = EventHandler()
         self._on_update = callback
         self._identifier_resolver = identifier_resolver
+        self._deduplicate_inflight_commands = deduplicate_inflight_commands
         self._endpoint = endpoint
         self._log = logger.getChild("MQTT")
         self._reconnected: bool = False
@@ -137,6 +139,7 @@ class MQTT(LDict):
         self._response_event = threading.Event()
         self._pending_response_target: str | None = None
         self._pending_response_message_id: int | None = None
+        self._pending_command_signature: tuple[str, str, int, str] | None = None
         self._last_command_payload: dict[str, Any] | None = None
         self._lifecycle_lock = threading.RLock()
         self._message_id_lock = threading.Lock()
@@ -487,6 +490,24 @@ class MQTT(LDict):
         if not self.connected:
             self.update_token()
 
+        command_signature = (
+            serial_number,
+            topic,
+            protocol,
+            json.dumps(message, sort_keys=True, separators=(",", ":")),
+        )
+        if self._deduplicate_inflight_commands and self._command_lock.locked():
+            with self._response_lock:
+                if self._pending_command_signature == command_signature:
+                    self._log.debug(
+                        "Dropping duplicate in-flight command serial=%s topic=%s protocol=%s message=%s",
+                        serial_number,
+                        topic,
+                        protocol,
+                        message,
+                    )
+                    return
+
         # Format the message
         formatted_message = self.format_message(serial_number, message, protocol)
         command_message_id = json.loads(formatted_message)["id"]
@@ -510,6 +531,7 @@ class MQTT(LDict):
             with self._response_lock:
                 self._pending_response_target = serial_number
                 self._pending_response_message_id = command_message_id
+                self._pending_command_signature = command_signature
                 self._response_event.clear()
 
             try:
@@ -537,6 +559,7 @@ class MQTT(LDict):
                 with self._response_lock:
                     self._pending_response_target = None
                     self._pending_response_message_id = None
+                    self._pending_command_signature = None
                     self._response_event.clear()
 
     async def apublish(
