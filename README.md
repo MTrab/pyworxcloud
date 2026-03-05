@@ -14,6 +14,36 @@ Additional project docs:
 - [Migration Guide](./MIGRATION.md)
 - [Changelog](./CHANGELOG.md)
 
+## Async usage
+
+`WorxCloud` is now async-first.
+
+```python
+import asyncio
+from pyworxcloud import WorxCloud
+
+
+async def main() -> None:
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    await cloud.authenticate()
+    await cloud.connect()
+    try:
+        for _, device in cloud.devices.items():
+            print(device.name, device.online)
+    finally:
+        await cloud.disconnect()
+
+
+asyncio.run(main())
+```
+
+You can also use `async with`:
+
+```python
+async with WorxCloud("user@example.com", "secret", "worx") as cloud:
+    ...
+```
+
 ## Testing
 
 Run tests locally with:
@@ -47,7 +77,7 @@ The fixture-driven `tests/test_device_decode.py` now asserts that the raw payloa
 
 ## Networking helpers
 
-`pyworxcloud.utils.requests` now builds a shared `requests.Session` configured with an `HTTPAdapter`/`Retry` pair targeting `429`, `500`, `502`, `503` and `504` so every API call benefits from exponential retries without duplicating session setup. Use the exported `create_session()` when you need to decorate or instrument this session (see `scripts/session_trace.py`), while the default `GET/POST` helpers continue working without additional configuration.
+`pyworxcloud.utils.requests` now exposes async `AGET/APOST` helpers backed by `aiohttp.ClientSession` for non-blocking API access. Legacy sync `GET/POST` helpers are still available for compatibility and utility scripts.
 
 ## Command timeout configuration
 

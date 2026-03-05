@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "test.py",
+            "name": "Basic test",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/test.py",
@@ -14,7 +14,7 @@
             "subProcess": true
         },
         {
-            "name": "test_with.py",
+            "name": "Async With",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/test_with.py",
@@ -23,10 +23,10 @@
             "subProcess": true
         },
         {
-            "name": "test_async.py",
+            "name": "Start listener thread",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/test_async.py",
+            "program": "${workspaceFolder}/test_listen.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "subProcess": true

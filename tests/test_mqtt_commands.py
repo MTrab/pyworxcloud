@@ -40,7 +40,9 @@ class _DummyClient:
 
 
 def _build_mqtt(
-    monkeypatch: pytest.MonkeyPatch, response_timeout: float = 30.0
+    monkeypatch: pytest.MonkeyPatch,
+    response_timeout: float = 30.0,
+    identifier_resolver: Any | None = None,
 ) -> tuple[MQTT, _DummyClient]:
     dummy_client = _DummyClient()
     dummy_api = type("API", (), {"access_token": "a.b.c"})()
@@ -54,6 +56,7 @@ def _build_mqtt(
         user_id=42,
         logger=logging.getLogger("test"),
         callback=lambda _payload: None,
+        identifier_resolver=identifier_resolver,
         response_timeout=response_timeout,
     )
     mqtt._is_connected = True
@@ -202,3 +205,79 @@ def test_publish_serializes_concurrent_commands(
     assert first.is_alive() is False
     assert second.is_alive() is False
     assert failures == []
+
+
+def test_publish_matches_response_via_identifier_alias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Response should match when payload uses serial alias for UUID target."""
+    def resolver(identifier: str) -> set[str]:
+        if identifier in {"UUID-1", "SN-1"}:
+            return {"UUID-1", "SN-1"}
+        return {identifier}
+
+    mqtt, dummy = _build_mqtt(monkeypatch, identifier_resolver=resolver)
+    finished = threading.Event()
+    errors: list[Exception] = []
+
+    def _run_publish() -> None:
+        try:
+            mqtt.publish(
+                serial_number="UUID-1",
+                topic="topic/in",
+                message={"cmd": 1},
+                protocol=1,
+                timeout=1.0,
+            )
+            finished.set()
+        except Exception as exc:  # pragma: no cover - defensive
+            errors.append(exc)
+
+    thread = threading.Thread(target=_run_publish)
+    thread.start()
+
+    deadline = time.time() + 1.0
+    while len(dummy.published) < 1 and time.time() < deadline:
+        time.sleep(0.01)
+    assert dummy.published
+
+    payload = json.loads(dummy.published[0]["payload"])
+    command_id = payload["id"]
+    mqtt._on_message_received(
+        "topic/out",
+        json.dumps({"cfg": {"sn": "SN-1", "id": command_id}}).encode("utf-8"),
+    )
+
+    thread.join(timeout=1.0)
+    assert thread.is_alive() is False
+    assert errors == []
+    assert finished.is_set() is True
+
+
+def test_format_message_uses_protocol_specific_identifier_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Formatted command payload should use sn for protocol 0 and uuid for protocol 1."""
+    mqtt, _dummy = _build_mqtt(monkeypatch)
+
+    proto0 = json.loads(mqtt.format_message("SN-1", {"cmd": 1}, 0))
+    assert "sn" in proto0
+    assert proto0["sn"] == "SN-1"
+    assert "uuid" not in proto0
+    assert "dt" in proto0
+
+    proto1 = json.loads(mqtt.format_message("UUID-1", {"cmd": 1}, 1))
+    assert "uuid" in proto1
+    assert proto1["uuid"] == "UUID-1"
+    assert "sn" not in proto1
+    assert proto1["tm"].endswith("Z")
+
+
+def test_format_message_rejects_unsupported_protocol(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unknown protocol should raise an explicit ValueError."""
+    mqtt, _dummy = _build_mqtt(monkeypatch)
+
+    with pytest.raises(ValueError):
+        mqtt.format_message("SN-1", {"cmd": 1}, 99)

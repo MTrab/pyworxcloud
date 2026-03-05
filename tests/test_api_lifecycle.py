@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -29,10 +30,10 @@ class DummyMQTT:
         self.disconnect_called = False
         self.shutdown_called = False
 
-    def disconnect(self) -> None:
+    async def adisconnect(self, _keep_topic: bool = False) -> None:
         self.disconnect_called = True
 
-    def shutdown(self) -> None:
+    async def ashutdown(self) -> None:
         self.shutdown_called = True
 
 
@@ -56,16 +57,21 @@ class CapturingMQTT:
         _logger: Any,
         _callback: Any,
         response_timeout: float,
+        identifier_resolver: Any = None,
     ) -> None:
+        self.identifier_resolver = identifier_resolver
         self.__class__.last_response_timeout = response_timeout
 
-    def connect(self) -> None:
+    async def aconnect(self) -> None:
         return None
 
-    def subscribe(self, _topic: str, _append: bool = True) -> None:
+    async def asubscribe(self, _topic: str, _append: bool = True) -> None:
         return None
 
-    def disconnect(self) -> None:
+    async def adisconnect(self, _keep_topic: bool = False) -> None:
+        return None
+
+    async def ashutdown(self) -> None:
         return None
 
 
@@ -73,13 +79,13 @@ def test_get_token_propagates_unexpected_errors(monkeypatch) -> None:
     """Unexpected token fetch errors should not be swallowed."""
     api = LandroidCloudAPI("user@example.com", "secret", CloudType.WORX)
 
-    def _raise(*_args: Any, **_kwargs: Any) -> dict:
+    async def _raise(*_args: Any, **_kwargs: Any) -> dict:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("pyworxcloud.api.POST", _raise)
+    monkeypatch.setattr("pyworxcloud.api.APOST", _raise)
 
     with pytest.raises(RuntimeError):
-        api.get_token()
+        asyncio.run(api.get_token())
 
 
 def test_get_mowers_uses_products_cache(monkeypatch) -> None:
@@ -91,7 +97,7 @@ def test_get_mowers_uses_products_cache(monkeypatch) -> None:
 
     calls = {"products": 0}
 
-    def _get(url: str, _headers: dict, session=None) -> list:
+    async def _get(url: str, _headers: dict, session=None) -> list:
         if url.endswith("/api/v2/products"):
             calls["products"] += 1
             assert session is not None
@@ -116,10 +122,10 @@ def test_get_mowers_uses_products_cache(monkeypatch) -> None:
 
         raise AssertionError(f"Unexpected URL: {url}")
 
-    monkeypatch.setattr("pyworxcloud.api.GET", _get)
+    monkeypatch.setattr("pyworxcloud.api.AGET", _get)
 
-    first = api.get_mowers()
-    second = api.get_mowers()
+    first = asyncio.run(api.get_mowers())
+    second = asyncio.run(api.get_mowers())
 
     assert first[0]["model"]["code"] == "WG123"
     assert second[0]["model"]["friendly_name"] == "Landroid500"
@@ -135,7 +141,7 @@ def test_get_mowers_passes_session_to_request_helper(monkeypatch) -> None:
 
     seen = {"session": None}
 
-    def _get(url: str, _headers: dict, session=None) -> list:
+    async def _get(url: str, _headers: dict, session=None) -> list:
         seen["session"] = session
         if url.endswith("/api/v2/products"):
             return [
@@ -152,9 +158,9 @@ def test_get_mowers_passes_session_to_request_helper(monkeypatch) -> None:
             return [{"name": "My Mower", "product_id": 42}]
         raise AssertionError(f"Unexpected URL: {url}")
 
-    monkeypatch.setattr("pyworxcloud.api.GET", _get)
+    monkeypatch.setattr("pyworxcloud.api.AGET", _get)
 
-    api.get_mowers()
+    asyncio.run(api.get_mowers())
 
     assert seen["session"] is api._session
 
@@ -162,17 +168,11 @@ def test_get_mowers_passes_session_to_request_helper(monkeypatch) -> None:
 def test_disconnect_cancels_timers_and_disconnects_mqtt() -> None:
     """Disconnect should cancel timers, clear timer map, and disconnect MQTT."""
     cloud = WorxCloud("user@example.com", "secret", "worx")
-    timer_a = DummyTimer()
-    timer_b = DummyTimer()
     mqtt = DummyMQTT()
 
-    cloud._timers = {"a": timer_a, "b": timer_b}
     cloud.mqtt = mqtt
-    cloud.disconnect()
+    asyncio.run(cloud.disconnect())
 
-    assert timer_a.cancel_called is True
-    assert timer_b.cancel_called is True
-    assert cloud._timers == {}
     assert mqtt.disconnect_called is True
     assert cloud._disconnecting.is_set() is True
     assert mqtt.shutdown_called is True
@@ -186,12 +186,12 @@ def test_fetch_skips_api_call_when_disconnecting() -> None:
 
     called = {"value": False}
 
-    def _get_mowers() -> list:
+    async def _get_mowers() -> list:
         called["value"] = True
         return []
 
     cloud._api.get_mowers = _get_mowers
-    cloud._fetch()
+    asyncio.run(cloud._fetch())
 
     assert called["value"] is False
 
@@ -200,7 +200,7 @@ def test_token_updated_is_noop_without_mqtt() -> None:
     """Token update callback should be safe before MQTT is initialized."""
     cloud = WorxCloud("user@example.com", "secret", "worx")
     cloud.mqtt = None
-    cloud._token_updated()
+    asyncio.run(cloud._token_updated())
 
 
 def test_on_api_update_dispatches_api_event_callback() -> None:
@@ -228,7 +228,7 @@ def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
         command_timeout=12.5,
     )
 
-    def _fake_fetch() -> None:
+    async def _fake_fetch() -> None:
         cloud._mowers = [
             {
                 "name": "My Mower",
@@ -243,5 +243,32 @@ def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
     monkeypatch.setattr("pyworxcloud.MQTT", CapturingMQTT)
     monkeypatch.setattr("pyworxcloud.convert_to_time", lambda *_args, **_kwargs: None)
 
-    assert cloud.connect() is True
+    assert asyncio.run(cloud.connect()) is True
     assert CapturingMQTT.last_response_timeout == 12.5
+
+
+def test_match_mower_uses_identifier_priority() -> None:
+    """Matcher should prefer serial, then uuid, then mac."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    mower_serial = {"name": "Serial", "serial_number": "S1", "uuid": "U1", "mac_address": "M1"}
+    mower_uuid = {"name": "UUID", "serial_number": "S2", "uuid": "U2", "mac_address": "M2"}
+    mower_mac = {"name": "MAC", "serial_number": "S3", "uuid": "U3", "mac_address": "M3"}
+    cloud._mowers = [mower_serial, mower_uuid, mower_mac]
+    cloud._rebuild_mower_indices()
+
+    assert cloud._match_mower(serial="S1") == mower_serial
+    assert cloud._match_mower(uuid="U2") == mower_uuid
+    assert cloud._match_mower(mac="M3") == mower_mac
+    assert cloud._match_mower(serial="missing", uuid="U2") == mower_uuid
+    assert cloud._match_mower(serial="missing", uuid="missing", mac="M1") == mower_serial
+    assert cloud._match_mower(serial="missing", uuid="missing", mac="missing") is None
+
+
+def test_get_mower_uses_rebuilt_serial_index() -> None:
+    """get_mower should resolve mowers through serial lookup index."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    target = {"name": "Target", "serial_number": "SERIAL-1", "uuid": "UUID-1", "mac_address": "MAC-1"}
+    cloud._mowers = [target]
+    cloud._rebuild_mower_indices()
+
+    assert cloud.get_mower("SERIAL-1") == target

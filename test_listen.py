@@ -1,7 +1,4 @@
 import asyncio
-import datetime
-import json
-import time
 from os import environ
 
 from pyworxcloud import WorxCloud
@@ -12,11 +9,8 @@ EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
 TYPE = environ["TYPE"]
 
-tz = datetime.datetime.now().astimezone().tzinfo.tzname(None)
-
 
 async def main():
-    loop = asyncio.get_running_loop()
     await async_worx()
 
 
@@ -25,17 +19,18 @@ async def async_worx():
 
     # Initialize the class and connect
     cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")
-    cloud.authenticate()
-    cloud.connect()
+    await cloud.authenticate()
+    await cloud.connect()
     cloud.set_callback(LandroidEvent.DATA_RECEIVED, receive_data)
     cloud.set_callback(LandroidEvent.API, receive_api_data)
 
     print("Listening for new data")
-    while 1:
-        pass
-
-    # Self explanatory - disconnect from the cloud
-    cloud.disconnect()
+    try:
+        while True:
+            await asyncio.sleep(1)
+    finally:
+        # Self explanatory - disconnect from the cloud
+        await cloud.disconnect()
 
 
 def receive_data(
@@ -50,7 +45,7 @@ def receive_api_data(
     name: str, device: DeviceHandler  # pylint: disable=unused-argument
 ) -> None:
     """Callback function when the API data was updated."""
-    print("API data was refreshed")
+    print(f"API data was refreshed for {name}")
 
 
 asyncio.run(main())
