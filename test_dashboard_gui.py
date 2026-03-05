@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from os import environ
 from pathlib import Path
-from tkinter import BooleanVar, StringVar, Tk, Toplevel, ttk
+from tkinter import BooleanVar, StringVar, Tk, Toplevel, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 from typing import Any
 
@@ -705,6 +705,11 @@ class DashboardApp:
         self.root.after(150, self._process_messages)
 
     def _on_close(self) -> None:
+        messagebox.showinfo(
+            "Shutting down",
+            "Closing cloud and MQTT connections. This may take a few seconds.",
+            parent=self.root,
+        )
         self._append_log("Shutting down...")
         with contextlib.suppress(Exception):
             self.worker.submit(self.worker.shutdown()).result(timeout=10)
