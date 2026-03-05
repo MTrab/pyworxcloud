@@ -410,9 +410,7 @@ class MQTT(LDict):
 
         if host_resolver is not None and hasattr(host_resolver, "shutdown_event"):
             host_resolver.shutdown_event.wait(5)
-        if client_bootstrap is not None and hasattr(
-            client_bootstrap, "shutdown_event"
-        ):
+        if client_bootstrap is not None and hasattr(client_bootstrap, "shutdown_event"):
             client_bootstrap.shutdown_event.wait(5)
         if event_loop_group is not None and hasattr(event_loop_group, "shutdown_event"):
             event_loop_group.shutdown_event.wait(5)

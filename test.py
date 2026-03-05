@@ -15,6 +15,7 @@ TYPE = environ["TYPE"]
 # Clear the screen for better visibility when debugging
 print("\033c", end="")
 
+
 async def main() -> None:
     # Initialize the class
     cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")

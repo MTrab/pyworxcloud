@@ -211,6 +211,7 @@ def test_publish_matches_response_via_identifier_alias(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Response should match when payload uses serial alias for UUID target."""
+
     def resolver(identifier: str) -> set[str]:
         if identifier in {"UUID-1", "SN-1"}:
             return {"UUID-1", "SN-1"}

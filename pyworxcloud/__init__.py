@@ -442,9 +442,17 @@ class WorxCloud(dict):
             return {identifier}
 
         identifiers = {
-            str(mower.get("serial_number")) if mower.get("serial_number") is not None else None,
+            (
+                str(mower.get("serial_number"))
+                if mower.get("serial_number") is not None
+                else None
+            ),
             str(mower.get("uuid")) if mower.get("uuid") is not None else None,
-            str(mower.get("mac_address")) if mower.get("mac_address") is not None else None,
+            (
+                str(mower.get("mac_address"))
+                if mower.get("mac_address") is not None
+                else None
+            ),
         }
         identifiers.discard(None)
         identifiers.discard("__UUID__")
@@ -499,9 +507,7 @@ class WorxCloud(dict):
                     )
 
                 logger.debug("API data refreshed for mower '%s'", mower["name"])
-                self._events.call(
-                    LandroidEvent.API, name=mower["name"], device=device
-                )
+                self._events.call(LandroidEvent.API, name=mower["name"], device=device)
             except TypeError:
                 pass
 
@@ -523,7 +529,9 @@ class WorxCloud(dict):
             refresh_secs = randint(API_REFRESH_TIME_MIN, API_REFRESH_TIME_MAX) * 60
 
         timezone = (
-            ZoneInfo(self._tz) if not isinstance(self._tz, type(None)) else ZoneInfo("UTC")
+            ZoneInfo(self._tz)
+            if not isinstance(self._tz, type(None))
+            else ZoneInfo("UTC")
         )
         now = datetime.now().astimezone(timezone)
         next_api_refresh = now + timedelta(seconds=refresh_secs)

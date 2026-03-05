@@ -105,8 +105,8 @@ class LandroidCloudAPI:
             header_data["Content-Type"] = "application/x-www-form-urlencoded"
         else:
             header_data["Content-Type"] = "application/json"
-            header_data["Authorization"] = self._token_type + " " + str(
-                self.access_token
+            header_data["Authorization"] = (
+                self._token_type + " " + str(self.access_token)
             )
 
         return header_data
