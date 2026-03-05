@@ -185,6 +185,14 @@ class CloudWorker:
         self._update_event = asyncio.Event()
         self._update_event_name: str | None = None
 
+    def _mark_update_received(self, name: str) -> None:
+        """Mark update event from any thread in a loop-safe way."""
+        def _set() -> None:
+            self._update_event_name = name
+            self._update_event.set()
+
+        self._loop.call_soon_threadsafe(_set)
+
     def _run_loop(self) -> None:
         asyncio.set_event_loop(self._loop)
         self._loop.run_forever()
@@ -206,13 +214,11 @@ class CloudWorker:
         _configure_logging()
 
         def _on_data(name: str, device: DeviceHandler) -> None:
-            self._update_event_name = name
-            self._update_event.set()
+            self._mark_update_received(name)
             self._emit("device_update", source="mqtt", name=name, snapshot=_snapshot_device(device))
 
         def _on_api(name: str, device: DeviceHandler) -> None:
-            self._update_event_name = name
-            self._update_event.set()
+            self._mark_update_received(name)
             self._emit("device_update", source="api", name=name, snapshot=_snapshot_device(device))
 
         self._cloud.set_callback(LandroidEvent.DATA_RECEIVED, _on_data)
@@ -300,8 +306,10 @@ class CloudWorker:
 
         self._update_event.clear()
         self._update_event_name = None
+        self._emit("log", text="Sending forced refresh command...")
         # Keep the exact same refresh entrypoint as CLI dashboard.
         await self._cloud.update(device.serial_number)
+        self._emit("log", text="Forced refresh command sent. Waiting for update...")
         got_live_update = False
         try:
             await asyncio.wait_for(self._update_event.wait(), timeout=3.0)
