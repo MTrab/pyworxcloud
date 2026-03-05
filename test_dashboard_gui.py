@@ -433,6 +433,7 @@ class DashboardApp:
         self.connected = False
         self._closing = False
         self._shutdown_popup: Toplevel | None = None
+        self._requires_connection_widgets: list[Any] = []
 
         self.email_var = StringVar(value=default_email)
         self.password_var = StringVar(value=default_password)
@@ -459,6 +460,7 @@ class DashboardApp:
         }
 
         self._build_ui()
+        self._set_controls(False)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self.root.after(150, self._process_messages)
 
@@ -503,7 +505,9 @@ class DashboardApp:
         self.mower_combo = ttk.Combobox(mower, textvariable=self.mower_var, state="disabled")
         self.mower_combo.grid(row=0, column=1, sticky="ew", padx=4)
         self.mower_combo.bind("<<ComboboxSelected>>", self._on_mower_selected)
-        ttk.Button(mower, text="Refresh", command=self._refresh).grid(row=0, column=2, padx=4)
+        self.refresh_button = ttk.Button(mower, text="Refresh", command=self._refresh)
+        self.refresh_button.grid(row=0, column=2, padx=4)
+        self._requires_connection_widgets.append(self.refresh_button)
 
         status = ttk.LabelFrame(root, text="Live Status")
         status.grid(row=2, column=0, sticky="ew", padx=10, pady=8)
@@ -536,25 +540,51 @@ class DashboardApp:
         actions = ttk.LabelFrame(center, text="Actions")
         actions.columnconfigure(0, weight=1)
         actions.columnconfigure(1, weight=1)
-        ttk.Button(actions, text="Start", command=lambda: self._action("start")).grid(row=0, column=0, sticky="ew", padx=4, pady=3)
-        ttk.Button(actions, text="Pause", command=lambda: self._action("pause")).grid(row=0, column=1, sticky="ew", padx=4, pady=3)
-        ttk.Button(actions, text="Home", command=lambda: self._action("home")).grid(row=1, column=0, sticky="ew", padx=4, pady=3)
-        ttk.Button(actions, text="Safehome", command=lambda: self._action("safehome")).grid(row=1, column=1, sticky="ew", padx=4, pady=3)
-        ttk.Button(actions, text="Edgecut", command=lambda: self._action("edgecut")).grid(row=2, column=0, sticky="ew", padx=4, pady=3)
+        start_button = ttk.Button(actions, text="Start", command=lambda: self._action("start"))
+        start_button.grid(row=0, column=0, sticky="ew", padx=4, pady=3)
+        pause_button = ttk.Button(actions, text="Pause", command=lambda: self._action("pause"))
+        pause_button.grid(row=0, column=1, sticky="ew", padx=4, pady=3)
+        home_button = ttk.Button(actions, text="Home", command=lambda: self._action("home"))
+        home_button.grid(row=1, column=0, sticky="ew", padx=4, pady=3)
+        safehome_button = ttk.Button(actions, text="Safehome", command=lambda: self._action("safehome"))
+        safehome_button.grid(row=1, column=1, sticky="ew", padx=4, pady=3)
+        edgecut_button = ttk.Button(actions, text="Edgecut", command=lambda: self._action("edgecut"))
+        edgecut_button.grid(row=2, column=0, sticky="ew", padx=4, pady=3)
+        self._requires_connection_widgets.extend(
+            [start_button, pause_button, home_button, safehome_button, edgecut_button]
+        )
 
-        ttk.Checkbutton(actions, text="Lock", variable=self.lock_var).grid(row=3, column=0, sticky="w", padx=4, pady=6)
-        ttk.Button(actions, text="Apply Lock", command=self._apply_lock).grid(row=3, column=1, sticky="ew", padx=4, pady=3)
+        lock_check = ttk.Checkbutton(actions, text="Lock", variable=self.lock_var)
+        lock_check.grid(row=3, column=0, sticky="w", padx=4, pady=6)
+        apply_lock_button = ttk.Button(actions, text="Apply Lock", command=self._apply_lock)
+        apply_lock_button.grid(row=3, column=1, sticky="ew", padx=4, pady=3)
+        self._requires_connection_widgets.extend([lock_check, apply_lock_button])
 
         ttk.Label(actions, text="Rain delay (minutes)").grid(row=4, column=0, sticky="w", padx=4)
-        ttk.Entry(actions, textvariable=self.rain_var, width=12).grid(row=4, column=1, sticky="ew", padx=4)
-        ttk.Button(actions, text="Apply Rain Delay", command=self._apply_raindelay).grid(row=5, column=0, columnspan=2, sticky="ew", padx=4, pady=3)
+        self.rain_entry = ttk.Entry(actions, textvariable=self.rain_var, width=12)
+        self.rain_entry.grid(row=4, column=1, sticky="ew", padx=4)
+        apply_rain_button = ttk.Button(
+            actions, text="Apply Rain Delay", command=self._apply_raindelay
+        )
+        apply_rain_button.grid(row=5, column=0, columnspan=2, sticky="ew", padx=4, pady=3)
+        self._requires_connection_widgets.extend([self.rain_entry, apply_rain_button])
 
         ttk.Label(actions, text="Cutting height (mm)").grid(row=6, column=0, sticky="w", padx=4)
-        ttk.Entry(actions, textvariable=self.height_var, width=12).grid(row=6, column=1, sticky="ew", padx=4)
-        ttk.Button(actions, text="Apply Cutting Height", command=self._apply_cutting_height).grid(row=7, column=0, columnspan=2, sticky="ew", padx=4, pady=3)
+        self.height_entry = ttk.Entry(actions, textvariable=self.height_var, width=12)
+        self.height_entry.grid(row=6, column=1, sticky="ew", padx=4)
+        apply_height_button = ttk.Button(
+            actions, text="Apply Cutting Height", command=self._apply_cutting_height
+        )
+        apply_height_button.grid(
+            row=7, column=0, columnspan=2, sticky="ew", padx=4, pady=3
+        )
+        self._requires_connection_widgets.extend([self.height_entry, apply_height_button])
 
-        ttk.Checkbutton(actions, text="ACS enabled", variable=self.acs_var).grid(row=8, column=0, sticky="w", padx=4, pady=6)
-        ttk.Button(actions, text="Apply ACS", command=self._apply_acs).grid(row=8, column=1, sticky="ew", padx=4, pady=3)
+        acs_check = ttk.Checkbutton(actions, text="ACS enabled", variable=self.acs_var)
+        acs_check.grid(row=8, column=0, sticky="w", padx=4, pady=6)
+        apply_acs_button = ttk.Button(actions, text="Apply ACS", command=self._apply_acs)
+        apply_acs_button.grid(row=8, column=1, sticky="ew", padx=4, pady=3)
+        self._requires_connection_widgets.extend([acs_check, apply_acs_button])
 
         schedules = ttk.LabelFrame(center, text="Schedules")
         schedules.rowconfigure(1, weight=1)
@@ -590,6 +620,8 @@ class DashboardApp:
         self.email_entry.configure(state="disabled" if connected else "normal")
         self.password_entry.configure(state="disabled" if connected else "normal")
         self.type_combo.configure(state="disabled" if connected else "readonly")
+        for widget in self._requires_connection_widgets:
+            widget.configure(state="normal" if connected else "disabled")
 
     def _connect(self) -> None:
         email = self.email_var.get().strip()
