@@ -249,7 +249,7 @@ class CloudWorker:
             if self._cloud is None or not self._selected_name:
                 continue
             device = self._cloud.devices.get(self._selected_name)
-            if not device:
+            if device is None:
                 continue
             with contextlib.suppress(Exception):
                 await self._cloud.update(device.serial_number)
@@ -277,7 +277,7 @@ class CloudWorker:
             return
         resolved_name, device = self._resolve_device(name)
         self._selected_name = resolved_name
-        if not device:
+        if device is None:
             return
         await self._cloud.update(device.serial_number)
 
@@ -290,7 +290,7 @@ class CloudWorker:
             raise RuntimeError("No mower selected.")
         selected, device = self._resolve_device(self._selected_name)
         self._selected_name = selected
-        if not device:
+        if device is None:
             known = ", ".join(self._cloud.devices.keys()) or "none"
             raise RuntimeError(
                 f"Selected mower '{selected}' not found. Known mowers: {known}"
@@ -348,7 +348,7 @@ class CloudWorker:
             return None
         selected, device = self._resolve_device(self._selected_name)
         self._selected_name = selected
-        if not device:
+        if device is None:
             return None
         return device.serial_number
 
