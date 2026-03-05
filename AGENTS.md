@@ -3,12 +3,15 @@
 ## Git/PR
 
 *   Base branch: `main`
-*   Feature branch prefix: `codex/`
+*   Branch naming convention:
+    *   `feature/<branch-name>` for new features
+    *   `fix/<branch-name>` for bug fixes
+    *   `chore/<branch-name>` for maintenance/refactor/tooling
 *   PR title format: `Summary`
 *   PR description must include: Summary, Changes, Testing, Notes
 *   Always run `git status` before commit
 *   Never commit `.env`
-*   If a branch fixes an known github issue, include the text `Fixes #` and the issue number, so the PR and issue gets linked
+*   If a PR closes a GitHub issue, the PR description must include `Fixes #<issue number>` so PR and issue are linked automatically
 
 ## Security
 
