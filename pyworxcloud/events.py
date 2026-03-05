@@ -89,7 +89,9 @@ class EventHandler:
                 )
                 return False
 
-            self._invoke(self.__events[event], name=kwargs["name"], device=kwargs["device"])
+            self._invoke(
+                self.__events[event], name=kwargs["name"], device=kwargs["device"]
+            )
             return True
         elif LandroidEvent.API == event:
             # Preferred API callback payload.
@@ -103,7 +105,9 @@ class EventHandler:
             if check_syntax(kwargs, ["name"], str) and check_syntax(
                 kwargs, ["device"], DeviceHandler
             ):
-                self._invoke(self.__events[event], name=kwargs["name"], device=kwargs["device"])
+                self._invoke(
+                    self.__events[event], name=kwargs["name"], device=kwargs["device"]
+                )
                 return True
 
             _LOGGER.warning(

@@ -162,7 +162,9 @@ def _snapshot_device(device: DeviceHandler) -> dict[str, Any]:
         "next_start": _next_schedule_start(device),
         "rain_triggered": str(getattr(device.rainsensor, "triggered", "unknown")),
         "rain_remaining": str(getattr(device.rainsensor, "remaining", "unknown")),
-        "device_updated": str(device_updated) if device_updated is not None else "unknown",
+        "device_updated": (
+            str(device_updated) if device_updated is not None else "unknown"
+        ),
         "schedules": _schedule_slots(device),
     }
 
@@ -188,6 +190,7 @@ class CloudWorker:
 
     def _mark_update_received(self, name: str) -> None:
         """Mark update event from any thread in a loop-safe way."""
+
         def _set() -> None:
             self._update_event_name = name
             self._update_event.set()
@@ -216,11 +219,21 @@ class CloudWorker:
 
         def _on_data(name: str, device: DeviceHandler) -> None:
             self._mark_update_received(name)
-            self._emit("device_update", source="mqtt", name=name, snapshot=_snapshot_device(device))
+            self._emit(
+                "device_update",
+                source="mqtt",
+                name=name,
+                snapshot=_snapshot_device(device),
+            )
 
         def _on_api(name: str, device: DeviceHandler) -> None:
             self._mark_update_received(name)
-            self._emit("device_update", source="api", name=name, snapshot=_snapshot_device(device))
+            self._emit(
+                "device_update",
+                source="api",
+                name=name,
+                snapshot=_snapshot_device(device),
+            )
 
         self._cloud.set_callback(LandroidEvent.DATA_RECEIVED, _on_data)
         self._cloud.set_callback(LandroidEvent.API, _on_api)
@@ -237,7 +250,12 @@ class CloudWorker:
                     "online": getattr(device, "online", "unknown"),
                 }
             )
-            self._emit("device_update", source="connect", name=name, snapshot=_snapshot_device(device))
+            self._emit(
+                "device_update",
+                source="connect",
+                name=name,
+                snapshot=_snapshot_device(device),
+            )
 
         if mowers:
             self._selected_name = mowers[0]["name"]
@@ -353,9 +371,7 @@ class CloudWorker:
             return None
         return device.serial_number
 
-    def _resolve_device(
-        self, name: str
-    ) -> tuple[str, DeviceHandler | None]:
+    def _resolve_device(self, name: str) -> tuple[str, DeviceHandler | None]:
         """Resolve mower key robustly from potentially noisy UI input."""
         if self._cloud is None:
             return name, None
@@ -372,7 +388,10 @@ class CloudWorker:
             if self._normalize_key(str(key)) == folded:
                 return key, device
             device_name = getattr(device, "name", None)
-            if device_name is not None and self._normalize_key(str(device_name)) == folded:
+            if (
+                device_name is not None
+                and self._normalize_key(str(device_name)) == folded
+            ):
                 return key, device
 
         # If exactly one mower exists, prefer deterministic fallback instead of failing.
@@ -385,7 +404,9 @@ class CloudWorker:
     @staticmethod
     def _normalize_key(value: str) -> str:
         value = unicodedata.normalize("NFKC", value)
-        return "".join(ch for ch in value if ch.isprintable() and not ch.isspace()).casefold()
+        return "".join(
+            ch for ch in value if ch.isprintable() and not ch.isspace()
+        ).casefold()
 
     async def action(self, command: str, value: Any = None) -> None:
         if self._cloud is None:
@@ -504,7 +525,9 @@ class DashboardApp:
         mower.grid(row=1, column=0, sticky="ew", padx=10, pady=8)
         mower.columnconfigure(1, weight=1)
         ttk.Label(mower, text="Selected mower").grid(row=0, column=0, sticky="w")
-        self.mower_combo = ttk.Combobox(mower, textvariable=self.mower_var, state="disabled")
+        self.mower_combo = ttk.Combobox(
+            mower, textvariable=self.mower_var, state="disabled"
+        )
         self.mower_combo.grid(row=0, column=1, sticky="ew", padx=4)
         self.mower_combo.bind("<<ComboboxSelected>>", self._on_mower_selected)
         self.refresh_button = ttk.Button(mower, text="Refresh", command=self._refresh)
@@ -532,9 +555,13 @@ class DashboardApp:
             row = idx // 2
             col = (idx % 2) * 2
             ttk.Label(status, text=label).grid(row=row, column=col, sticky="w", pady=2)
-            ttk.Label(status, textvariable=self.status_vars[key]).grid(row=row, column=col + 1, sticky="w", pady=2)
+            ttk.Label(status, textvariable=self.status_vars[key]).grid(
+                row=row, column=col + 1, sticky="w", pady=2
+            )
         ttk.Label(status, text="Last event").grid(row=5, column=0, sticky="w", pady=2)
-        ttk.Label(status, textvariable=self.last_event_var).grid(row=5, column=1, columnspan=3, sticky="w", pady=2)
+        ttk.Label(status, textvariable=self.last_event_var).grid(
+            row=5, column=1, columnspan=3, sticky="w", pady=2
+        )
 
         center = ttk.Panedwindow(root, orient="horizontal")
         center.grid(row=3, column=0, sticky="nsew", padx=10, pady=8)
@@ -542,15 +569,25 @@ class DashboardApp:
         actions = ttk.LabelFrame(center, text="Actions")
         actions.columnconfigure(0, weight=1)
         actions.columnconfigure(1, weight=1)
-        start_button = ttk.Button(actions, text="Start", command=lambda: self._action("start"))
+        start_button = ttk.Button(
+            actions, text="Start", command=lambda: self._action("start")
+        )
         start_button.grid(row=0, column=0, sticky="ew", padx=4, pady=3)
-        pause_button = ttk.Button(actions, text="Pause", command=lambda: self._action("pause"))
+        pause_button = ttk.Button(
+            actions, text="Pause", command=lambda: self._action("pause")
+        )
         pause_button.grid(row=0, column=1, sticky="ew", padx=4, pady=3)
-        home_button = ttk.Button(actions, text="Home", command=lambda: self._action("home"))
+        home_button = ttk.Button(
+            actions, text="Home", command=lambda: self._action("home")
+        )
         home_button.grid(row=1, column=0, sticky="ew", padx=4, pady=3)
-        safehome_button = ttk.Button(actions, text="Safehome", command=lambda: self._action("safehome"))
+        safehome_button = ttk.Button(
+            actions, text="Safehome", command=lambda: self._action("safehome")
+        )
         safehome_button.grid(row=1, column=1, sticky="ew", padx=4, pady=3)
-        edgecut_button = ttk.Button(actions, text="Edgecut", command=lambda: self._action("edgecut"))
+        edgecut_button = ttk.Button(
+            actions, text="Edgecut", command=lambda: self._action("edgecut")
+        )
         edgecut_button.grid(row=2, column=0, sticky="ew", padx=4, pady=3)
         self._requires_connection_widgets.extend(
             [start_button, pause_button, home_button, safehome_button, edgecut_button]
@@ -558,20 +595,28 @@ class DashboardApp:
 
         lock_check = ttk.Checkbutton(actions, text="Lock", variable=self.lock_var)
         lock_check.grid(row=3, column=0, sticky="w", padx=4, pady=6)
-        apply_lock_button = ttk.Button(actions, text="Apply Lock", command=self._apply_lock)
+        apply_lock_button = ttk.Button(
+            actions, text="Apply Lock", command=self._apply_lock
+        )
         apply_lock_button.grid(row=3, column=1, sticky="ew", padx=4, pady=3)
         self._requires_connection_widgets.extend([lock_check, apply_lock_button])
 
-        ttk.Label(actions, text="Rain delay (minutes)").grid(row=4, column=0, sticky="w", padx=4)
+        ttk.Label(actions, text="Rain delay (minutes)").grid(
+            row=4, column=0, sticky="w", padx=4
+        )
         self.rain_entry = ttk.Entry(actions, textvariable=self.rain_var, width=12)
         self.rain_entry.grid(row=4, column=1, sticky="ew", padx=4)
         apply_rain_button = ttk.Button(
             actions, text="Apply Rain Delay", command=self._apply_raindelay
         )
-        apply_rain_button.grid(row=5, column=0, columnspan=2, sticky="ew", padx=4, pady=3)
+        apply_rain_button.grid(
+            row=5, column=0, columnspan=2, sticky="ew", padx=4, pady=3
+        )
         self._requires_connection_widgets.extend([self.rain_entry, apply_rain_button])
 
-        ttk.Label(actions, text="Cutting height (mm)").grid(row=6, column=0, sticky="w", padx=4)
+        ttk.Label(actions, text="Cutting height (mm)").grid(
+            row=6, column=0, sticky="w", padx=4
+        )
         self.height_entry = ttk.Entry(actions, textvariable=self.height_var, width=12)
         self.height_entry.grid(row=6, column=1, sticky="ew", padx=4)
         apply_height_button = ttk.Button(
@@ -580,18 +625,24 @@ class DashboardApp:
         apply_height_button.grid(
             row=7, column=0, columnspan=2, sticky="ew", padx=4, pady=3
         )
-        self._requires_connection_widgets.extend([self.height_entry, apply_height_button])
+        self._requires_connection_widgets.extend(
+            [self.height_entry, apply_height_button]
+        )
 
         acs_check = ttk.Checkbutton(actions, text="ACS enabled", variable=self.acs_var)
         acs_check.grid(row=8, column=0, sticky="w", padx=4, pady=6)
-        apply_acs_button = ttk.Button(actions, text="Apply ACS", command=self._apply_acs)
+        apply_acs_button = ttk.Button(
+            actions, text="Apply ACS", command=self._apply_acs
+        )
         apply_acs_button.grid(row=8, column=1, sticky="ew", padx=4, pady=3)
         self._requires_connection_widgets.extend([acs_check, apply_acs_button])
 
         schedules = ttk.LabelFrame(center, text="Schedules")
         schedules.rowconfigure(1, weight=1)
         schedules.columnconfigure(0, weight=1)
-        ttk.Label(schedules, text="Parsed slots (day, start-end, duration, source)").grid(row=0, column=0, sticky="w", padx=4, pady=2)
+        ttk.Label(
+            schedules, text="Parsed slots (day, start-end, duration, source)"
+        ).grid(row=0, column=0, sticky="w", padx=4, pady=2)
         self.schedule_list = ScrolledText(schedules, height=16, wrap="none")
         self.schedule_list.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
         self.schedule_list.configure(state="disabled")
@@ -629,7 +680,9 @@ class DashboardApp:
 
     def _set_connecting_pending(self) -> None:
         self._pending_connection_action = "connect"
-        self._show_status_popup("Connecting", "Connecting to cloud and MQTT...\nPlease wait...")
+        self._show_status_popup(
+            "Connecting", "Connecting to cloud and MQTT...\nPlease wait..."
+        )
         self.connect_button.configure(state="disabled")
         self.disconnect_button.configure(state="disabled")
         self.email_entry.configure(state="disabled")
@@ -664,7 +717,9 @@ class DashboardApp:
 
         frame = ttk.Frame(popup, padding=14)
         frame.grid(row=0, column=0, sticky="nsew")
-        ttk.Label(frame, text=message, justify="center").grid(row=0, column=0, sticky="nsew")
+        ttk.Label(frame, text=message, justify="center").grid(
+            row=0, column=0, sticky="nsew"
+        )
 
         popup.update_idletasks()
         self.root.update_idletasks()
@@ -759,7 +814,9 @@ class DashboardApp:
         elif pending_action == "disconnect":
             self._set_controls(True)
         self.messages.put(
-            WorkerMessage(msg_type="error", payload={"text": f"{type(err).__name__}: {err}"})
+            WorkerMessage(
+                msg_type="error", payload={"text": f"{type(err).__name__}: {err}"}
+            )
         )
 
     def _future_success_to_log(self, fut: Any, text: str) -> None:
@@ -798,9 +855,13 @@ class DashboardApp:
         frame.columnconfigure(1, weight=1)
 
         ttk.Label(frame, text="Email").grid(row=0, column=0, sticky="w", pady=2)
-        ttk.Entry(frame, textvariable=email_var, width=38).grid(row=0, column=1, sticky="ew", pady=2)
+        ttk.Entry(frame, textvariable=email_var, width=38).grid(
+            row=0, column=1, sticky="ew", pady=2
+        )
         ttk.Label(frame, text="Password").grid(row=1, column=0, sticky="w", pady=2)
-        ttk.Entry(frame, textvariable=password_var, show="*", width=38).grid(row=1, column=1, sticky="ew", pady=2)
+        ttk.Entry(frame, textvariable=password_var, show="*", width=38).grid(
+            row=1, column=1, sticky="ew", pady=2
+        )
         ttk.Label(frame, text="Type").grid(row=2, column=0, sticky="w", pady=2)
         ttk.Combobox(
             frame,
@@ -826,7 +887,9 @@ class DashboardApp:
             self._switch_account(reconnect=reconnect_var.get())
             dialog.destroy()
 
-        ttk.Button(btns, text="Cancel", command=dialog.destroy).grid(row=0, column=0, padx=4)
+        ttk.Button(btns, text="Cancel", command=dialog.destroy).grid(
+            row=0, column=0, padx=4
+        )
         ttk.Button(btns, text="Save", command=_apply).grid(row=0, column=1, padx=4)
 
     def _render_snapshot(self, snapshot: dict[str, Any]) -> None:
