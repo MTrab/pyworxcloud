@@ -351,3 +351,33 @@ def test_get_mower_uses_rebuilt_serial_index() -> None:
     cloud._rebuild_mower_indices()
 
     assert cloud.get_mower("SERIAL-1") == target
+
+
+def test_input_helpers_validate_types() -> None:
+    """Helper validators should enforce strict bool/int semantics."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+
+    assert cloud._require_bool(True, "state") is True
+    with pytest.raises(ValueError):
+        cloud._require_bool("true", "state")
+
+    assert cloud._coerce_int("5", "runtime", minimum=0) == 5
+    with pytest.raises(ValueError):
+        cloud._coerce_int(True, "runtime")
+    with pytest.raises(ValueError):
+        cloud._coerce_int("abc", "runtime")
+    with pytest.raises(ValueError):
+        cloud._coerce_int(-1, "runtime", minimum=0)
+
+
+def test_set_lock_rejects_non_bool_input_early(monkeypatch) -> None:
+    """set_lock should fail fast on invalid bool inputs before mower lookup."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+
+    def _unexpected_lookup(_serial: str) -> dict:
+        raise AssertionError("get_mower should not be called for invalid bool input")
+
+    monkeypatch.setattr(cloud, "get_mower", _unexpected_lookup)
+
+    with pytest.raises(ValueError):
+        asyncio.run(cloud.set_lock("SERIAL-1", "true"))
