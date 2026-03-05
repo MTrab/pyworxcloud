@@ -632,6 +632,13 @@ class DashboardApp:
                     selected = message.payload.get("selected") or names[0]
                     self.mower_var.set(selected)
                     self._append_log(f"Connected. Selected mower: {selected}")
+                    # Initial connect updates can arrive before mower selection is set in UI.
+                    # Render cached snapshot immediately and force a refresh for a fresh state.
+                    cached = self.device_cache.get(selected)
+                    if isinstance(cached, dict):
+                        self._render_snapshot(cached)
+                    fut = self.worker.submit(self.worker.select_mower(selected))
+                    fut.add_done_callback(self._future_error_to_log)
                 else:
                     self._append_log("Connected, but no mowers available.")
                 self._set_controls(True)
