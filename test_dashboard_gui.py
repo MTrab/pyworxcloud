@@ -287,18 +287,21 @@ class CloudWorker:
         if not device:
             return
         mower = self._cloud.get_mower(device.serial_number)
-        identifier = (
-            device.serial_number if mower["protocol"] == 0 else str(mower["uuid"])
-        )
+        identifier = device.serial_number
+        protocol = mower["protocol"]
         in_topic = mower["mqtt_topics"]["command_in"]
+        self._emit(
+            "log",
+            text=(
+                f"Refresh dispatch: mower={selected}, serial={device.serial_number}, "
+                f"protocol={protocol}, topic={in_topic}"
+            ),
+        )
 
         self._update_event.clear()
         self._update_event_name = None
-        await self._cloud.mqtt.aping(
-            identifier,
-            in_topic,
-            mower["protocol"],
-        )
+        # Keep the exact same refresh entrypoint as CLI dashboard.
+        await self._cloud.update(device.serial_number)
         got_live_update = False
         try:
             await asyncio.wait_for(self._update_event.wait(), timeout=3.0)
@@ -308,6 +311,13 @@ class CloudWorker:
 
         if not got_live_update:
             # Fallback to API fetch if mower does not publish a changed MQTT payload.
+            self._emit(
+                "log",
+                text=(
+                    "No selected-mower MQTT update observed within timeout; "
+                    "running API fallback fetch."
+                ),
+            )
             await self._cloud._fetch()  # noqa: SLF001
 
         self._emit(
