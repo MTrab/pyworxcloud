@@ -396,8 +396,15 @@ class WorxCloud(dict):
                 device: DeviceHandler = self.devices[mower["name"]]
 
             if "raw_data" in mower and mower["raw_data"] == data:
-                self._log.debug("Data was already present and not changed.")
-                return  # Dataset was not changed, no update needed
+                self._log.debug(
+                    "MQTT data received for mower '%s' but payload is unchanged.",
+                    mower["name"],
+                )
+                # Still emit event so listeners can refresh timestamps/UI heartbeat.
+                self._events.call(
+                    LandroidEvent.DATA_RECEIVED, name=mower["name"], device=device
+                )
+                return
 
             mower["raw_data"] = data
             device: DeviceHandler = self.devices[mower["name"]]
