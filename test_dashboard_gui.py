@@ -273,10 +273,10 @@ class CloudWorker:
         self._loop.call_soon_threadsafe(self._loop.stop)
 
     async def select_mower(self, name: str) -> None:
-        self._selected_name = name
         if self._cloud is None:
             return
-        device = self._cloud.devices.get(name)
+        resolved_name, device = self._resolve_device(name)
+        self._selected_name = resolved_name
         if not device:
             return
         await self._cloud.update(device.serial_number)
@@ -288,8 +288,8 @@ class CloudWorker:
             self._selected_name = selected_name
         if not self._selected_name:
             raise RuntimeError("No mower selected.")
-        selected = self._selected_name
-        device = self._cloud.devices.get(selected)
+        selected, device = self._resolve_device(self._selected_name)
+        self._selected_name = selected
         if not device:
             known = ", ".join(self._cloud.devices.keys()) or "none"
             raise RuntimeError(
@@ -346,10 +346,31 @@ class CloudWorker:
     async def _with_selected_serial(self) -> str | None:
         if self._cloud is None or not self._selected_name:
             return None
-        device = self._cloud.devices.get(self._selected_name)
+        selected, device = self._resolve_device(self._selected_name)
+        self._selected_name = selected
         if not device:
             return None
         return device.serial_number
+
+    def _resolve_device(
+        self, name: str
+    ) -> tuple[str, DeviceHandler | None]:
+        """Resolve mower key robustly from potentially noisy UI input."""
+        if self._cloud is None:
+            return name, None
+        devices = self._cloud.devices
+        if name in devices:
+            return name, devices[name]
+
+        normalized = str(name).strip()
+        if normalized in devices:
+            return normalized, devices[normalized]
+
+        folded = normalized.casefold()
+        for key, device in devices.items():
+            if str(key).strip().casefold() == folded:
+                return key, device
+        return normalized, None
 
     async def action(self, command: str, value: Any = None) -> None:
         if self._cloud is None:
