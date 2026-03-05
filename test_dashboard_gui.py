@@ -7,6 +7,7 @@ import contextlib
 import logging
 import queue
 import threading
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from os import environ
@@ -291,9 +292,9 @@ class CloudWorker:
         selected, device = self._resolve_device(self._selected_name)
         self._selected_name = selected
         if device is None:
-            known = ", ".join(self._cloud.devices.keys()) or "none"
+            known = ", ".join(repr(k) for k in self._cloud.devices.keys()) or "none"
             raise RuntimeError(
-                f"Selected mower '{selected}' not found. Known mowers: {known}"
+                f"Selected mower {selected!r} not found. Known mower keys: {known}"
             )
         mower = self._cloud.get_mower(device.serial_number)
         identifier = device.serial_number
@@ -366,11 +367,25 @@ class CloudWorker:
         if normalized in devices:
             return normalized, devices[normalized]
 
-        folded = normalized.casefold()
+        folded = self._normalize_key(normalized)
         for key, device in devices.items():
-            if str(key).strip().casefold() == folded:
+            if self._normalize_key(str(key)) == folded:
                 return key, device
+            device_name = getattr(device, "name", None)
+            if device_name is not None and self._normalize_key(str(device_name)) == folded:
+                return key, device
+
+        # If exactly one mower exists, prefer deterministic fallback instead of failing.
+        if len(devices) == 1:
+            only_key = next(iter(devices))
+            return only_key, devices[only_key]
+
         return normalized, None
+
+    @staticmethod
+    def _normalize_key(value: str) -> str:
+        value = unicodedata.normalize("NFKC", value)
+        return "".join(ch for ch in value if ch.isprintable() and not ch.isspace()).casefold()
 
     async def action(self, command: str, value: Any = None) -> None:
         if self._cloud is None:
