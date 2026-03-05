@@ -272,10 +272,18 @@ class CloudWorker:
     async def refresh(self) -> None:
         if self._cloud is None or not self._selected_name:
             return
-        device = self._cloud.devices.get(self._selected_name)
+        selected = self._selected_name
+        device = self._cloud.devices.get(selected)
         if not device:
             return
         await self._cloud.update(device.serial_number)
+        # Even if payload is unchanged, emit a refresh completion snapshot for UI feedback.
+        self._emit(
+            "refresh_done",
+            name=selected,
+            snapshot=_snapshot_device(device),
+            at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        )
 
     async def _with_selected_serial(self) -> str | None:
         if self._cloud is None or not self._selected_name:
@@ -493,8 +501,10 @@ class DashboardApp:
         fut.add_done_callback(self._future_error_to_log)
 
     def _refresh(self) -> None:
+        self._append_log("Refresh requested...")
         fut = self.worker.submit(self.worker.refresh())
         fut.add_done_callback(self._future_error_to_log)
+        fut.add_done_callback(lambda f: self._future_success_to_log(f, "Refresh completed."))
 
     def _on_mower_selected(self, _event: Any) -> None:
         name = self.mower_var.get().strip()
@@ -538,6 +548,11 @@ class DashboardApp:
         self.messages.put(
             WorkerMessage(msg_type="error", payload={"text": f"{type(err).__name__}: {err}"})
         )
+
+    def _future_success_to_log(self, fut: Any, text: str) -> None:
+        if fut.exception() is not None:
+            return
+        self.messages.put(WorkerMessage(msg_type="log", payload={"text": text}))
 
     def _switch_account(self, reconnect: bool = True) -> None:
         email = self.email_var.get().strip()
@@ -673,6 +688,19 @@ class DashboardApp:
             elif message.msg_type == "error":
                 text = str(message.payload.get("text", "Unknown error"))
                 self._append_log(f"Error: {text}")
+            elif message.msg_type == "log":
+                text = str(message.payload.get("text", ""))
+                if text:
+                    self._append_log(text)
+            elif message.msg_type == "refresh_done":
+                name = str(message.payload.get("name", "unknown"))
+                snapshot = message.payload.get("snapshot", {})
+                at = str(message.payload.get("at", "unknown"))
+                if isinstance(snapshot, dict):
+                    self.device_cache[name] = snapshot
+                if name == self.mower_var.get() and isinstance(snapshot, dict):
+                    self._render_snapshot(snapshot)
+                self.last_event_var.set(f"Manual refresh completed for {name} at {at}")
 
         self.root.after(150, self._process_messages)
 
