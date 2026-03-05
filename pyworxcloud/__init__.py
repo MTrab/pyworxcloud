@@ -166,6 +166,9 @@ class WorxCloud(dict):
         self._endpoint = None
         self._user_id = None
         self._mowers = None
+        self._mowers_by_serial: dict[str, dict[str, Any]] = {}
+        self._mowers_by_uuid: dict[str, dict[str, Any]] = {}
+        self._mowers_by_mac: dict[str, dict[str, Any]] = {}
 
         self._decoding: bool = False
 
@@ -299,6 +302,7 @@ class WorxCloud(dict):
             self._user_id,
             self._log,
             self._on_update,
+            identifier_resolver=self._resolve_mower_identifiers,
             response_timeout=self._command_timeout,
         )
 
@@ -333,36 +337,28 @@ class WorxCloud(dict):
         try:
             data = json.loads(payload)
             logger.debug("MQTT data received")
+            cfg = data.get("cfg", {}) if isinstance(data, dict) else {}
+            dat = data.get("dat", {}) if isinstance(data, dict) else {}
+            serial = cfg.get("sn")
+            uuid = dat.get("uuid")
+            mac = dat.get("mac")
 
             # "Malformed" message, we are missing a serial number and
             # MAC address to identify the mower.
-            if (
-                not "sn" in data["cfg"] and not "uuid" in data["dat"]
-            ) and not "mac" in data["dat"]:
+            if serial is None and uuid is None and mac is None:
                 logger.debug("Malformed message received")
                 return
 
-            found_match = False
-
-            for mower in self._mowers:
-                if "sn" in data["cfg"]:
-                    if mower["serial_number"] == data["cfg"]["sn"]:
-                        found_match = True
-                        break
-                elif "uuid" in data["dat"]:
-                    if mower["uuid"] == data["dat"]["uuid"]:
-                        found_match = True
-                        break
-                elif "mac" in data["dat"]:
-                    if mower["mac_address"] == data["dat"]["mac"]:
-                        found_match = True
-                        break
-
-            if not found_match:
-                logger.debug("Could not match incoming data with a known mower!")
+            mower = self._match_mower(serial=serial, uuid=uuid, mac=mac)
+            if mower is None:
+                logger.debug(
+                    "Could not match incoming data with a known mower! sn=%s uuid=%s mac=%s",
+                    serial,
+                    uuid,
+                    mac,
+                )
                 return
-            else:
-                logger.debug("Matched to '%s'", mower["name"])
+            logger.debug("Matched to '%s'", mower["name"])
 
             device: DeviceHandler = self.devices[mower["name"]]
 
@@ -387,6 +383,66 @@ class WorxCloud(dict):
             )
         except json.decoder.JSONDecodeError:
             logger.debug("Malformed MQTT message received")
+
+    def _match_mower(
+        self, serial: str | None = None, uuid: str | None = None, mac: str | None = None
+    ) -> dict[str, Any] | None:
+        """Return mower by prioritized identifier matching."""
+        if serial is not None:
+            mower = self._mowers_by_serial.get(serial)
+            if mower is not None:
+                return mower
+        if uuid is not None:
+            mower = self._mowers_by_uuid.get(uuid)
+            if mower is not None:
+                return mower
+        if mac is not None:
+            mower = self._mowers_by_mac.get(mac)
+            if mower is not None:
+                return mower
+        return None
+
+    def _rebuild_mower_indices(self) -> None:
+        """Rebuild mower lookup dictionaries for fast identifier matching."""
+        by_serial: dict[str, dict[str, Any]] = {}
+        by_uuid: dict[str, dict[str, Any]] = {}
+        by_mac: dict[str, dict[str, Any]] = {}
+        for mower in self._mowers or []:
+            serial = mower.get("serial_number")
+            if serial is not None:
+                by_serial[str(serial)] = mower
+
+            uuid = mower.get("uuid")
+            if uuid is not None:
+                by_uuid[str(uuid)] = mower
+
+            mac = mower.get("mac_address")
+            if mac is not None and mac != "__UUID__":
+                by_mac[str(mac)] = mower
+
+        # Swap references atomically so callback readers never observe partial updates.
+        self._mowers_by_serial = by_serial
+        self._mowers_by_uuid = by_uuid
+        self._mowers_by_mac = by_mac
+
+    def _resolve_mower_identifiers(self, identifier: str) -> set[str]:
+        """Return equivalent mower identifiers for serial/uuid/mac matching."""
+        mower = (
+            self._mowers_by_serial.get(identifier)
+            or self._mowers_by_uuid.get(identifier)
+            or self._mowers_by_mac.get(identifier)
+        )
+        if mower is None:
+            return {identifier}
+
+        identifiers = {
+            str(mower.get("serial_number")) if mower.get("serial_number") is not None else None,
+            str(mower.get("uuid")) if mower.get("uuid") is not None else None,
+            str(mower.get("mac_address")) if mower.get("mac_address") is not None else None,
+        }
+        identifiers.discard(None)
+        identifiers.discard("__UUID__")
+        return identifiers if identifiers else {identifier}
 
     def _on_api_update(self, data):  # , topic, payload, dup, qos, retain, **kwargs):
         """Triggered when API has been updated."""
@@ -442,6 +498,8 @@ class WorxCloud(dict):
             except TypeError:
                 pass
 
+        self._rebuild_mower_indices()
+
         await self._schedule_api_refresh()
 
     async def _schedule_api_refresh(self, is_err: bool = False) -> None:
@@ -488,9 +546,9 @@ class WorxCloud(dict):
                 if mower[1].serial_number == serial_number:
                     return mower[1]
         else:
-            for mower in self._mowers:
-                if mower["serial_number"] == serial_number:
-                    return mower
+            mower = self._mowers_by_serial.get(serial_number)
+            if mower is not None:
+                return mower
 
         raise MowerNotFoundError(
             f"Mower with serialnumber {serial_number} was not found."

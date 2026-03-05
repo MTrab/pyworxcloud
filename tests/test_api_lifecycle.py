@@ -57,7 +57,9 @@ class CapturingMQTT:
         _logger: Any,
         _callback: Any,
         response_timeout: float,
+        identifier_resolver: Any = None,
     ) -> None:
+        self.identifier_resolver = identifier_resolver
         self.__class__.last_response_timeout = response_timeout
 
     async def aconnect(self) -> None:
@@ -243,3 +245,30 @@ def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
 
     assert asyncio.run(cloud.connect()) is True
     assert CapturingMQTT.last_response_timeout == 12.5
+
+
+def test_match_mower_uses_identifier_priority() -> None:
+    """Matcher should prefer serial, then uuid, then mac."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    mower_serial = {"name": "Serial", "serial_number": "S1", "uuid": "U1", "mac_address": "M1"}
+    mower_uuid = {"name": "UUID", "serial_number": "S2", "uuid": "U2", "mac_address": "M2"}
+    mower_mac = {"name": "MAC", "serial_number": "S3", "uuid": "U3", "mac_address": "M3"}
+    cloud._mowers = [mower_serial, mower_uuid, mower_mac]
+    cloud._rebuild_mower_indices()
+
+    assert cloud._match_mower(serial="S1") == mower_serial
+    assert cloud._match_mower(uuid="U2") == mower_uuid
+    assert cloud._match_mower(mac="M3") == mower_mac
+    assert cloud._match_mower(serial="missing", uuid="U2") == mower_uuid
+    assert cloud._match_mower(serial="missing", uuid="missing", mac="M1") == mower_serial
+    assert cloud._match_mower(serial="missing", uuid="missing", mac="missing") is None
+
+
+def test_get_mower_uses_rebuilt_serial_index() -> None:
+    """get_mower should resolve mowers through serial lookup index."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    target = {"name": "Target", "serial_number": "SERIAL-1", "uuid": "UUID-1", "mac_address": "MAC-1"}
+    cloud._mowers = [target]
+    cloud._rebuild_mower_indices()
+
+    assert cloud.get_mower("SERIAL-1") == target

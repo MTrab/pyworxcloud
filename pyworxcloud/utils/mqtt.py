@@ -18,14 +18,15 @@ The MQTT class provides the following functionality:
 from __future__ import annotations
 
 import asyncio
+import itertools
 import json
 import random
 import threading
 import urllib.parse
 from concurrent.futures import Future
-from datetime import datetime
+from datetime import datetime, timezone
 from logging import Logger
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from uuid import uuid4
 
 import awscrt.io
@@ -112,6 +113,7 @@ class MQTT(LDict):
         user_id: int,
         logger: Logger,
         callback: Any,
+        identifier_resolver: Callable[[str], set[str]] | None = None,
         response_timeout: float = DEFAULT_RESPONSE_TIMEOUT,
     ) -> dict:
         """Initialize AWSIoT MQTT handler."""
@@ -119,6 +121,7 @@ class MQTT(LDict):
         super().__init__()
         self._events = EventHandler()
         self._on_update = callback
+        self._identifier_resolver = identifier_resolver
         self._endpoint = endpoint
         self._log = logger.getChild("MQTT")
         self._reconnected: bool = False
@@ -136,6 +139,8 @@ class MQTT(LDict):
         self._pending_response_message_id: int | None = None
         self._last_command_payload: dict[str, Any] | None = None
         self._lifecycle_lock = threading.RLock()
+        self._message_id_lock = threading.Lock()
+        self._message_id_seq = itertools.count(random.randint(1024, 65535))
         if response_timeout <= 0:
             raise ValueError("response_timeout must be greater than 0")
         self._response_timeout = float(response_timeout)
@@ -216,6 +221,7 @@ class MQTT(LDict):
         msg = payload.decode("utf-8")
         self._log.debug("Received MQTT message on topic '%s':\n%s", topic, msg)
         identifiers, message_ids = self._extract_response_markers(msg)
+        expanded_identifiers = self._expand_identifiers(identifiers)
         with self._response_lock:
             id_matches = (
                 not message_ids
@@ -224,11 +230,27 @@ class MQTT(LDict):
             )
             if (
                 self._pending_response_target is not None
-                and self._pending_response_target in identifiers
+                and self._pending_response_target in expanded_identifiers
                 and id_matches
             ):
                 self._response_event.set()
         self._on_update(msg)
+
+    def _expand_identifiers(self, identifiers: set[str]) -> set[str]:
+        """Expand identifiers using optional mower alias resolver."""
+        expanded = set(identifiers)
+        resolver = self._identifier_resolver
+        if resolver is None:
+            return expanded
+
+        for identifier in list(identifiers):
+            try:
+                aliases = resolver(identifier)
+            except Exception:  # pragma: no cover - defensive resolver guard
+                aliases = set()
+            if aliases:
+                expanded.update(str(alias) for alias in aliases if alias is not None)
+        return expanded
 
     def _extract_response_markers(self, payload: str) -> tuple[set[str], set[int]]:
         """Extract identifiers and command ids from an incoming MQTT payload."""
@@ -537,21 +559,27 @@ class MQTT(LDict):
         Format a message.
         Message is expected to be a dict like this: {"cmd": 1}
         """
+        with self._message_id_lock:
+            message_id = 1024 + (next(self._message_id_seq) - 1024) % (65535 - 1024 + 1)
+
         now = datetime.now()
         msg = {}
         if protocol == 0:
             msg = {
-                "id": random.randint(1024, 65535),
+                "id": message_id,
                 "sn": serial_number,
                 "tm": now.strftime("%H:%M:%S"),
                 "dt": now.strftime("%d/%m/%Y"),
             }
         elif protocol == 1:
+            utc_now = datetime.now(timezone.utc)
             msg = {
-                "id": random.randint(1024, 65535),
+                "id": message_id,
                 "uuid": serial_number,
-                "tm": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "tm": utc_now.strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
+        else:
+            raise ValueError(f"Unsupported protocol: {protocol}")
 
         msg.update(message)
         self._log.debug("Formatting message '%s' to '%s'", message, msg)
