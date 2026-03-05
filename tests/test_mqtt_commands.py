@@ -43,6 +43,7 @@ def _build_mqtt(
     monkeypatch: pytest.MonkeyPatch,
     response_timeout: float = 30.0,
     identifier_resolver: Any | None = None,
+    deduplicate_inflight_commands: bool = False,
 ) -> tuple[MQTT, _DummyClient]:
     dummy_client = _DummyClient()
     dummy_api = type("API", (), {"access_token": "a.b.c"})()
@@ -57,6 +58,7 @@ def _build_mqtt(
         logger=logging.getLogger("test"),
         callback=lambda _payload: None,
         identifier_resolver=identifier_resolver,
+        deduplicate_inflight_commands=deduplicate_inflight_commands,
         response_timeout=response_timeout,
     )
     mqtt._is_connected = True
@@ -282,3 +284,43 @@ def test_format_message_rejects_unsupported_protocol(
 
     with pytest.raises(ValueError):
         mqtt.format_message("SN-1", {"cmd": 1}, 99)
+
+
+def test_publish_drops_duplicate_inflight_command_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Duplicate in-flight command should be dropped when dedup is enabled."""
+    mqtt, dummy = _build_mqtt(monkeypatch, deduplicate_inflight_commands=True)
+
+    def _publish_once() -> None:
+        mqtt.publish(
+            serial_number="SN-1",
+            topic="topic/in",
+            message={"cmd": 1},
+            protocol=0,
+            timeout=1.0,
+        )
+
+    first = threading.Thread(target=_publish_once)
+    second = threading.Thread(target=_publish_once)
+    first.start()
+
+    deadline = time.time() + 1.0
+    while len(dummy.published) < 1 and time.time() < deadline:
+        time.sleep(0.01)
+    assert len(dummy.published) == 1
+
+    second.start()
+    time.sleep(0.1)
+    assert len(dummy.published) == 1
+
+    payload = json.loads(dummy.published[0]["payload"])
+    mqtt._on_message_received(
+        "topic/out",
+        json.dumps({"cfg": {"sn": "SN-1", "id": payload["id"]}}).encode("utf-8"),
+    )
+
+    first.join(timeout=1.0)
+    second.join(timeout=1.0)
+    assert first.is_alive() is False
+    assert second.is_alive() is False

@@ -58,8 +58,10 @@ class CapturingMQTT:
         _callback: Any,
         response_timeout: float,
         identifier_resolver: Any = None,
+        deduplicate_inflight_commands: bool = False,
     ) -> None:
         self.identifier_resolver = identifier_resolver
+        self.deduplicate_inflight_commands = deduplicate_inflight_commands
         self.__class__.last_response_timeout = response_timeout
 
     async def aconnect(self) -> None:

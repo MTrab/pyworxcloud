@@ -69,6 +69,7 @@ class WorxCloud(dict):
         verify_ssl: bool = True,
         tz: str | None = None,  # pylint: disable=invalid-name
         command_timeout: float = DEFAULT_COMMAND_TIMEOUT,
+        deduplicate_inflight_commands: bool = False,
     ) -> None:
         """
         Initialize :class:WorxCloud class and set default attribute values.
@@ -160,6 +161,7 @@ class WorxCloud(dict):
         if command_timeout <= 0:
             raise ValueError("command_timeout must be greater than 0")
         self._command_timeout = float(command_timeout)
+        self._deduplicate_inflight_commands = bool(deduplicate_inflight_commands)
         _LOGGER.debug("Initializing EventHandler ...")
         self._events = EventHandler()
 
@@ -303,6 +305,7 @@ class WorxCloud(dict):
             self._log,
             self._on_update,
             identifier_resolver=self._resolve_mower_identifiers,
+            deduplicate_inflight_commands=self._deduplicate_inflight_commands,
             response_timeout=self._command_timeout,
         )
 
