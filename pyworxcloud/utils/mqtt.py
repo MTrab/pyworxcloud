@@ -17,6 +17,7 @@ The MQTT class provides the following functionality:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import random
 import threading
@@ -272,6 +273,10 @@ class MQTT(LDict):
         subscribe_future.result()
         self._log.debug(f"Subscribed to topic: {topic}")
 
+    async def asubscribe(self, topic: str, append: bool = True) -> None:
+        """Async subscribe wrapper."""
+        await asyncio.to_thread(self.subscribe, topic, append)
+
     def connect(self) -> None:
         """Connect to the MQTT service."""
         try:
@@ -299,6 +304,10 @@ class MQTT(LDict):
             self._log.error(f"Failed to connect to MQTT: {exc}")
             raise NoConnectionError() from exc
 
+    async def aconnect(self) -> None:
+        """Async connect wrapper."""
+        await asyncio.to_thread(self.connect)
+
     def update_token(self) -> None:
         """Update the token."""
         self._log.debug("Updating token")
@@ -314,6 +323,10 @@ class MQTT(LDict):
         self.connect()
 
         self._log.debug("Token updated")
+
+    async def aupdate_token(self) -> None:
+        """Async token update wrapper."""
+        await asyncio.to_thread(self.update_token)
 
     def disconnect(self, keep_topic: bool = False):  # pylint: disable=unused-argument
         """Disconnect from AWSIoT MQTT server."""
@@ -342,6 +355,10 @@ class MQTT(LDict):
             finally:
                 # Ensure internal state remains consistent after teardown attempts.
                 self._is_connected = False
+
+    async def adisconnect(self, keep_topic: bool = False) -> None:
+        """Async disconnect wrapper."""
+        await asyncio.to_thread(self.disconnect, keep_topic)
 
     def shutdown(self) -> None:
         """Release background AWS CRT resources."""
@@ -378,6 +395,10 @@ class MQTT(LDict):
         if event_loop_group is not None and hasattr(event_loop_group, "shutdown_event"):
             event_loop_group.shutdown_event.wait(5)
 
+    async def ashutdown(self) -> None:
+        """Async shutdown wrapper."""
+        await asyncio.to_thread(self.shutdown)
+
     def ping(
         self,
         serial_number: str,
@@ -389,6 +410,16 @@ class MQTT(LDict):
         cmd = {"cmd": Command.FORCE_REFRESH}
         self._log.debug("Sending '%s' on topic '%s'", cmd, topic)
         self.publish(serial_number, topic, cmd, protocol, timeout=timeout)
+
+    async def aping(
+        self,
+        serial_number: str,
+        topic: str,
+        protocol: int = 0,
+        timeout: float | None = None,
+    ) -> None:
+        """Async ping wrapper."""
+        await asyncio.to_thread(self.ping, serial_number, topic, protocol, timeout)
 
     def command(
         self,
@@ -405,6 +436,19 @@ class MQTT(LDict):
             message={"cmd": action},
             protocol=protocol,
             timeout=timeout,
+        )
+
+    async def acommand(
+        self,
+        serial_number: str,
+        topic: str,
+        action: Command,
+        protocol: int = 0,
+        timeout: float | None = None,
+    ) -> None:
+        """Async command wrapper."""
+        await asyncio.to_thread(
+            self.command, serial_number, topic, action, protocol, timeout
         )
 
     def publish(
@@ -474,6 +518,19 @@ class MQTT(LDict):
                     self._pending_response_target = None
                     self._pending_response_message_id = None
                     self._response_event.clear()
+
+    async def apublish(
+        self,
+        serial_number: str,
+        topic: str,
+        message: dict,
+        protocol: int = 0,
+        timeout: float | None = None,
+    ) -> None:
+        """Async publish wrapper."""
+        await asyncio.to_thread(
+            self.publish, serial_number, topic, message, protocol, timeout
+        )
 
     def format_message(self, serial_number: str, message: dict, protocol: int) -> str:
         """

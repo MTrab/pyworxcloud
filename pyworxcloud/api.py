@@ -1,14 +1,16 @@
-"""Landroid Cloud API implementation"""
+"""Landroid Cloud API implementation (async-first)."""
 
-# pylint: disable=unnecessary-lambda
 from __future__ import annotations
 
 import logging
 import time
+from typing import Any
+
+import aiohttp
 
 from .clouds import CloudType
 from .exceptions import TooManyRequestsError
-from .utils.requests import GET, HEADERS, POST, create_session
+from .utils.requests import AGET, APOST, GET, HEADERS, POST, create_async_session
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,30 +26,33 @@ class LandroidCloudAPI:
         tz: str | None = None,  # pylint: disable=invalid-name
         token_callback: callable | None = None,
     ) -> None:
-        """Initialize a new instance of the API broker.
-
-        Args:
-            username (str): Email for the user account.
-            password (str): Password for the user account.
-            cloud (CloudType.WORX | CloudType.KRESS | CloudType.LANDXCAPE , optional): CloudType representing the device. Defaults to CloudType.WORX.
-        """
         self.cloud: CloudType = cloud
         self._token_type = "app"
-        self.access_token = None
-        self.refresh_token = None
+        self.access_token: str | None = None
+        self.refresh_token: str | None = None
         self._token_expire = 0
         self.uuid = None
         self._api_host = None
         self.api_data = None
         self._products_cache = None
-        self._session = create_session()
+        self._session: aiohttp.ClientSession | None = None
         self._tz = tz
         self._callback = token_callback
 
         self.username = username
         self.password = password
 
-    def get_token(self) -> None:
+    async def _ensure_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = await create_async_session()
+        return self._session
+
+    async def close(self) -> None:
+        """Close underlying aiohttp session."""
+        if self._session is not None and not self._session.closed:
+            await self._session.close()
+
+    async def get_token(self) -> None:
         """Get the access and refresh tokens."""
         url = f"https://{self.cloud.AUTH_ENDPOINT}/oauth/token"
         request_body = {
@@ -59,7 +64,12 @@ class LandroidCloudAPI:
         }
 
         try:
-            resp = POST(url, request_body, HEADERS(), session=self._session)
+            resp = await APOST(
+                url,
+                request_body,
+                HEADERS(),
+                session=await self._ensure_session(),
+            )
             self.access_token = resp["access_token"]
             self.refresh_token = resp["refresh_token"]
             now = int(time.time())
@@ -67,7 +77,7 @@ class LandroidCloudAPI:
         except TooManyRequestsError:
             raise TooManyRequestsError from None
 
-    def _update_token(self) -> None:
+    async def _update_token(self) -> None:
         """Refresh the tokens."""
         url = f"https://{self.cloud.AUTH_ENDPOINT}/oauth/token"
         request_body = {
@@ -77,7 +87,12 @@ class LandroidCloudAPI:
             "refresh_token": self.refresh_token,
         }
 
-        resp = POST(url, request_body, HEADERS(), session=self._session)
+        resp = await APOST(
+            url,
+            request_body,
+            HEADERS(),
+            session=await self._ensure_session(),
+        )
         self.access_token = resp["access_token"]
         self.refresh_token = resp["refresh_token"]
         now = int(time.time())
@@ -90,7 +105,9 @@ class LandroidCloudAPI:
             header_data["Content-Type"] = "application/x-www-form-urlencoded"
         else:
             header_data["Content-Type"] = "application/json"
-            header_data["Authorization"] = self._token_type + " " + self.access_token
+            header_data["Authorization"] = self._token_type + " " + str(
+                self.access_token
+            )
 
         return header_data
 
@@ -102,35 +119,32 @@ class LandroidCloudAPI:
             return False
         return True
 
-    def check_token(self) -> None:
+    async def check_token(self) -> None:
         """Check token and refresh if needed."""
         now = int(time.time())
 
         if (now + 1800) >= self._token_expire:
             _LOGGER.debug("Updating access_token")
-            self._update_token()
+            await self._update_token()
             if self._callback:
-                self._callback()
+                callback_res = self._callback()
+                if hasattr(callback_res, "__await__"):
+                    await callback_res
 
-    def get_mowers(self) -> str:
-        """Get mowers associated with the account.
+    async def get_mowers(self) -> list[dict[str, Any]]:
+        """Get mowers associated with the account."""
+        await self.check_token()
 
-        Returns:
-            str: JSON object containing available mowers associated with the account.
-        """
-        self.check_token()
-
-        mowers = GET(
+        mowers = await AGET(
             f"https://{self.cloud.ENDPOINT}/api/v2/product-items?status=1",
             HEADERS(self.access_token),
-            session=self._session,
+            session=await self._ensure_session(),
         )
-        products = self._get_products()
+        products = await self._get_products()
         product_map = {item["id"]: item for item in products}
 
         for mower in mowers:
             if mower["name"] is None:
-                # Add default name when mower is unnamed
                 mower["name"] = "No Name"
 
             _LOGGER.debug("Matching models for mower '%s'", mower["name"])
@@ -154,16 +168,11 @@ class LandroidCloudAPI:
 
         return mowers
 
-    def get_model(self, product_id: int) -> str | None:
-        """Get model from product_id.
+    async def get_model(self, product_id: int) -> dict[str, Any] | None:
+        """Get model from product_id."""
+        await self.check_token()
 
-        Returns:
-            str: JSON object containing detailed product information.
-            None: Returned when product_id couldn't be matched to a product.
-        """
-        self.check_token()
-
-        products = self._get_products()
+        products = await self._get_products()
 
         product_info = None
         for product in products:
@@ -173,19 +182,19 @@ class LandroidCloudAPI:
 
         return product_info
 
-    def _get_products(self) -> list:
+    async def _get_products(self) -> list[dict[str, Any]]:
         """Get product list from cache or API."""
-        self.check_token()
+        await self.check_token()
         if self._products_cache is None:
-            self._products_cache = GET(
+            self._products_cache = await AGET(
                 f"https://{self.cloud.ENDPOINT}/api/v2/products",
                 HEADERS(self.access_token),
-                session=self._session,
+                session=await self._ensure_session(),
             )
 
         return self._products_cache
 
     @property
-    def data(self) -> str:
+    def data(self) -> Any:
         """Return the latest dataset of information and states from the API."""
         return self.api_data

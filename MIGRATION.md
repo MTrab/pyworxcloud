@@ -12,6 +12,26 @@ The changes in this guide are based on merged hardening pull requests:
 
 ## Breaking Behavior Changes
 
+### 0. `WorxCloud` API is now async-first
+
+`WorxCloud` methods that perform I/O are now coroutine methods and must be awaited.
+
+Affected methods include (non-exhaustive):
+
+- `authenticate()`
+- `connect()`
+- `disconnect()`
+- `update()`
+- command/control methods such as `start()`, `pause()`, `home()`, `safehome()`, `send()`, `set_*()`
+
+`async with WorxCloud(...)` is supported.
+
+What this means for integrations:
+
+- Call methods with `await`.
+- Ensure lifecycle setup/teardown runs inside an event loop.
+- For Home Assistant, call methods from async setup/update/service handlers directly.
+
 ### 1. MQTT commands are now serialized
 
 Only one command can be in flight per MQTT client at a time.

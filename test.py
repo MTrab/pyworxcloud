@@ -1,9 +1,8 @@
 """Basic test file."""
 
+import asyncio
 import logging
 from os import environ
-from pprint import pprint
-from time import sleep
 
 from pyworxcloud import WorxCloud
 
@@ -16,20 +15,23 @@ TYPE = environ["TYPE"]
 # Clear the screen for better visibility when debugging
 print("\033c", end="")
 
-# Initialize the class
-cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")
-cloud.authenticate()
-cloud.connect()
+async def main() -> None:
+    # Initialize the class
+    cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")
+    await cloud.authenticate()
+    await cloud.connect()
 
-for _, device in cloud.devices.items():
-    #     cloud.update(device.serial_number)
-    #     pprint(vars(device))
-    print(f"{device.name} online: {device.online}")
+    for _, device in cloud.devices.items():
+        # await cloud.update(device.serial_number)
+        print(f"{device.name} online: {device.online}")
 
-    #     cloud.set_offlimits(device.serial_number, False)
-    #     cloud.set_offlimits_shortcut(device.serial_number, True)
-    #     cloud.set_cutting_height(device.serial_number, 45)
-    #     print(f"Cutting height: {cloud.get_cutting_height(device.serial_number)}")
-    # cloud.set_acs(device.serial_number, False)
+        # await cloud.set_offlimits(device.serial_number, False)
+        # await cloud.set_offlimits_shortcut(device.serial_number, True)
+        # await cloud.set_cutting_height(device.serial_number, 45)
+        # print(f"Cutting height: {cloud.get_cutting_height(device.serial_number)}")
+        # await cloud.set_acs(device.serial_number, False)
 
-cloud.disconnect()
+    await cloud.disconnect()
+
+
+asyncio.run(main())
