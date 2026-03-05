@@ -47,6 +47,12 @@ autolabeler:
   - label: "bug"
     branch:
       - '/fix\/.+/'
+      - '/bug\/.+/'
+      - '/^patch-\d+$/i'
+      - '/patch\/.+/'
   - label: "feature request"
     branch:
       - '/feature\/.+/'
+  - label: "chore"
+    branch:
+      - '/chore\/.+/'
