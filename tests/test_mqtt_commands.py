@@ -81,6 +81,9 @@ def test_publish_times_out_when_no_response(
                 timeout=0.05,
             )
     assert "Timeout waiting for device response" in caplog.text
+    assert "identifier_type=sn" in caplog.text
+    assert "protocol=0" in caplog.text
+    assert "topic=topic/in" in caplog.text
 
 
 def test_publish_uses_default_response_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
