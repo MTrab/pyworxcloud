@@ -283,15 +283,18 @@ class CloudWorker:
 
     async def refresh(self, selected_name: str | None = None) -> None:
         if self._cloud is None:
-            return
+            raise RuntimeError("Not connected.")
         if selected_name:
             self._selected_name = selected_name
         if not self._selected_name:
-            return
+            raise RuntimeError("No mower selected.")
         selected = self._selected_name
         device = self._cloud.devices.get(selected)
         if not device:
-            return
+            known = ", ".join(self._cloud.devices.keys()) or "none"
+            raise RuntimeError(
+                f"Selected mower '{selected}' not found. Known mowers: {known}"
+            )
         mower = self._cloud.get_mower(device.serial_number)
         identifier = device.serial_number
         protocol = mower["protocol"]
@@ -327,6 +330,9 @@ class CloudWorker:
                 ),
             )
             await self._cloud._fetch()  # noqa: SLF001
+            updated_device = self._cloud.devices.get(selected)
+            if updated_device is not None:
+                device = updated_device
 
         self._emit(
             "refresh_done",
@@ -559,7 +565,6 @@ class DashboardApp:
         selected_name = self.mower_var.get().strip() or None
         fut = self.worker.submit(self.worker.refresh(selected_name))
         fut.add_done_callback(self._future_error_to_log)
-        fut.add_done_callback(lambda f: self._future_success_to_log(f, "Refresh completed."))
 
     def _on_mower_selected(self, _event: Any) -> None:
         name = self.mower_var.get().strip()
@@ -757,6 +762,9 @@ class DashboardApp:
                     self.device_cache[name] = snapshot
                 if name == self.mower_var.get() and isinstance(snapshot, dict):
                     self._render_snapshot(snapshot)
+                self._append_log(
+                    f"Refresh completed via {source} (target={target}) at {at}."
+                )
                 self.last_event_var.set(
                     f"Manual refresh completed for {name} at {at} ({source}, target={target})"
                 )
