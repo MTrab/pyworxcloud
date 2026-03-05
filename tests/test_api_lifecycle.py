@@ -306,6 +306,48 @@ def test_async_context_manager_disconnects_on_exception(monkeypatch) -> None:
     assert calls == ["auth", "connect", "disconnect"]
 
 
+def test_sync_context_manager_warns_deprecated(monkeypatch) -> None:
+    """Sync context manager should emit a deprecation warning."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+
+    async def _noop_auth() -> bool:
+        return True
+
+    async def _noop_connect() -> bool:
+        return True
+
+    async def _noop_disconnect() -> None:
+        return None
+
+    monkeypatch.setattr(cloud, "authenticate", _noop_auth)
+    monkeypatch.setattr(cloud, "connect", _noop_connect)
+    monkeypatch.setattr(cloud, "disconnect", _noop_disconnect)
+
+    with pytest.deprecated_call():
+        cloud.__enter__()
+    cloud.__exit__(None, None, None)
+
+
+def test_sync_context_manager_fails_inside_running_loop(monkeypatch) -> None:
+    """Sync context manager should refuse execution in a running event loop."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+
+    async def _noop_auth() -> bool:
+        return True
+
+    async def _noop_connect() -> bool:
+        return True
+
+    monkeypatch.setattr(cloud, "authenticate", _noop_auth)
+    monkeypatch.setattr(cloud, "connect", _noop_connect)
+
+    async def _run() -> None:
+        with pytest.raises(RuntimeError):
+            cloud.__enter__()
+
+    asyncio.run(_run())
+
+
 def test_match_mower_uses_identifier_priority() -> None:
     """Matcher should prefer serial, then uuid, then mac."""
     cloud = WorxCloud("user@example.com", "secret", "worx")

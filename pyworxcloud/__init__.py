@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import sys
+import warnings
 from datetime import datetime, timedelta
 from random import randint
 from typing import Any
@@ -196,6 +197,22 @@ class WorxCloud(dict):
 
     def __enter__(self) -> Any:
         """Compatibility helper for sync with usage."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        else:
+            raise RuntimeError(
+                "Sync 'with WorxCloud(...)' cannot be used inside a running event loop. "
+                "Use 'async with WorxCloud(...)' instead."
+            )
+
+        warnings.warn(
+            "Sync context manager support is deprecated and will be removed in a future release. "
+            "Use 'async with WorxCloud(...)' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._sync_loop = asyncio.new_event_loop()
         self._sync_loop.run_until_complete(self.authenticate())
         self._sync_loop.run_until_complete(self.connect())
