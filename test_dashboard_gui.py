@@ -434,6 +434,7 @@ class DashboardApp:
         self._closing = False
         self._shutdown_popup: Toplevel | None = None
         self._requires_connection_widgets: list[Any] = []
+        self._pending_connection_action: str | None = None
 
         self.email_var = StringVar(value=default_email)
         self.password_var = StringVar(value=default_password)
@@ -612,6 +613,7 @@ class DashboardApp:
         self.log_text.configure(state="disabled")
 
     def _set_controls(self, connected: bool) -> None:
+        self._pending_connection_action = None
         self.connected = connected
         mower_state = "readonly" if connected else "disabled"
         self.mower_combo.configure(state=mower_state)
@@ -623,6 +625,28 @@ class DashboardApp:
         for widget in self._requires_connection_widgets:
             widget.configure(state="normal" if connected else "disabled")
 
+    def _set_connecting_pending(self) -> None:
+        self._pending_connection_action = "connect"
+        self.connect_button.configure(state="disabled")
+        self.disconnect_button.configure(state="disabled")
+        self.email_entry.configure(state="disabled")
+        self.password_entry.configure(state="disabled")
+        self.type_combo.configure(state="disabled")
+        self.mower_combo.configure(state="disabled")
+        for widget in self._requires_connection_widgets:
+            widget.configure(state="disabled")
+
+    def _set_disconnecting_pending(self) -> None:
+        self._pending_connection_action = "disconnect"
+        self.connect_button.configure(state="disabled")
+        self.disconnect_button.configure(state="disabled")
+        self.email_entry.configure(state="disabled")
+        self.password_entry.configure(state="disabled")
+        self.type_combo.configure(state="disabled")
+        self.mower_combo.configure(state="disabled")
+        for widget in self._requires_connection_widgets:
+            widget.configure(state="disabled")
+
     def _connect(self) -> None:
         email = self.email_var.get().strip()
         password = self.password_var.get().strip()
@@ -633,11 +657,13 @@ class DashboardApp:
         if _write_registry_credentials(email, password, cloud_type):
             self._append_log("Account credentials saved to Windows Registry.")
         self._append_log("Connecting...")
+        self._set_connecting_pending()
         fut = self.worker.submit(self.worker.connect(email, password, cloud_type))
         fut.add_done_callback(self._future_error_to_log)
 
     def _disconnect(self) -> None:
         self._append_log("Disconnecting...")
+        self._set_disconnecting_pending()
         fut = self.worker.submit(self.worker.disconnect())
         fut.add_done_callback(self._future_error_to_log)
 
@@ -686,6 +712,11 @@ class DashboardApp:
         err = fut.exception()
         if err is None:
             return
+        pending_action = self._pending_connection_action
+        if pending_action == "connect":
+            self._set_controls(False)
+        elif pending_action == "disconnect":
+            self._set_controls(True)
         self.messages.put(
             WorkerMessage(msg_type="error", payload={"text": f"{type(err).__name__}: {err}"})
         )
