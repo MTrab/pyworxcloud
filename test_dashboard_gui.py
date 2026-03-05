@@ -796,7 +796,8 @@ class DashboardApp:
                 target = str(message.payload.get("target", "unknown"))
                 if isinstance(snapshot, dict):
                     self.device_cache[name] = snapshot
-                if name == self.mower_var.get() and isinstance(snapshot, dict):
+                if isinstance(snapshot, dict):
+                    # Always refresh the visible dashboard on explicit manual refresh.
                     self._render_snapshot(snapshot)
                 self._append_log(
                     f"Refresh completed via {source} (target={target}) at {at}."

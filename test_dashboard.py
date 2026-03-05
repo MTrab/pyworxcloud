@@ -220,7 +220,6 @@ async def _run_dashboard(cloud: WorxCloud) -> None:
     input_task: asyncio.Task[str] | None = None
     input_in_progress = False
     dirty = True
-    announced_event_text = ""
 
     def _on_data(name: str, device: DeviceHandler) -> None:
         nonlocal event_text, dirty
@@ -251,11 +250,6 @@ async def _run_dashboard(cloud: WorxCloud) -> None:
                 _render_device(device, selected, event_text)
                 print("Format: command [args] | e.g.: l on, rd 90, ch 45, acs off")
                 dirty = False
-                announced_event_text = event_text
-            elif dirty and input_in_progress and event_text != announced_event_text:
-                # While waiting for input, avoid full redraw but still surface incoming updates.
-                print(f"\n[event] {event_text}")
-                announced_event_text = event_text
 
             if input_task is None:
                 input_task = asyncio.create_task(_ainput("\ncmd> "))
