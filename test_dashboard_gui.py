@@ -8,6 +8,7 @@ import logging
 import queue
 import threading
 from dataclasses import dataclass
+from datetime import datetime
 from os import environ
 from pathlib import Path
 from tkinter import BooleanVar, StringVar, Tk, Toplevel, ttk
@@ -141,6 +142,12 @@ def _schedule_slots(device: DeviceHandler) -> list[dict[str, Any]]:
 
 
 def _snapshot_device(device: DeviceHandler) -> dict[str, Any]:
+    device_updated = getattr(device, "updated", None)
+    if device_updated is None:
+        last_status = getattr(device, "last_status", None)
+        if isinstance(last_status, dict):
+            device_updated = last_status.get("timestamp")
+
     return {
         "name": getattr(device, "name", "unknown"),
         "serial": getattr(device, "serial_number", "unknown"),
@@ -154,6 +161,7 @@ def _snapshot_device(device: DeviceHandler) -> dict[str, Any]:
         "next_start": _next_schedule_start(device),
         "rain_triggered": str(getattr(device.rainsensor, "triggered", "unknown")),
         "rain_remaining": str(getattr(device.rainsensor, "remaining", "unknown")),
+        "device_updated": str(device_updated) if device_updated is not None else "unknown",
         "schedules": _schedule_slots(device),
     }
 
@@ -343,6 +351,7 @@ class DashboardApp:
             "firmware": StringVar(value="-"),
             "next_start": StringVar(value="-"),
             "rain": StringVar(value="-"),
+            "last_refresh": StringVar(value="-"),
         }
 
         self._build_ui()
@@ -399,6 +408,7 @@ class DashboardApp:
             ("Firmware", "firmware"),
             ("Next schedule start", "next_start"),
             ("Rain", "rain"),
+            ("Last data refresh", "last_refresh"),
         ]
         for idx, (label, key) in enumerate(fields):
             row = idx // 2
@@ -603,6 +613,9 @@ class DashboardApp:
         self.status_vars["next_start"].set(str(snapshot.get("next_start", "-")))
         self.status_vars["rain"].set(
             f"triggered={snapshot.get('rain_triggered', '-')} remaining={snapshot.get('rain_remaining', '-')}"
+        )
+        self.status_vars["last_refresh"].set(
+            f"device={snapshot.get('device_updated', 'unknown')} | ui={datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         )
         self.schedule_list.configure(state="normal")
         self.schedule_list.delete("1.0", "end")
