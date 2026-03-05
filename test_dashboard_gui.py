@@ -469,24 +469,32 @@ class DashboardApp:
 
         conn = ttk.LabelFrame(root, text="Connection")
         conn.grid(row=0, column=0, sticky="ew", padx=10, pady=8)
-        for idx in range(9):
+        for idx in range(8):
             conn.columnconfigure(idx, weight=1)
 
         ttk.Label(conn, text="Email").grid(row=0, column=0, sticky="w")
-        ttk.Entry(conn, textvariable=self.email_var, width=25).grid(row=0, column=1, sticky="ew", padx=4)
+        self.email_entry = ttk.Entry(conn, textvariable=self.email_var, width=25)
+        self.email_entry.grid(row=0, column=1, sticky="ew", padx=4)
         ttk.Label(conn, text="Password").grid(row=0, column=2, sticky="w")
-        ttk.Entry(conn, textvariable=self.password_var, show="*", width=20).grid(row=0, column=3, sticky="ew", padx=4)
+        self.password_entry = ttk.Entry(
+            conn, textvariable=self.password_var, show="*", width=20
+        )
+        self.password_entry.grid(row=0, column=3, sticky="ew", padx=4)
         ttk.Label(conn, text="Type").grid(row=0, column=4, sticky="w")
-        ttk.Combobox(
+        self.type_combo = ttk.Combobox(
             conn,
             textvariable=self.type_var,
             values=("worx", "kress", "landxcape"),
             state="readonly",
             width=12,
-        ).grid(row=0, column=5, sticky="w", padx=4)
-        ttk.Button(conn, text="Connect", command=self._connect).grid(row=0, column=6, padx=4)
-        ttk.Button(conn, text="Disconnect", command=self._disconnect).grid(row=0, column=7, padx=4)
-        ttk.Button(conn, text="Switch Account", command=self._open_account_dialog).grid(row=0, column=8, padx=4)
+        )
+        self.type_combo.grid(row=0, column=5, sticky="w", padx=4)
+        self.connect_button = ttk.Button(conn, text="Connect", command=self._connect)
+        self.connect_button.grid(row=0, column=6, padx=4)
+        self.disconnect_button = ttk.Button(
+            conn, text="Disconnect", command=self._disconnect, state="disabled"
+        )
+        self.disconnect_button.grid(row=0, column=7, padx=4)
 
         mower = ttk.LabelFrame(root, text="Mower")
         mower.grid(row=1, column=0, sticky="ew", padx=10, pady=8)
@@ -575,8 +583,13 @@ class DashboardApp:
 
     def _set_controls(self, connected: bool) -> None:
         self.connected = connected
-        state = "readonly" if connected else "disabled"
-        self.mower_combo.configure(state=state)
+        mower_state = "readonly" if connected else "disabled"
+        self.mower_combo.configure(state=mower_state)
+        self.connect_button.configure(state="disabled" if connected else "normal")
+        self.disconnect_button.configure(state="normal" if connected else "disabled")
+        self.email_entry.configure(state="disabled" if connected else "normal")
+        self.password_entry.configure(state="disabled" if connected else "normal")
+        self.type_combo.configure(state="disabled" if connected else "readonly")
 
     def _connect(self) -> None:
         email = self.email_var.get().strip()
