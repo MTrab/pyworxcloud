@@ -182,8 +182,6 @@ class DeviceHandler(LDict):
             )
             raise InvalidDataDecodeException()
 
-        logger.debug("Found JSON decoded data: %s", payload)
-
         if isinstance(self.capabilities, list):
             setattr(self, "api_capabilities", getattr(self, "capabilities"))
             self.capabilities = Capability(payload)
@@ -225,7 +223,6 @@ class DeviceHandler(LDict):
 
         self.is_decoded = True
         logger.debug("Data for %s was decoded", self.name)
-        logger.debug("Device object:\n%s", vars(self))
 
         if invalid_data:
             raise InvalidDataDecodeException()

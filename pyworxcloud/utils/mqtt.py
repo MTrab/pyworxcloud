@@ -309,8 +309,7 @@ class MQTT(LDict):
             self._connection_future = self.client.connect()
 
             # Wait for connection to complete
-            connect_result = self._connection_future.result()
-            self._log.debug(f"Connected with result: {connect_result}")
+            self._connection_future.result()
 
             # Update connection state
             self._is_connected = True
