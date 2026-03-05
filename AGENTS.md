@@ -11,7 +11,7 @@
 *   PR description must include: Summary, Changes, Testing, Notes
 *   Always run `git status` before commit
 *   Never commit `.env`
-*   If a PR closes a GitHub issue, the PR description must include `Fixes #<issue number>` so PR and issue are linked automatically
+*   If a PR closes a GitHub issue, the PR description must include `Fixes #<issue-number>` so PR and issue are linked automatically
 
 ## Security
 
