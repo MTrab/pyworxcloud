@@ -16,7 +16,7 @@
 ## Security
 
 *   Never log or commit secrets, `.env` and `./code-ref`
-*   Use `AI_GITHUB_TOKEN` in `.env`, if present, for Github push,PR, issue creation and handling
+*   Use GitHub CLI (`gh`) for GitHub operations (push, PR, issue handling) instead of token-based flows
 
 ## General
 
