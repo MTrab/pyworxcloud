@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from os import environ
 from pathlib import Path
-from tkinter import BooleanVar, StringVar, Tk, Toplevel, messagebox, ttk
+from tkinter import BooleanVar, StringVar, Tk, Toplevel, ttk
 from tkinter.scrolledtext import ScrolledText
 from typing import Any
 
@@ -356,6 +356,8 @@ class DashboardApp:
         self.worker = CloudWorker(self.messages)
         self.device_cache: dict[str, dict[str, Any]] = {}
         self.connected = False
+        self._closing = False
+        self._shutdown_popup: Toplevel | None = None
 
         self.email_var = StringVar(value=default_email)
         self.password_var = StringVar(value=default_password)
@@ -727,14 +729,52 @@ class DashboardApp:
         self.root.after(150, self._process_messages)
 
     def _on_close(self) -> None:
-        messagebox.showinfo(
-            "Shutting down",
-            "Closing cloud and MQTT connections. This may take a few seconds.",
-            parent=self.root,
-        )
+        if self._closing:
+            return
+        self._closing = True
+        self._show_shutdown_popup()
         self._append_log("Shutting down...")
+        future = self.worker.submit(self.worker.shutdown())
+        self._poll_shutdown_future(future)
+
+    def _show_shutdown_popup(self) -> None:
+        popup = Toplevel(self.root)
+        popup.title("Shutting down")
+        popup.transient(self.root)
+        popup.grab_set()
+        popup.resizable(False, False)
+        popup.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        frame = ttk.Frame(popup, padding=16)
+        frame.grid(row=0, column=0, sticky="nsew")
+        ttk.Label(
+            frame,
+            text="Closing cloud and MQTT connections.\nPlease wait...",
+            justify="center",
+        ).grid(row=0, column=0, sticky="nsew")
+
+        popup.update_idletasks()
+        self.root.update_idletasks()
+        root_x = self.root.winfo_rootx()
+        root_y = self.root.winfo_rooty()
+        root_w = self.root.winfo_width()
+        root_h = self.root.winfo_height()
+        pop_w = popup.winfo_width()
+        pop_h = popup.winfo_height()
+        x = root_x + max((root_w - pop_w) // 2, 0)
+        y = root_y + max((root_h - pop_h) // 2, 0)
+        popup.geometry(f"+{x}+{y}")
+        self._shutdown_popup = popup
+
+    def _poll_shutdown_future(self, future: Any) -> None:
+        if not future.done():
+            self.root.after(100, lambda: self._poll_shutdown_future(future))
+            return
         with contextlib.suppress(Exception):
-            self.worker.submit(self.worker.shutdown()).result(timeout=10)
+            future.result()
+        if self._shutdown_popup is not None:
+            with contextlib.suppress(Exception):
+                self._shutdown_popup.destroy()
         self.root.destroy()
 
     def run(self) -> None:
