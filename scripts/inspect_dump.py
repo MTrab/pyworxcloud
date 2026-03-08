@@ -97,25 +97,43 @@ def build_mower(payload: dict[str, Any], protocol: int, name: str) -> dict[str, 
     }
 
 
-def summarize(device: DeviceHandler, payload: dict[str, Any], include_raw: bool) -> None:
+def summarize(
+    device: DeviceHandler, payload: dict[str, Any], include_raw: bool
+) -> None:
     """Print concise mapping summary for one payload."""
-    sc = payload.get("cfg", {}).get("sc", {}) if isinstance(payload.get("cfg"), dict) else {}
-    rain = payload.get("dat", {}).get("rain", {}) if isinstance(payload.get("dat"), dict) else {}
+    sc = (
+        payload.get("cfg", {}).get("sc", {})
+        if isinstance(payload.get("cfg"), dict)
+        else {}
+    )
+    rain = (
+        payload.get("dat", {}).get("rain", {})
+        if isinstance(payload.get("dat"), dict)
+        else {}
+    )
 
     print("\nMapped Core")
     print(f"  status: {device.status.id} ({device.status.description})")
     print(f"  error:  {device.error.id} ({device.error.description})")
 
     print("\nRain Delay")
-    print(f"  cfg.rd -> rainsensor.delay: {payload.get('cfg', {}).get('rd')} -> {device.rainsensor.delay}")
-    print(f"  dat.rain.s -> raindelay_active: {rain.get('s')} -> {device.raindelay_active}")
-    print(f"  dat.rain.cnt -> rainsensor.remaining: {rain.get('cnt')} -> {device.rainsensor.get('remaining', 0)}")
+    print(
+        f"  cfg.rd -> rainsensor.delay: {payload.get('cfg', {}).get('rd')} -> {device.rainsensor.delay}"
+    )
+    print(
+        f"  dat.rain.s -> raindelay_active: {rain.get('s')} -> {device.raindelay_active}"
+    )
+    print(
+        f"  dat.rain.cnt -> rainsensor.remaining: {rain.get('cnt')} -> {device.rainsensor.get('remaining', 0)}"
+    )
 
     print("\nSchedule")
     print(f"  active: {device.schedules.get('active')}")
     print(f"  party_mode_enabled: {device.schedules.get('party_mode_enabled')}")
     print(f"  one_time_schedule: {device.schedules.get('one_time_schedule')}")
-    print(f"  time_extension (sc.p): {sc.get('p', 0)} -> {device.schedules.get('time_extension')}")
+    print(
+        f"  time_extension (sc.p): {sc.get('p', 0)} -> {device.schedules.get('time_extension')}"
+    )
     slots = device.schedules.get("slots", []) or []
     print(f"  slots: {len(slots)}")
     for idx, slot in enumerate(slots, start=1):
@@ -128,7 +146,11 @@ def summarize(device: DeviceHandler, payload: dict[str, Any], include_raw: bool)
 
     if include_raw:
         print("\nRaw cfg/dat")
-        print(json.dumps({"cfg": device.raw_cfg, "dat": device.raw_dat}, indent=2, default=str))
+        print(
+            json.dumps(
+                {"cfg": device.raw_cfg, "dat": device.raw_dat}, indent=2, default=str
+            )
+        )
 
 
 def resolve_dump_file(args: argparse.Namespace) -> Path:
@@ -182,14 +204,27 @@ def parse_args() -> argparse.Namespace:
             "If no file is provided, interactive selection is used."
         )
     )
-    parser.add_argument("--root", default=str(DEFAULT_ROOT), help="Root folder with sample directories")
+    parser.add_argument(
+        "--root", default=str(DEFAULT_ROOT), help="Root folder with sample directories"
+    )
     parser.add_argument("--sample", help="Sample directory name (UUID)")
-    parser.add_argument("--dump-name", help="Dump filename inside sample dir, e.g. http.json or mqtt.json")
+    parser.add_argument(
+        "--dump-name",
+        help="Dump filename inside sample dir, e.g. http.json or mqtt.json",
+    )
     parser.add_argument("--file", help="Direct path to dump file")
-    parser.add_argument("--entry", type=int, default=1, help="1-based entry index to inspect")
-    parser.add_argument("--all", action="store_true", help="Inspect all entries in selected dump file")
-    parser.add_argument("--raw", action="store_true", help="Print raw cfg/dat structures")
-    parser.add_argument("--as-json", action="store_true", help="Print decoded summary as JSON")
+    parser.add_argument(
+        "--entry", type=int, default=1, help="1-based entry index to inspect"
+    )
+    parser.add_argument(
+        "--all", action="store_true", help="Inspect all entries in selected dump file"
+    )
+    parser.add_argument(
+        "--raw", action="store_true", help="Print raw cfg/dat structures"
+    )
+    parser.add_argument(
+        "--as-json", action="store_true", help="Print decoded summary as JSON"
+    )
     return parser.parse_args()
 
 
@@ -216,7 +251,11 @@ def main() -> None:
 
     for i in indexes:
         payload = payloads[i]
-        sc = payload.get("cfg", {}).get("sc", {}) if isinstance(payload.get("cfg"), dict) else {}
+        sc = (
+            payload.get("cfg", {}).get("sc", {})
+            if isinstance(payload.get("cfg"), dict)
+            else {}
+        )
         protocol = 1 if isinstance(sc, dict) and "slots" in sc else 0
         mower = build_mower(payload, protocol, f"{dump_file.parent.name}#{i + 1}")
         device = DeviceHandler(api=object(), mower=mower, tz="UTC")
