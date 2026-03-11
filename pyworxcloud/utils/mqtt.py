@@ -358,6 +358,7 @@ class MQTT(LDict):
         with self._lifecycle_lock:
             if self._shutdown_event:
                 self._is_connected = False
+                self._connection_future = None
                 return
 
             # Clear topic list
@@ -379,6 +380,7 @@ class MQTT(LDict):
             finally:
                 # Ensure internal state remains consistent after teardown attempts.
                 self._is_connected = False
+                self._connection_future = None
 
     async def adisconnect(self, keep_topic: bool = False) -> None:
         """Async disconnect wrapper."""
@@ -390,6 +392,7 @@ class MQTT(LDict):
             if self._shutdown_event:
                 return
             self._shutdown_event = True
+            was_connected = self._is_connected
 
             host_resolver = self._host_resolver
             client_bootstrap = self._client_bootstrap
@@ -401,9 +404,10 @@ class MQTT(LDict):
             self._client_bootstrap = None
             self._event_loop_group = None
             self._is_connected = False
+            self._connection_future = None
 
         # Disconnect after detaching internals, so concurrent calls see teardown state.
-        if client is not None:
+        if client is not None and was_connected:
             try:
                 disconnect_future = client.disconnect()
                 disconnect_future.result()
