@@ -36,6 +36,11 @@ class DummyMQTT:
     async def ashutdown(self) -> None:
         self.shutdown_called = True
 
+    async def apublish(
+        self, _serial: str, _topic: str, _message: Any, _protocol: int | None = None
+    ) -> None:
+        return None
+
 
 class DummyDevice:
     """Simple device stub."""
@@ -412,6 +417,10 @@ def test_input_helpers_validate_types() -> None:
         cloud._coerce_int("abc", "runtime")
     with pytest.raises(ValueError):
         cloud._coerce_int(-1, "runtime", minimum=0)
+    with pytest.raises(ValueError):
+        cloud._coerce_int(101, "runtime", maximum=100)
+    with pytest.raises(ValueError):
+        cloud._require_step(25, "runtime", 10)
 
 
 def test_set_lock_rejects_non_bool_input_early(monkeypatch) -> None:
@@ -425,3 +434,68 @@ def test_set_lock_rejects_non_bool_input_early(monkeypatch) -> None:
 
     with pytest.raises(ValueError):
         asyncio.run(cloud.set_lock("SERIAL-1", "true"))
+
+
+def test_set_time_extension_rejects_out_of_range_input_early(monkeypatch) -> None:
+    """set_time_extension should validate the percentage before mower lookup."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+
+    def _unexpected_lookup(_serial: str) -> dict:
+        raise AssertionError("get_mower should not be called for invalid int input")
+
+    monkeypatch.setattr(cloud, "get_mower", _unexpected_lookup)
+
+    with pytest.raises(ValueError):
+        asyncio.run(cloud.set_time_extension("SERIAL-1", -101))
+    with pytest.raises(ValueError):
+        asyncio.run(cloud.set_time_extension("SERIAL-1", 101))
+    with pytest.raises(ValueError):
+        asyncio.run(cloud.set_time_extension("SERIAL-1", 25))
+
+
+def test_set_time_extension_publishes_schedule_payload() -> None:
+    """set_time_extension should publish the documented sc.p payload."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    calls: list[dict[str, Any]] = []
+
+    class CapturingMQTT(DummyMQTT):
+        async def apublish(
+            self,
+            serial: str,
+            topic: str,
+            message: Any,
+            protocol: int | None = None,
+        ) -> None:
+            calls.append(
+                {
+                    "serial": serial,
+                    "topic": topic,
+                    "message": message,
+                    "protocol": protocol,
+                }
+            )
+
+    cloud.mqtt = CapturingMQTT()
+    cloud._mowers = [
+        {
+            "name": "Target",
+            "serial_number": "SERIAL-1",
+            "uuid": "UUID-1",
+            "mac_address": "MAC-1",
+            "online": True,
+            "protocol": 1,
+            "mqtt_topics": {"command_in": "topic/in"},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+
+    asyncio.run(cloud.set_time_extension("SERIAL-1", 20))
+
+    assert calls == [
+        {
+            "serial": "UUID-1",
+            "topic": "topic/in",
+            "message": {"sc": {"p": 20}},
+            "protocol": 1,
+        }
+    ]
