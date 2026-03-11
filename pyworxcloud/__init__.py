@@ -606,8 +606,13 @@ class WorxCloud(dict):
         return value
 
     @staticmethod
-    def _coerce_int(value: Any, name: str, minimum: int | None = None) -> int:
-        """Coerce an integer-like input and optionally enforce a minimum."""
+    def _coerce_int(
+        value: Any,
+        name: str,
+        minimum: int | None = None,
+        maximum: int | None = None,
+    ) -> int:
+        """Coerce an integer-like input and optionally enforce bounds."""
         if isinstance(value, bool):
             raise ValueError(f"{name} must be an integer value")
         try:
@@ -616,7 +621,16 @@ class WorxCloud(dict):
             raise ValueError(f"{name} must be an integer value") from err
         if minimum is not None and parsed < minimum:
             raise ValueError(f"{name} must be greater than or equal to {minimum}")
+        if maximum is not None and parsed > maximum:
+            raise ValueError(f"{name} must be less than or equal to {maximum}")
         return parsed
+
+    @staticmethod
+    def _require_step(value: int, name: str, step: int) -> int:
+        """Require that an integer value follows the documented step size."""
+        if value % step != 0:
+            raise ValueError(f"{name} must be in steps of {step}")
+        return value
 
     async def update(self, serial_number: str) -> None:
         """Request a state refresh."""
@@ -1000,6 +1014,31 @@ class WorxCloud(dict):
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 {"sc": {"m": 1}} if enable else {"sc": {"m": 0}},
+                mower["protocol"],
+            )
+        else:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+    async def set_time_extension(self, serial_number: str, time_extension: int) -> None:
+        """Set schedule time extension percentage.
+
+        Args:
+            serial_number (str): Serial number of the device
+            time_extension (int): Schedule time extension percentage.
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
+        time_extension = self._coerce_int(
+            time_extension, "time_extension", minimum=-100, maximum=100
+        )
+        time_extension = self._require_step(time_extension, "time_extension", 10)
+        mower = self.get_mower(serial_number)
+        if mower["online"]:
+            await self.mqtt.apublish(
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                {"sc": {"p": time_extension}},
                 mower["protocol"],
             )
         else:
