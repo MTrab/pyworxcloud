@@ -28,6 +28,13 @@ CHARGE_MAP = {
 class Battery(LDict):
     """Battery information."""
 
+    @staticmethod
+    def _read_value(indata: Any, key: str) -> Any | None:
+        """Read a battery counter field from either a dict or object."""
+        if isinstance(indata, dict):
+            return indata.get(key)
+        return getattr(indata, key, None)
+
     def __init__(
         self, indata: list | None = None, cycle_info: Any | None = None
     ) -> None:
@@ -76,6 +83,7 @@ class Battery(LDict):
             self["charging"] = CHARGE_MAP[indata["c"]]
         if "nr" in indata:
             self["cycles"].update({"total": indata["nr"]})
+            self._update_cycles()
 
     def _update_cycles(self) -> None:
         """Update cycles info."""
@@ -95,34 +103,24 @@ class Battery(LDict):
         """Set battery cycles information."""
         from ..helpers import string_to_time
 
-        if self["cycles"]["total"] == 0:
-            self["cycles"].update({"total": indata.battery_charge_cycles})
+        total_cycles = self._read_value(indata, "battery_charge_cycles")
+        if total_cycles is not None and self["cycles"]["total"] == 0:
+            self["cycles"].update({"total": int(total_cycles)})
 
-        if indata.battery_charge_cycles_reset is not None:
-            if self["cycles"]["total"] == 0:
-                self["cycles"].update(
-                    {
-                        "current": int(
-                            self["cycles"]["total"] - indata.battery_charge_cycles_reset
-                        )
-                    }
-                )
-                if self["cycles"]["current"] < 0:
-                    self["cycles"].update({"current": 0})
+        reset_at = self._read_value(indata, "battery_charge_cycles_reset")
+        reset_time = self._read_value(indata, "battery_charge_cycles_reset_at")
+        time_zone = self._read_value(indata, "time_zone")
+
+        if reset_at is not None:
             self["cycles"].update(
                 {
-                    "reset_at": int(indata.battery_charge_cycles_reset),
+                    "reset_at": int(reset_at),
                     "reset_time": (
-                        string_to_time(
-                            indata.battery_charge_cycles_reset_at, indata.time_zone
-                        )
-                        if not isinstance(
-                            indata.battery_charge_cycles_reset_at, type(None)
-                        )
+                        string_to_time(reset_time, time_zone)
+                        if not isinstance(reset_time, type(None))
                         else None
                     ),
                 }
             )
-        else:
-            if self["cycles"]["total"] > 0:
-                self["cycles"].update({"current": self["cycles"]["total"]})
+
+        self._update_cycles()

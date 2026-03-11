@@ -125,7 +125,7 @@ class DeviceHandler(LDict):
         if not "time_zone" in data:
             data["time_zone"] = "UTC"
 
-        self.battery = Battery(data)
+        self.battery = Battery(data, data)
         self.blades = Blades(data)
         self.error = States(StateType.ERROR)
         self.orientation = Orientation([0, 0, 0])
