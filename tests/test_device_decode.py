@@ -141,6 +141,43 @@ def test_devicehandler_exposes_raw_cfg_dat() -> None:
     assert device.raindelay_active == bool(str(payload["dat"]["rain"]["s"]) == "1")
 
 
+def test_devicehandler_updates_battery_cycle_current_from_live_nr() -> None:
+    """Realtime battery totals should recalculate the current cycle count."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-BATTERY",
+            "rd": 0,
+            "sc": {"d": [], "dd": False},
+            "tm": "12:00:00",
+            "dt": "11/03/2026",
+            "tz": "UTC",
+        },
+        "dat": {
+            "uuid": "UUID-BATTERY",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "bt": {"t": 20, "v": 20.1, "p": 95, "c": 0, "nr": 211},
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "Battery Fixture")
+    mower["battery_charge_cycles"] = 209
+    mower["battery_charge_cycles_reset"] = 0
+    mower["battery_charge_cycles_reset_at"] = None
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.battery["cycles"] == {
+        "total": 211,
+        "current": 211,
+        "reset_at": 0,
+        "reset_time": None,
+    }
+
+
 MQTT_FIXTURES = tuple(fixture_paths("mqtt.json"))
 
 
