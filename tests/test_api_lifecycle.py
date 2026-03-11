@@ -48,6 +48,18 @@ class DummyDevice:
     time_zone = "UTC"
 
 
+class DummySession:
+    """Simple session stub that records close calls."""
+
+    def __init__(self) -> None:
+        self.closed = False
+        self.close_calls = 0
+
+    async def close(self) -> None:
+        self.close_calls += 1
+        self.closed = True
+
+
 class CapturingMQTT:
     """MQTT constructor stub capturing provided timeout."""
 
@@ -80,6 +92,44 @@ class CapturingMQTT:
 
     async def ashutdown(self) -> None:
         return None
+
+
+class TrackingMQTT:
+    """MQTT stub that records lifecycle calls per instance."""
+
+    instances: list["TrackingMQTT"] = []
+
+    def __init__(
+        self,
+        _api: Any,
+        _brandprefix: str,
+        _endpoint: str,
+        _user_id: int,
+        _logger: Any,
+        _callback: Any,
+        response_timeout: float,
+        identifier_resolver: Any = None,
+        deduplicate_inflight_commands: bool = False,
+    ) -> None:
+        self.identifier_resolver = identifier_resolver
+        self.deduplicate_inflight_commands = deduplicate_inflight_commands
+        self.response_timeout = response_timeout
+        self.disconnect_calls = 0
+        self.shutdown_calls = 0
+        self.subscriptions: list[str] = []
+        self.__class__.instances.append(self)
+
+    async def aconnect(self) -> None:
+        return None
+
+    async def asubscribe(self, topic: str, _append: bool = True) -> None:
+        self.subscriptions.append(topic)
+
+    async def adisconnect(self, _keep_topic: bool = False) -> None:
+        self.disconnect_calls += 1
+
+    async def ashutdown(self) -> None:
+        self.shutdown_calls += 1
 
 
 def test_get_token_propagates_unexpected_errors(monkeypatch) -> None:
@@ -309,6 +359,81 @@ def test_async_context_manager_disconnects_on_exception(monkeypatch) -> None:
 
     asyncio.run(_run())
     assert calls == ["auth", "connect", "disconnect"]
+
+
+def test_repeated_connect_disconnect_closes_resources_each_cycle(monkeypatch) -> None:
+    """Repeated lifecycle cycles should not retain MQTT or API resources."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    sessions: list[DummySession] = []
+    refresh_tasks = []
+    TrackingMQTT.instances = []
+
+    async def _fake_fetch() -> None:
+        session = DummySession()
+        sessions.append(session)
+        cloud._api._session = session
+        cloud._mowers = [
+            {
+                "name": "My Mower",
+                "mqtt_endpoint": "mqtt.example.invalid",
+                "user_id": 99,
+                "mqtt_topics": {"command_out": "topic/out"},
+            }
+        ]
+        cloud.devices = {"My Mower": DummyDevice()}
+
+        async def _never() -> None:
+            await asyncio.sleep(3600)
+
+        task = asyncio.create_task(_never())
+        refresh_tasks.append(task)
+        cloud._api_refresh_task = task
+
+    monkeypatch.setattr(cloud, "_fetch", _fake_fetch)
+    monkeypatch.setattr("pyworxcloud.MQTT", TrackingMQTT)
+    monkeypatch.setattr("pyworxcloud.convert_to_time", lambda *_args, **_kwargs: None)
+
+    async def _exercise() -> None:
+        for _ in range(3):
+            assert await cloud.connect() is True
+            mqtt_instance = cloud.mqtt
+            assert mqtt_instance is not None
+            await cloud.disconnect()
+            await asyncio.sleep(0)
+            assert cloud.mqtt is None
+            assert cloud._api_refresh_task is None
+
+    asyncio.run(_exercise())
+
+    assert len(TrackingMQTT.instances) == 3
+    assert all(instance.disconnect_calls == 1 for instance in TrackingMQTT.instances)
+    assert all(instance.shutdown_calls == 1 for instance in TrackingMQTT.instances)
+    assert all(instance.subscriptions == ["topic/out"] for instance in TrackingMQTT.instances)
+    assert len(sessions) == 3
+    assert all(session.close_calls == 1 and session.closed for session in sessions)
+    assert all(task.cancelled() for task in refresh_tasks)
+
+
+def test_schedule_api_refresh_replaces_pending_task_without_accumulating() -> None:
+    """Scheduling a new API refresh should cancel the previous pending task."""
+    cloud = WorxCloud("user@example.com", "secret", "worx", tz="UTC")
+
+    async def _exercise() -> None:
+        await cloud._schedule_api_refresh()
+        first = cloud._api_refresh_task
+        assert first is not None
+
+        await cloud._schedule_api_refresh()
+        second = cloud._api_refresh_task
+        assert second is not None
+        assert second is not first
+        await asyncio.sleep(0)
+        assert first.cancelled() is True
+
+        second.cancel()
+        await asyncio.sleep(0)
+
+    asyncio.run(_exercise())
 
 
 def test_sync_context_manager_warns_deprecated(monkeypatch) -> None:
