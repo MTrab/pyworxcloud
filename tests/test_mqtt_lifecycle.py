@@ -56,6 +56,7 @@ def _build_mqtt_lifecycle_fixture(
     mqtt._lifecycle_lock = threading.RLock()
     mqtt._shutdown_event = False
     mqtt._is_connected = connected
+    mqtt._connection_future = object()
     mqtt._topic = ["topic/out"]
     mqtt.client = client
     mqtt._host_resolver = _ShutdownResourceStub()
@@ -74,6 +75,7 @@ def test_disconnect_is_idempotent_and_safe_with_missing_client() -> None:
     mqtt.disconnect()
 
     assert client.disconnect_calls == 1
+    assert mqtt._connection_future is None
     assert mqtt._is_connected is False
 
 
@@ -96,8 +98,20 @@ def test_shutdown_is_idempotent_and_detaches_resources() -> None:
 
     assert client.disconnect_calls == 1
     assert mqtt.client is None
+    assert mqtt._connection_future is None
     assert mqtt._host_resolver is None
     assert mqtt._client_bootstrap is None
     assert mqtt._event_loop_group is None
     assert mqtt._shutdown_event is True
     assert mqtt._is_connected is False
+
+
+def test_shutdown_skips_second_disconnect_after_prior_disconnect() -> None:
+    """Shutdown should not disconnect again after a clean disconnect."""
+    client = _ClientStub()
+    mqtt = _build_mqtt_lifecycle_fixture(client=client)
+
+    mqtt.disconnect()
+    mqtt.shutdown()
+
+    assert client.disconnect_calls == 1
