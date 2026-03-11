@@ -16,11 +16,11 @@ def get_logger(name: str) -> logging.Logger:
     )
 
     # configure stream handler
-    consoleHandler = logging.StreamHandler()
-    consoleHandler.setFormatter(logFormatter)
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logFormatter)
 
-    if not len(logger.root.handlers):
+    if not logger.handlers:
         logger.setLevel(logging.DEBUG)
-        logger.addHandler(consoleHandler)
+        logger.addHandler(console_handler)
 
     return logger
