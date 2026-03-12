@@ -24,7 +24,8 @@ import random
 import threading
 import time
 import urllib.parse
-from concurrent.futures import Future, TimeoutError as FutureTimeoutError
+from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import datetime, timezone
 from logging import Logger
 from typing import Any, Callable, Optional
@@ -419,9 +420,7 @@ class MQTT(LDict):
                 started = time.perf_counter()
                 disconnect_future = client.disconnect()
                 disconnect_future.result(
-                    timeout=getattr(
-                        self, "_shutdown_timeout", DEFAULT_SHUTDOWN_TIMEOUT
-                    )
+                    timeout=getattr(self, "_shutdown_timeout", DEFAULT_SHUTDOWN_TIMEOUT)
                 )
                 logger.debug(
                     "Shutdown disconnect completed in %.3fs",

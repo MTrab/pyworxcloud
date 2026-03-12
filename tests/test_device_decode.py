@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Sequence, Tuple
-from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -356,6 +356,7 @@ def test_protocol0_next_schedule_includes_secondary_same_day_slot(
     schedule.update_progress_and_next("UTC")
 
     assert schedule["next_schedule_start"] == "2026-03-12 12:00:00"
+
 
 def test_devicehandler_maps_rtk_zone_ids_and_current_zone() -> None:
     """RTK devices should expose current zone and known zone IDs from RTK payloads."""

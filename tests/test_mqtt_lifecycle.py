@@ -6,6 +6,7 @@ import logging
 import threading
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
+
 from pyworxcloud.utils.mqtt import MQTT
 
 
