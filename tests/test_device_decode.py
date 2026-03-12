@@ -9,8 +9,10 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+import pyworxcloud.utils.schedules as schedules_module
 from pyworxcloud.utils.capability import DeviceCapability
 from pyworxcloud.utils.devices import DeviceHandler
+from pyworxcloud.utils.schedules import Schedule
 from tests.fixture_utils import fixture_paths, load_fixture_payloads
 
 
@@ -192,6 +194,110 @@ def test_devicehandler_uses_device_timezone_when_instance_timezone_is_missing() 
     next_schedule = device.schedules["next_schedule_start"]
     assert next_schedule is not None
     assert next_schedule.tzinfo == ZoneInfo(payload["cfg"]["tz"])
+
+
+def test_protocol1_next_schedule_prefers_next_same_day_slot(monkeypatch) -> None:
+    """Protocol 1 should choose the next same-day slot, not the last slot of the day."""
+    real_datetime = schedules_module.datetime
+
+    class FrozenDateTime:
+        """Minimal datetime shim returning a fixed current time."""
+
+        @staticmethod
+        def now() -> Any:
+            return real_datetime(2026, 3, 12, 10, 30, tzinfo=ZoneInfo("UTC"))
+
+        strptime = staticmethod(real_datetime.strptime)
+
+    monkeypatch.setattr(schedules_module, "datetime", FrozenDateTime)
+
+    schedule = Schedule()
+    schedule["slots"] = [
+        {
+            "day": "thursday",
+            "start": "09:00",
+            "end": "09:30",
+            "duration": 30,
+            "duration_extended": 30,
+            "boundary": False,
+            "source": "protocol1",
+        },
+        {
+            "day": "thursday",
+            "start": "11:00",
+            "end": "11:30",
+            "duration": 30,
+            "duration_extended": 30,
+            "boundary": False,
+            "source": "protocol1",
+        },
+        {
+            "day": "thursday",
+            "start": "15:00",
+            "end": "15:30",
+            "duration": 30,
+            "duration_extended": 30,
+            "boundary": False,
+            "source": "protocol1",
+        },
+    ]
+
+    schedule.update_progress_and_next("UTC")
+
+    assert schedule["next_schedule_start"] == "2026-03-12 11:00:00"
+
+
+def test_protocol0_next_schedule_includes_secondary_same_day_slot(
+    monkeypatch,
+) -> None:
+    """Protocol 0 should include same-day secondary slots when finding next run."""
+    real_datetime = schedules_module.datetime
+
+    class FrozenDateTime:
+        """Minimal datetime shim returning a fixed current time."""
+
+        @staticmethod
+        def now() -> Any:
+            return real_datetime(2026, 3, 12, 10, 30, tzinfo=ZoneInfo("UTC"))
+
+        strptime = staticmethod(real_datetime.strptime)
+
+    monkeypatch.setattr(schedules_module, "datetime", FrozenDateTime)
+
+    schedule = Schedule()
+    schedule["slots"] = [
+        {
+            "day": "thursday",
+            "start": "09:00",
+            "end": "10:00",
+            "duration": 60,
+            "duration_extended": 60,
+            "boundary": False,
+            "source": "protocol0",
+        },
+        {
+            "day": "thursday",
+            "start": "12:00",
+            "end": "12:30",
+            "duration": 30,
+            "duration_extended": 30,
+            "boundary": False,
+            "source": "secondary",
+        },
+        {
+            "day": "friday",
+            "start": "08:00",
+            "end": "08:30",
+            "duration": 30,
+            "duration_extended": 30,
+            "boundary": False,
+            "source": "protocol0",
+        },
+    ]
+
+    schedule.update_progress_and_next("UTC")
+
+    assert schedule["next_schedule_start"] == "2026-03-12 12:00:00"
 
 
 MQTT_FIXTURES = tuple(fixture_paths("mqtt.json"))
