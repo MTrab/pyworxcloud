@@ -1044,6 +1044,28 @@ class WorxCloud(dict):
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
+    async def set_torque(self, serial_number: str, torque: int) -> None:
+        """Set wheel torque percentage.
+
+        Args:
+            serial_number (str): Serial number of the device
+            torque (int): Wheel torque percentage.
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
+        torque = self._coerce_int(torque, "torque", minimum=-50, maximum=50)
+        mower = self.get_mower(serial_number)
+        if mower["online"]:
+            await self.mqtt.apublish(
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                {"tq": torque},
+                mower["protocol"],
+            )
+        else:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
     async def edgecut(self, serial_number: str) -> None:
         """Start an edge cutting task.
 
