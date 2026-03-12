@@ -7,6 +7,8 @@ import threading
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
+import awscrt.mqtt
+
 from pyworxcloud.utils.mqtt import MQTT
 
 
@@ -154,3 +156,48 @@ def test_shutdown_swallows_disconnect_future_timeout() -> None:
 
     assert client.disconnect_calls == 1
     assert mqtt._shutdown_event is True
+
+
+def test_connection_resumed_resubscribes_even_when_session_persists() -> None:
+    """Resume should defensively resubscribe even when broker reports session_present."""
+    mqtt = _build_mqtt_lifecycle_fixture(connected=False, client=_ClientStub())
+    mqtt._topic = ["topic/a", "topic/b"]
+    subscribe_calls: list[tuple[str, bool]] = []
+    events: list[bool] = []
+    mqtt.subscribe = lambda topic, append=True: subscribe_calls.append((topic, append))
+    mqtt._events = type(
+        "_Events",
+        (),
+        {"call": staticmethod(lambda _event, state: events.append(state))},
+    )()
+
+    mqtt._on_connection_resumed(
+        None,
+        awscrt.mqtt.ConnectReturnCode.ACCEPTED,
+        True,
+    )
+
+    assert mqtt._is_connected is True
+    assert subscribe_calls == [("topic/a", False), ("topic/b", False)]
+    assert events == [True]
+
+
+def test_connection_resumed_resubscribes_when_session_is_not_present() -> None:
+    """Resume should still resubscribe when broker reports a lost session."""
+    mqtt = _build_mqtt_lifecycle_fixture(connected=False, client=_ClientStub())
+    mqtt._topic = ["topic/out"]
+    subscribe_calls: list[tuple[str, bool]] = []
+    mqtt.subscribe = lambda topic, append=True: subscribe_calls.append((topic, append))
+    mqtt._events = type(
+        "_Events",
+        (),
+        {"call": staticmethod(lambda *_args, **_kwargs: None)},
+    )()
+
+    mqtt._on_connection_resumed(
+        None,
+        awscrt.mqtt.ConnectReturnCode.ACCEPTED,
+        False,
+    )
+
+    assert subscribe_calls == [("topic/out", False)]
