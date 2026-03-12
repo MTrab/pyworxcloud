@@ -206,11 +206,15 @@ class MQTT(LDict):
             f"Connection resumed. return_code: {return_code}, session_present: {session_present}"
         )
 
-        if (
-            return_code == awscrt.mqtt.ConnectReturnCode.ACCEPTED
-            and not session_present
-        ):
-            logger.debug("Session did not persist. Resubscribing to existing topics...")
+        if return_code == awscrt.mqtt.ConnectReturnCode.ACCEPTED:
+            if session_present:
+                logger.debug(
+                    "Session resumed. Resubscribing to existing topics defensively..."
+                )
+            else:
+                logger.debug(
+                    "Session did not persist. Resubscribing to existing topics..."
+                )
             for topic in self._topic:
                 logger.debug(f"Resubscribing to '{topic}'")
                 self.subscribe(topic, False)
