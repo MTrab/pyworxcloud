@@ -398,7 +398,7 @@ class DeviceHandler(LDict):
             try:
                 return (
                     datetime.fromisoformat(
-                    f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]} {time_value}"
+                        f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]} {time_value}"
                     ).replace(tzinfo=self._resolve_updated_timezone(cfg_payload)),
                     "cfg_tm",
                 )
@@ -416,9 +416,7 @@ class DeviceHandler(LDict):
         observed_at: datetime,
     ) -> tuple[datetime, str]:
         """Keep updated timestamps monotonic and reject implausible future jumps."""
-        if candidate.astimezone(timezone.utc) > (
-            observed_at + MAX_UPDATED_FUTURE_SKEW
-        ):
+        if candidate.astimezone(timezone.utc) > (observed_at + MAX_UPDATED_FUTURE_SKEW):
             candidate = observed_at
             candidate_origin = "observed"
 

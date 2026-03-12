@@ -25,6 +25,7 @@ def _resolve_cloud_timezone() -> str | None:
     timezone_name = timezone_name.strip()
     return timezone_name or None
 
+
 # Clear the screen for better visibility when debugging
 print("\033c", end="")
 

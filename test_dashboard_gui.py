@@ -15,6 +15,7 @@ from pathlib import Path
 from tkinter import BooleanVar, StringVar, Tk, Toplevel, ttk
 from tkinter.scrolledtext import ScrolledText
 from typing import Any
+
 from pyworxcloud import WorxCloud
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.utils import DeviceHandler

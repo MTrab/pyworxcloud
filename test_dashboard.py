@@ -9,6 +9,7 @@ from datetime import datetime
 from os import environ
 from pathlib import Path
 from typing import Any
+
 from pyworxcloud import WorxCloud
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.utils import DeviceHandler
