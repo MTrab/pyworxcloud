@@ -252,10 +252,8 @@ def _render_device(device: DeviceHandler, selected: str, event_text: str) -> Non
 
 
 async def _run_dashboard(cloud: WorxCloud) -> None:
-    poll_interval = 60.0
     event_text = "no events yet"
     selected = await _choose_mower(cloud)
-    last_poll = 0.0
     running = True
     input_task: asyncio.Task[str] | None = None
     input_in_progress = False
@@ -289,7 +287,6 @@ async def _run_dashboard(cloud: WorxCloud) -> None:
 
     try:
         while running:
-            now = asyncio.get_running_loop().time()
             device = cloud.devices[selected]
             serial = device.serial_number
 
@@ -302,13 +299,6 @@ async def _run_dashboard(cloud: WorxCloud) -> None:
             if input_task is None:
                 input_task = asyncio.create_task(_prompt_input("\ncmd> "))
                 input_in_progress = True
-
-            if now - last_poll >= poll_interval:
-                try:
-                    await cloud.update(serial)
-                except Exception as err:  # pragma: no cover - interactive helper
-                    event_text = f"Poll error: {type(err).__name__}: {err}"
-                last_poll = now
 
             if input_task is None or not input_task.done():
                 await asyncio.sleep(0.2)
