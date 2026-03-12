@@ -6,6 +6,7 @@ import json
 import logging
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ..const import UNWANTED_ATTRIBS
 from ..exceptions import APIException, InvalidDataDecodeException
@@ -211,12 +212,9 @@ class DeviceHandler(LDict):
             except (TypeError, ValueError):
                 invalid_data = True
 
-        self.updated = self._determine_updated_at(cfg_payload, dat_payload)
-
-        effective_timezone = (
-            self._tz
-            if not isinstance(self._tz, type(None))
-            else self.time_zone if self.time_zone is not None else "UTC"
+        effective_timezone = self._resolve_effective_timezone(cfg_payload)
+        self.updated = self._determine_updated_at(
+            cfg_payload, dat_payload, effective_timezone
         )
 
         self.schedules.update_progress_and_next(tz=effective_timezone)
@@ -373,18 +371,9 @@ class DeviceHandler(LDict):
         self,
         cfg_payload: dict[str, Any] | None,
         dat_payload: dict[str, Any] | None,
+        effective_timezone: str,
     ) -> datetime:
         """Pick the most accurate timestamp available."""
-        if isinstance(cfg_payload, dict) and "dt" in cfg_payload:
-            dt_split = cfg_payload["dt"].split("/")
-            time_value = cfg_payload.get("tm", "00:00:00")
-            try:
-                return datetime.fromisoformat(
-                    f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]} {time_value}"
-                )
-            except ValueError:
-                pass
-
         if isinstance(dat_payload, dict) and "tm" in dat_payload:
             tm_value = dat_payload["tm"]
             if isinstance(tm_value, str) and tm_value.endswith("Z"):
@@ -394,7 +383,47 @@ class DeviceHandler(LDict):
             except ValueError:
                 pass
 
+        if isinstance(cfg_payload, dict) and "dt" in cfg_payload:
+            dt_split = cfg_payload["dt"].split("/")
+            time_value = cfg_payload.get("tm", "00:00:00")
+            try:
+                timezone_info = ZoneInfo(effective_timezone)
+                return datetime.fromisoformat(
+                    f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]} {time_value}"
+                ).replace(tzinfo=timezone_info)
+            except ValueError:
+                pass
+            except ZoneInfoNotFoundError:
+                pass
+
         return datetime.now()
+
+    @staticmethod
+    def _normalize_timezone_name(candidate: Any) -> str | None:
+        """Return a valid timezone key or ``None`` for invalid inputs."""
+        if not isinstance(candidate, str):
+            return None
+        timezone_name = candidate.strip()
+        if not timezone_name:
+            return None
+        try:
+            ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError:
+            return None
+        return timezone_name
+
+    def _resolve_effective_timezone(self, cfg_payload: dict[str, Any] | None) -> str:
+        """Resolve the best available timezone for schedule and cfg timestamps."""
+        for candidate in (
+            self._tz,
+            cfg_payload.get("tz") if isinstance(cfg_payload, dict) else None,
+            self.time_zone,
+            "UTC",
+        ):
+            timezone_name = self._normalize_timezone_name(candidate)
+            if timezone_name is not None:
+                return timezone_name
+        return "UTC"
 
     def update_attribute(self, device: str, attr: str, key: str, value: Any) -> None:
         """Used as callback to update value."""
