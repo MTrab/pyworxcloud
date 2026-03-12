@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import sys
+import time
 import warnings
 from datetime import datetime, timedelta, timezone
 from random import randint
@@ -282,13 +283,25 @@ class WorxCloud(dict):
         # Disconnect MQTT connection
         try:
             if self.mqtt is not None:
+                started = time.perf_counter()
                 await self.mqtt.adisconnect()
+                logger.debug(
+                    "MQTT adisconnect completed in %.3fs",
+                    time.perf_counter() - started,
+                )
+                started = time.perf_counter()
                 await self.mqtt.ashutdown()
+                logger.debug(
+                    "MQTT ashutdown completed in %.3fs",
+                    time.perf_counter() - started,
+                )
         except Exception as err:
             logger.debug("Could not disconnect MQTT cleanly: %s", err)
         finally:
             self.mqtt = None
+            started = time.perf_counter()
             await self._api.close()
+            logger.debug("API close completed in %.3fs", time.perf_counter() - started)
 
     async def connect(
         self,
