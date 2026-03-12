@@ -12,13 +12,26 @@ EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]
 TYPE = environ["TYPE"]
 
+
+def _resolve_cloud_timezone() -> str | None:
+    """Return optional client timezone override for manual live testing."""
+    timezone_name = (
+        environ.get("PYWORXCLOUD_TZ")
+        or environ.get("WORXCLOUD_TZ")
+        or environ.get("DASHBOARD_TZ")
+    )
+    if timezone_name is None:
+        return None
+    timezone_name = timezone_name.strip()
+    return timezone_name or None
+
 # Clear the screen for better visibility when debugging
 print("\033c", end="")
 
 
 async def main() -> None:
     # Initialize the class
-    cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")
+    cloud = WorxCloud(EMAIL, PASS, TYPE, tz=_resolve_cloud_timezone())
     await cloud.authenticate()
     await cloud.connect()
 

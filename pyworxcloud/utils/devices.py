@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -28,6 +28,7 @@ from .warranty import Warranty
 from .zone import Zone
 
 LOGGER = logging.getLogger(__name__)
+MAX_UPDATED_FUTURE_SKEW = timedelta(minutes=2)
 
 
 class DeviceHandler(LDict):
@@ -213,8 +214,16 @@ class DeviceHandler(LDict):
                 invalid_data = True
 
         effective_timezone = self._resolve_effective_timezone(cfg_payload)
-        self.updated = self._determine_updated_at(
-            cfg_payload, dat_payload, effective_timezone
+        observed_at = datetime.now(timezone.utc)
+        candidate_updated, candidate_origin = self._determine_updated_at(
+            cfg_payload, dat_payload, observed_at
+        )
+        self.updated, self.updated_origin = self._select_updated_at(
+            current=getattr(self, "updated", None),
+            current_origin=getattr(self, "updated_origin", None),
+            candidate=candidate_updated,
+            candidate_origin=candidate_origin,
+            observed_at=observed_at,
         )
 
         self.schedules.update_progress_and_next(tz=effective_timezone)
@@ -371,15 +380,15 @@ class DeviceHandler(LDict):
         self,
         cfg_payload: dict[str, Any] | None,
         dat_payload: dict[str, Any] | None,
-        effective_timezone: str,
-    ) -> datetime:
-        """Pick the most accurate timestamp available."""
+        observed_at: datetime,
+    ) -> tuple[datetime, str]:
+        """Return an update timestamp with consistent API/MQTT semantics."""
         if isinstance(dat_payload, dict) and "tm" in dat_payload:
             tm_value = dat_payload["tm"]
             if isinstance(tm_value, str) and tm_value.endswith("Z"):
                 tm_value = f"{tm_value[:-1]}+00:00"
             try:
-                return datetime.fromisoformat(tm_value)
+                return datetime.fromisoformat(tm_value), "dat_tm"
             except ValueError:
                 pass
 
@@ -387,16 +396,39 @@ class DeviceHandler(LDict):
             dt_split = cfg_payload["dt"].split("/")
             time_value = cfg_payload.get("tm", "00:00:00")
             try:
-                timezone_info = ZoneInfo(effective_timezone)
-                return datetime.fromisoformat(
+                return (
+                    datetime.fromisoformat(
                     f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]} {time_value}"
-                ).replace(tzinfo=timezone_info)
+                    ).replace(tzinfo=self._resolve_updated_timezone(cfg_payload)),
+                    "cfg_tm",
+                )
             except ValueError:
                 pass
-            except ZoneInfoNotFoundError:
-                pass
 
-        return datetime.now()
+        return observed_at, "observed"
+
+    def _select_updated_at(
+        self,
+        current: Any,
+        current_origin: str | None,
+        candidate: datetime,
+        candidate_origin: str,
+        observed_at: datetime,
+    ) -> tuple[datetime, str]:
+        """Keep updated timestamps monotonic and reject implausible future jumps."""
+        if candidate.astimezone(timezone.utc) > (
+            observed_at + MAX_UPDATED_FUTURE_SKEW
+        ):
+            candidate = observed_at
+            candidate_origin = "observed"
+
+        if isinstance(current, datetime):
+            current_utc = current.astimezone(timezone.utc)
+            candidate_utc = candidate.astimezone(timezone.utc)
+            if candidate_utc < current_utc:
+                return current, current_origin or "existing"
+
+        return candidate, candidate_origin
 
     @staticmethod
     def _normalize_timezone_name(candidate: Any) -> str | None:
@@ -424,6 +456,26 @@ class DeviceHandler(LDict):
             if timezone_name is not None:
                 return timezone_name
         return "UTC"
+
+    def _resolve_updated_timezone(self, cfg_payload: dict[str, Any] | None) -> Any:
+        """Resolve timezone for legacy cfg date/time payloads."""
+        if (timezone_name := self._normalize_timezone_name(self._tz)) is not None:
+            return ZoneInfo(timezone_name)
+
+        local_timezone = datetime.now().astimezone().tzinfo
+        if local_timezone is not None:
+            return local_timezone
+
+        for candidate in (
+            cfg_payload.get("tz") if isinstance(cfg_payload, dict) else None,
+            self.time_zone,
+            "UTC",
+        ):
+            timezone_name = self._normalize_timezone_name(candidate)
+            if timezone_name is not None:
+                return ZoneInfo(timezone_name)
+
+        return timezone.utc
 
     def update_attribute(self, device: str, attr: str, key: str, value: Any) -> None:
         """Used as callback to update value."""

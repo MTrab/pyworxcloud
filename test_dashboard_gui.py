@@ -15,7 +15,6 @@ from pathlib import Path
 from tkinter import BooleanVar, StringVar, Tk, Toplevel, ttk
 from tkinter.scrolledtext import ScrolledText
 from typing import Any
-
 from pyworxcloud import WorxCloud
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.utils import DeviceHandler
@@ -43,6 +42,19 @@ def _load_dotenv(path: str = ".env") -> None:
         value = value.strip().strip('"').strip("'")
         if key and key not in environ:
             environ[key] = value
+
+
+def _resolve_cloud_timezone() -> str | None:
+    """Return optional client timezone override for live manual testing."""
+    timezone_name = (
+        environ.get("PYWORXCLOUD_TZ")
+        or environ.get("WORXCLOUD_TZ")
+        or environ.get("DASHBOARD_TZ")
+    )
+    if timezone_name is None:
+        return None
+    timezone_name = timezone_name.strip()
+    return timezone_name or None
 
 
 def _configure_logging() -> int:
@@ -148,6 +160,10 @@ def _snapshot_device(device: DeviceHandler) -> dict[str, Any]:
         if isinstance(last_status, dict):
             device_updated = last_status.get("timestamp")
 
+    device_updated_raw = "unknown"
+    if isinstance(device_updated, datetime):
+        device_updated_raw = device_updated.isoformat()
+
     return {
         "name": getattr(device, "name", "unknown"),
         "serial": getattr(device, "serial_number", "unknown"),
@@ -164,6 +180,8 @@ def _snapshot_device(device: DeviceHandler) -> dict[str, Any]:
         "device_updated": (
             str(device_updated) if device_updated is not None else "unknown"
         ),
+        "device_updated_raw": device_updated_raw,
+        "device_timezone": str(getattr(device, "time_zone", "unknown")),
         "schedules": _schedule_slots(device),
     }
 
@@ -210,7 +228,12 @@ class CloudWorker:
         if self._cloud is not None:
             await self.disconnect()
 
-        self._cloud = WorxCloud(email, password, cloud_type, tz="Europe/Copenhagen")
+        self._cloud = WorxCloud(
+            email,
+            password,
+            cloud_type,
+            tz=_resolve_cloud_timezone(),
+        )
         self._cloud._log.setLevel(self._log_level)
         _configure_logging()
 
@@ -903,7 +926,12 @@ class DashboardApp:
             f"triggered={snapshot.get('rain_triggered', '-')} remaining={snapshot.get('rain_remaining', '-')}"
         )
         self.status_vars["last_refresh"].set(
-            f"device={snapshot.get('device_updated', 'unknown')} | ui={datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            " | ".join(
+                [
+                    f"raw={snapshot.get('device_updated_raw', 'unknown')}",
+                    f"ui={datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                ]
+            )
         )
         self.schedule_list.configure(state="normal")
         self.schedule_list.delete("1.0", "end")

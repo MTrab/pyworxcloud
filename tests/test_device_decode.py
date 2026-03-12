@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+import pyworxcloud.utils.devices as devices_module
 import pyworxcloud.utils.schedules as schedules_module
 from pyworxcloud.utils.capability import DeviceCapability
 from pyworxcloud.utils.devices import DeviceHandler
@@ -211,8 +212,10 @@ def test_devicehandler_prefers_dat_tm_over_cfg_date_time_for_updated() -> None:
     assert device.updated == datetime.fromisoformat("2026-03-12T13:30:00+00:00")
 
 
-def test_devicehandler_falls_back_to_cfg_date_time_when_dat_tm_is_missing() -> None:
-    """cfg date/time should still be used when dat.tm is unavailable."""
+def test_devicehandler_falls_back_to_cfg_date_time_when_dat_tm_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Legacy cfg date/time should still be used when realtime timestamp is missing."""
     payload = {
         "cfg": {
             "id": 1,
@@ -234,9 +237,105 @@ def test_devicehandler_falls_back_to_cfg_date_time_when_dat_tm_is_missing() -> N
     }
     mower = _build_mower(payload, 0, "CFG Updated Fixture")
 
-    device = DeviceHandler(api=object(), mower=mower, tz=None)
+    frozen_now = datetime.fromisoformat("2026-03-12T16:19:22+00:00")
+    real_datetime = devices_module.datetime
 
-    assert device.updated == datetime.fromisoformat("2026-03-11T12:00:00+08:00")
+    class FrozenDateTime(real_datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr(devices_module, "datetime", FrozenDateTime)
+    device = DeviceHandler(api=object(), mower=mower, tz="Europe/Copenhagen")
+
+    assert device.updated == datetime.fromisoformat("2026-03-11T12:00:00+01:00")
+
+
+def test_devicehandler_rejects_implausible_future_cfg_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Future-skewed legacy cfg timestamps should fall back to observed time."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-FUTURE-CFG",
+            "rd": 0,
+            "sc": {"d": [], "dd": False},
+            "tm": "00:24:23",
+            "dt": "13/03/2026",
+        },
+        "dat": {
+            "uuid": "UUID-FUTURE-CFG",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "Future CFG Fixture")
+
+    frozen_now = datetime.fromisoformat("2026-03-12T16:24:23+00:00")
+    real_datetime = devices_module.datetime
+
+    class FrozenDateTime(real_datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr(devices_module, "datetime", FrozenDateTime)
+    device = DeviceHandler(api=object(), mower=mower, tz="Europe/Copenhagen")
+
+    assert device.updated == frozen_now
+
+
+def test_devicehandler_keeps_monotonic_updated_when_cfg_timestamp_goes_backwards(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Older legacy cfg timestamps should not overwrite a newer known update time."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-MONOTONIC",
+            "rd": 0,
+            "sc": {"d": [], "dd": False},
+            "tm": "17:24:22",
+            "dt": "12/03/2026",
+        },
+        "dat": {
+            "uuid": "UUID-MONOTONIC",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "Monotonic Fixture")
+    frozen_now = datetime.fromisoformat("2026-03-12T16:24:23+00:00")
+    real_datetime = devices_module.datetime
+
+    class FrozenDateTime(real_datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr(devices_module, "datetime", FrozenDateTime)
+    device = DeviceHandler(api=object(), mower=mower, tz="Europe/Copenhagen")
+    device.updated = FrozenDateTime.fromisoformat("2026-03-12T17:24:22+01:00")
+
+    regressing = json.loads(json.dumps(payload))
+    regressing["cfg"]["tm"] = "17:23:22"
+    regressing["cfg"]["id"] = 0
+    device.raw_data = json.dumps(regressing)
+
+    assert device.updated == FrozenDateTime.fromisoformat("2026-03-12T17:24:22+01:00")
 
 
 def test_devicehandler_uses_device_timezone_when_instance_timezone_is_missing() -> None:

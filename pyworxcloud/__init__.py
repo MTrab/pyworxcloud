@@ -532,9 +532,21 @@ class WorxCloud(dict):
         # self.devices = {}
         for mower in self._mowers:
             try:
+                previous_device = self.devices.get(mower["name"])
                 device = DeviceHandler(self._api, mower, self._tz, False)
                 if not isinstance(mower["last_status"], type(None)):
                     device.raw_data = mower["last_status"]["payload"]
+
+                if (
+                    previous_device is not None
+                    and getattr(device, "updated_origin", None) == "observed"
+                    and isinstance(getattr(previous_device, "updated", None), datetime)
+                ):
+                    device.updated = previous_device.updated
+                    device.updated_origin = getattr(
+                        previous_device, "updated_origin", "existing"
+                    )
+                    mower["last_status"]["timestamp"] = previous_device.updated
 
                 self.devices.update({mower["name"]: device})
 

@@ -13,6 +13,19 @@ PASS = environ["PASSWORD"]
 TYPE = environ["TYPE"]
 
 
+def _resolve_cloud_timezone() -> str | None:
+    """Return optional client timezone override for manual live testing."""
+    timezone_name = (
+        environ.get("PYWORXCLOUD_TZ")
+        or environ.get("WORXCLOUD_TZ")
+        or environ.get("DASHBOARD_TZ")
+    )
+    if timezone_name is None:
+        return None
+    timezone_name = timezone_name.strip()
+    return timezone_name or None
+
+
 async def main():
     await async_worx()
 
@@ -21,7 +34,7 @@ async def async_worx():
     # Clear the screen for better visibility when debugging
 
     # Initialize the class and connect
-    cloud = WorxCloud(EMAIL, PASS, TYPE, tz="Europe/Copenhagen")
+    cloud = WorxCloud(EMAIL, PASS, TYPE, tz=_resolve_cloud_timezone())
     await cloud.authenticate()
     await cloud.connect()
     cloud.set_callback(LandroidEvent.DATA_RECEIVED, receive_data)
