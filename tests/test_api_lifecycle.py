@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 import pytest
@@ -12,7 +11,7 @@ from pyworxcloud import WorxCloud
 from pyworxcloud.api import LandroidCloudAPI
 from pyworxcloud.clouds import CloudType
 from pyworxcloud.events import LandroidEvent
-from pyworxcloud.helpers.logger import get_logger
+from pyworxcloud.helpers.logger import PACKAGE_LOGGER_NAME, get_logger
 
 
 class DummyTimer:
@@ -263,26 +262,29 @@ def test_token_updated_is_noop_without_mqtt() -> None:
 
 
 def test_get_logger_does_not_accumulate_handlers() -> None:
-    """Repeated logger setup should reuse the existing handler."""
-    logger = logging.getLogger("pyworxcloud.test_handlers")
-    original_handlers = list(logger.handlers)
-    original_level = logger.level
+    """Repeated logger setup should not attach output handlers or force levels."""
+    logger = get_logger("pyworxcloud.test_handlers")
+    package_logger = get_logger(PACKAGE_LOGGER_NAME)
+    original_handlers = list(package_logger.handlers)
+    original_level = package_logger.level
 
     try:
-        logger.handlers.clear()
-        logger.setLevel(logging.NOTSET)
+        package_logger.handlers.clear()
+        package_logger.setLevel(0)
 
         first = get_logger("pyworxcloud.test_handlers")
         second = get_logger("pyworxcloud.test_handlers")
 
         assert first is second
-        assert len(first.handlers) == 1
-        assert isinstance(first.handlers[0], logging.StreamHandler)
+        assert first.handlers == []
+        assert package_logger.level == 0
+        assert len(package_logger.handlers) == 1
+        assert package_logger.handlers[0].__class__.__name__ == "NullHandler"
     finally:
-        logger.handlers.clear()
-        logger.setLevel(original_level)
+        package_logger.handlers.clear()
+        package_logger.setLevel(original_level)
         for handler in original_handlers:
-            logger.addHandler(handler)
+            package_logger.addHandler(handler)
 
 
 def test_on_api_update_dispatches_api_event_callback() -> None:

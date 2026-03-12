@@ -50,6 +50,7 @@ def _configure_logging() -> int:
     """Configure runtime log verbosity for interactive dashboard use."""
     level_name = environ.get("DASHBOARD_LOG_LEVEL", "WARNING").upper()
     level = getattr(logging, level_name, logging.WARNING)
+    logging.basicConfig(level=level)
     for name in (
         "pyworxcloud",
         "pyworxcloud.events",
@@ -57,8 +58,6 @@ def _configure_logging() -> int:
     ):
         logger = logging.getLogger(name)
         logger.setLevel(level)
-        for handler in logger.handlers:
-            handler.setLevel(level)
     return level
 
 
@@ -383,11 +382,7 @@ async def main() -> None:
     cloud_type = environ.get("TYPE") or await _ainput("TYPE (worx/kress/landxcape): ")
 
     cloud = WorxCloud(email, password, cloud_type, tz="Europe/Copenhagen")
-    # WorxCloud initializes its own logger to DEBUG in get_logger().
-    # Re-apply chosen dashboard log level after instance creation.
     cloud._log.setLevel(log_level)
-    for handler in cloud._log.handlers:
-        handler.setLevel(log_level)
     _configure_logging()
     await cloud.authenticate()
     await cloud.connect()
