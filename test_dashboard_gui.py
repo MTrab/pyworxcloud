@@ -15,8 +15,6 @@ from pathlib import Path
 from tkinter import BooleanVar, StringVar, Tk, Toplevel, ttk
 from tkinter.scrolledtext import ScrolledText
 from typing import Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-
 from pyworxcloud import WorxCloud
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.utils import DeviceHandler
@@ -163,18 +161,8 @@ def _snapshot_device(device: DeviceHandler) -> dict[str, Any]:
             device_updated = last_status.get("timestamp")
 
     device_updated_raw = "unknown"
-    device_updated_utc = "unknown"
-    device_updated_local = "unknown"
-    local_timezone = environ.get("TZ", "Europe/Copenhagen")
     if isinstance(device_updated, datetime):
-        try:
-            local_tzinfo = ZoneInfo(local_timezone)
-        except ZoneInfoNotFoundError:
-            local_timezone = "UTC"
-            local_tzinfo = ZoneInfo("UTC")
         device_updated_raw = device_updated.isoformat()
-        device_updated_utc = device_updated.astimezone(ZoneInfo("UTC")).isoformat()
-        device_updated_local = device_updated.astimezone(local_tzinfo).isoformat()
 
     return {
         "name": getattr(device, "name", "unknown"),
@@ -193,10 +181,7 @@ def _snapshot_device(device: DeviceHandler) -> dict[str, Any]:
             str(device_updated) if device_updated is not None else "unknown"
         ),
         "device_updated_raw": device_updated_raw,
-        "device_updated_utc": device_updated_utc,
-        "device_updated_local": device_updated_local,
         "device_timezone": str(getattr(device, "time_zone", "unknown")),
-        "local_timezone": local_timezone,
         "schedules": _schedule_slots(device),
     }
 
@@ -944,11 +929,6 @@ class DashboardApp:
             " | ".join(
                 [
                     f"raw={snapshot.get('device_updated_raw', 'unknown')}",
-                    f"utc={snapshot.get('device_updated_utc', 'unknown')}",
-                    (
-                        f"local={snapshot.get('device_updated_local', 'unknown')}"
-                        f" ({snapshot.get('local_timezone', 'unknown')})"
-                    ),
                     f"ui={datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
                 ]
             )

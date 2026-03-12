@@ -9,8 +9,6 @@ from datetime import datetime
 from os import environ
 from pathlib import Path
 from typing import Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-
 from pyworxcloud import WorxCloud
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.utils import DeviceHandler
@@ -146,30 +144,17 @@ def _schedule_slots(device: DeviceHandler) -> list[dict[str, Any]]:
 
 
 def _format_updated(device: DeviceHandler) -> dict[str, str]:
-    """Return raw and converted updated timestamps for dashboard diagnostics."""
+    """Return raw updated timestamp for dashboard diagnostics."""
     value = getattr(device, "updated", None)
     if not isinstance(value, datetime):
         return {
             "raw": "unknown",
-            "utc": "unknown",
-            "local": "unknown",
             "device_tz": str(getattr(device, "time_zone", "unknown")),
-            "local_tz": environ.get("TZ", "Europe/Copenhagen"),
         }
-
-    local_timezone = environ.get("TZ", "Europe/Copenhagen")
-    try:
-        local_tzinfo = ZoneInfo(local_timezone)
-    except ZoneInfoNotFoundError:
-        local_timezone = "UTC"
-        local_tzinfo = ZoneInfo("UTC")
 
     return {
         "raw": value.isoformat(),
-        "utc": value.astimezone(ZoneInfo("UTC")).isoformat(),
-        "local": value.astimezone(local_tzinfo).isoformat(),
         "device_tz": str(getattr(device, "time_zone", "unknown")),
-        "local_tz": local_timezone,
     }
 
 
@@ -241,8 +226,6 @@ def _render_device(device: DeviceHandler, selected: str, event_text: str) -> Non
     print(f"Next schedule start: {_next_schedule_start(device)}")
     print(f"Device timezone: {updated['device_tz']}")
     print(f"Updated raw: {updated['raw']}")
-    print(f"Updated UTC: {updated['utc']}")
-    print(f"Updated local: {updated['local']} ({updated['local_tz']})")
     print(
         "Rain: triggered="
         f"{getattr(device.rainsensor, 'triggered', 'unknown')} "
