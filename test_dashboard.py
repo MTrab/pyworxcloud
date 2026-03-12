@@ -9,6 +9,7 @@ from datetime import datetime
 from os import environ
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pyworxcloud import WorxCloud
 from pyworxcloud.events import LandroidEvent
@@ -59,6 +60,19 @@ def _configure_logging() -> int:
         logger = logging.getLogger(name)
         logger.setLevel(level)
     return level
+
+
+def _resolve_cloud_timezone() -> str | None:
+    """Return optional client timezone override for live manual testing."""
+    timezone_name = (
+        environ.get("PYWORXCLOUD_TZ")
+        or environ.get("WORXCLOUD_TZ")
+        or environ.get("DASHBOARD_TZ")
+    )
+    if timezone_name is None:
+        return None
+    timezone_name = timezone_name.strip()
+    return timezone_name or None
 
 
 async def _ainput(prompt: str) -> str:
@@ -131,6 +145,34 @@ def _schedule_slots(device: DeviceHandler) -> list[dict[str, Any]]:
     return slots if isinstance(slots, list) else []
 
 
+def _format_updated(device: DeviceHandler) -> dict[str, str]:
+    """Return raw and converted updated timestamps for dashboard diagnostics."""
+    value = getattr(device, "updated", None)
+    if not isinstance(value, datetime):
+        return {
+            "raw": "unknown",
+            "utc": "unknown",
+            "local": "unknown",
+            "device_tz": str(getattr(device, "time_zone", "unknown")),
+            "local_tz": environ.get("TZ", "Europe/Copenhagen"),
+        }
+
+    local_timezone = environ.get("TZ", "Europe/Copenhagen")
+    try:
+        local_tzinfo = ZoneInfo(local_timezone)
+    except ZoneInfoNotFoundError:
+        local_timezone = "UTC"
+        local_tzinfo = ZoneInfo("UTC")
+
+    return {
+        "raw": value.isoformat(),
+        "utc": value.astimezone(ZoneInfo("UTC")).isoformat(),
+        "local": value.astimezone(local_tzinfo).isoformat(),
+        "device_tz": str(getattr(device, "time_zone", "unknown")),
+        "local_tz": local_timezone,
+    }
+
+
 async def _show_schedule_view(device: DeviceHandler, selected: str) -> None:
     """Render a schedule details page and wait for return."""
     _clear()
@@ -184,6 +226,7 @@ async def _choose_mower(cloud: WorxCloud) -> str:
 def _render_device(device: DeviceHandler, selected: str, event_text: str) -> None:
     _clear()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    updated = _format_updated(device)
     print(f"pyworxcloud dashboard | {now}")
     print("=" * 72)
     print(f"Mower: {selected}")
@@ -196,6 +239,10 @@ def _render_device(device: DeviceHandler, selected: str, event_text: str) -> Non
     print(f"Locked: {getattr(device, 'locked', 'unknown')}")
     print(f"Firmware: {_firmware_version(device)}")
     print(f"Next schedule start: {_next_schedule_start(device)}")
+    print(f"Device timezone: {updated['device_tz']}")
+    print(f"Updated raw: {updated['raw']}")
+    print(f"Updated UTC: {updated['utc']}")
+    print(f"Updated local: {updated['local']} ({updated['local_tz']})")
     print(
         "Rain: triggered="
         f"{getattr(device.rainsensor, 'triggered', 'unknown')} "
@@ -381,7 +428,7 @@ async def main() -> None:
     password = environ.get("PASSWORD") or await _ainput("PASSWORD: ")
     cloud_type = environ.get("TYPE") or await _ainput("TYPE (worx/kress/landxcape): ")
 
-    cloud = WorxCloud(email, password, cloud_type, tz="Europe/Copenhagen")
+    cloud = WorxCloud(email, password, cloud_type, tz=_resolve_cloud_timezone())
     cloud._log.setLevel(log_level)
     _configure_logging()
     await cloud.authenticate()

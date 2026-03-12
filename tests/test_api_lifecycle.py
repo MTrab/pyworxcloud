@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -252,6 +253,57 @@ def test_fetch_skips_api_call_when_disconnecting() -> None:
     asyncio.run(cloud._fetch())
 
     assert called["value"] is False
+
+
+def test_fetch_preserves_newer_existing_updated_timestamp(monkeypatch) -> None:
+    """API refresh should not replace a newer existing device timestamp."""
+    cloud = WorxCloud("user@example.com", "secret", "worx", tz="Europe/Copenhagen")
+    existing = DummyDevice()
+    existing.updated = datetime.fromisoformat("2026-03-12T17:24:22+01:00")
+    cloud.devices = {"Jim": existing}
+
+    async def _get_mowers() -> list[dict[str, Any]]:
+        return [
+            {
+                "name": "Jim",
+                "model": {"friendly_name": "Fixture", "code": "FX"},
+                "protocol": 0,
+                "serial_number": "SERIAL-1",
+                "uuid": "UUID-1",
+                "mac_address": "AA:BB:CC:DD:EE:FF",
+                "time_zone": "Australia/Perth",
+                "warranty_expires_at": None,
+                "warranty_registered": False,
+                "mqtt_topics": {"command_in": "in/topic", "command_out": "out/topic"},
+                "last_status": {
+                    "payload": {
+                        "cfg": {
+                            "id": 21463,
+                            "sn": "SERIAL-1",
+                            "rd": 0,
+                            "tm": "00:24:23",
+                            "dt": "13/03/2026",
+                            "sc": {"d": [], "dd": False},
+                        },
+                        "dat": {
+                            "uuid": "UUID-1",
+                            "mac": "AA:BB:CC:DD:EE:FF",
+                            "conn": "online",
+                            "ls": 1,
+                            "le": 0,
+                            "rain": {"s": 0, "cnt": 0},
+                        },
+                    }
+                },
+            }
+        ]
+
+    monkeypatch.setattr(cloud._api, "get_mowers", _get_mowers)
+    asyncio.run(cloud._fetch())
+
+    assert cloud.devices["Jim"].updated == datetime.fromisoformat(
+        "2026-03-12T17:24:22+01:00"
+    )
 
 
 def test_token_updated_is_noop_without_mqtt() -> None:
