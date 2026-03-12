@@ -56,7 +56,30 @@ class EventHandler:
     @staticmethod
     def _invoke(handler: Any, **kwargs) -> None:
         """Invoke sync or async event handlers safely."""
-        result = handler(**kwargs)
+        signature = inspect.signature(handler)
+        parameters = signature.parameters.values()
+        accepts_var_kwargs = any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters
+        )
+
+        if accepts_var_kwargs:
+            call_kwargs = kwargs
+        else:
+            accepted_names = {
+                parameter.name
+                for parameter in signature.parameters.values()
+                if parameter.kind
+                in (
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    inspect.Parameter.KEYWORD_ONLY,
+                )
+            }
+            call_kwargs = {
+                key: value for key, value in kwargs.items() if key in accepted_names
+            }
+
+        result = handler(**call_kwargs)
         if not inspect.isawaitable(result):
             return
 
@@ -94,27 +117,34 @@ class EventHandler:
             )
             return True
         elif LandroidEvent.API == event:
-            # Preferred API callback payload.
+            from .utils.devices import DeviceHandler
+
+            api_payload = kwargs.get("api_data")
+            has_valid_api_payload = False
             if "api_data" in kwargs:
-                if not isinstance(kwargs["api_data"], dict):
+                if not isinstance(api_payload, dict):
                     _LOGGER.debug(
                         "api_data was of type %s and not as expected %s",
-                        type(kwargs["api_data"]),
+                        type(api_payload),
                         dict,
                     )
                     return False
-                self._invoke(self.__events[event], api_data=kwargs["api_data"])
-                return True
+                has_valid_api_payload = True
 
-            # Backward-compatible payload shape used in forced refresh flow.
-            from .utils.devices import DeviceHandler
-
-            if check_syntax(kwargs, ["name"], str) and check_syntax(
+            has_valid_name_device = check_syntax(kwargs, ["name"], str) and check_syntax(
                 kwargs, ["device"], DeviceHandler
-            ):
-                self._invoke(
-                    self.__events[event], name=kwargs["name"], device=kwargs["device"]
-                )
+            )
+
+            if has_valid_name_device and not has_valid_api_payload:
+                api_payload = {"name": kwargs["name"], "device": kwargs["device"]}
+                has_valid_api_payload = True
+
+            if has_valid_api_payload:
+                invoke_kwargs = {"api_data": api_payload}
+                if has_valid_name_device:
+                    invoke_kwargs["name"] = kwargs["name"]
+                    invoke_kwargs["device"] = kwargs["device"]
+                self._invoke(self.__events[event], **invoke_kwargs)
                 return True
 
             _LOGGER.warning(

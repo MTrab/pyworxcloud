@@ -81,6 +81,42 @@ def test_api_event_accepts_name_and_device_fallback() -> None:
     assert calls == [("Jim", device)]
 
 
+def test_api_event_name_device_fallback_also_populates_api_data() -> None:
+    """Legacy API event shape should also satisfy handlers expecting api_data."""
+    handler = EventHandler()
+    calls: list[dict] = []
+    device = DeviceHandler.__new__(DeviceHandler)
+
+    handler.set_handler(LandroidEvent.API, lambda api_data: calls.append(api_data))
+
+    result = handler.call(LandroidEvent.API, name="Jim", device=device)
+
+    assert result is True
+    assert calls == [{"name": "Jim", "device": device}]
+
+
+def test_api_event_prefers_api_data_but_keeps_name_device_for_legacy_handlers() -> None:
+    """Handlers expecting name/device should still work when api_data is present."""
+    handler = EventHandler()
+    calls: list[tuple[str, DeviceHandler]] = []
+    device = DeviceHandler.__new__(DeviceHandler)
+
+    handler.set_handler(
+        LandroidEvent.API,
+        lambda name, device: calls.append((name, device)),
+    )
+
+    result = handler.call(
+        LandroidEvent.API,
+        api_data={"name": "Jim", "device": device},
+        name="Jim",
+        device=device,
+    )
+
+    assert result is True
+    assert calls == [("Jim", device)]
+
+
 def test_event_handler_supports_async_callback_inside_running_loop() -> None:
     """Async callbacks should be scheduled when called from an active loop."""
     handler = EventHandler()
