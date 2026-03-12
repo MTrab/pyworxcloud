@@ -152,7 +152,7 @@ class DeviceHandler(LDict):
 
         self.mac_address = None
         self.protocol = 0
-        self.time_zone = None
+        self.time_zone = data.get("time_zone")
 
         for attr in UNWANTED_ATTRIBS:
             if hasattr(self, attr):
@@ -213,11 +213,17 @@ class DeviceHandler(LDict):
 
         self.updated = self._determine_updated_at(cfg_payload, dat_payload)
 
-        self.schedules.update_progress_and_next(
-            tz=self._tz if not isinstance(self._tz, type(None)) else self.time_zone
+        effective_timezone = (
+            self._tz
+            if not isinstance(self._tz, type(None))
+            else self.time_zone if self.time_zone is not None else "UTC"
         )
 
-        convert_to_time(self.name, self, self._tz, callback=self.update_attribute)
+        self.schedules.update_progress_and_next(tz=effective_timezone)
+
+        convert_to_time(
+            self.name, self, effective_timezone, callback=self.update_attribute
+        )
 
         mower["last_status"]["timestamp"] = self.updated
 
