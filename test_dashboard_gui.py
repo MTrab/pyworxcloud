@@ -200,7 +200,6 @@ class CloudWorker:
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
         self._cloud: WorxCloud | None = None
-        self._poll_task: asyncio.Task | None = None
         self._selected_name: str | None = None
         self._log_level = _configure_logging()
         self._update_event = asyncio.Event()
@@ -281,26 +280,8 @@ class CloudWorker:
         if mowers:
             self._selected_name = mowers[0]["name"]
         self._emit("connected", mowers=mowers, selected=self._selected_name)
-        self._poll_task = asyncio.create_task(self._poll_loop())
-
-    async def _poll_loop(self) -> None:
-        while self._cloud is not None:
-            await asyncio.sleep(60)
-            if self._cloud is None or not self._selected_name:
-                continue
-            device = self._cloud.devices.get(self._selected_name)
-            if device is None:
-                continue
-            with contextlib.suppress(Exception):
-                await self._cloud.update(device.serial_number)
 
     async def disconnect(self) -> None:
-        if self._poll_task is not None:
-            self._poll_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._poll_task
-            self._poll_task = None
-
         if self._cloud is not None:
             with contextlib.suppress(Exception):
                 await self._cloud.disconnect()
