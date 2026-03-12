@@ -1,11 +1,14 @@
 """Testfile demonstrating the "with method" of calling the module."""
 
+import logging
 from os import environ
 from pprint import pprint
 
 from pyworxcloud import WorxCloud
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.utils.devices import DeviceHandler
+
+logging.basicConfig(level=logging.DEBUG)
 
 EMAIL = environ["EMAIL"]
 PASS = environ["PASSWORD"]

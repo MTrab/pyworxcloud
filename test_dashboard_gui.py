@@ -48,11 +48,10 @@ def _load_dotenv(path: str = ".env") -> None:
 def _configure_logging() -> int:
     level_name = environ.get("DASHBOARD_LOG_LEVEL", "WARNING").upper()
     level = getattr(logging, level_name, logging.WARNING)
+    logging.basicConfig(level=level)
     for name in ("pyworxcloud", "pyworxcloud.events", "pyworxcloud.utils.mqtt"):
         logger = logging.getLogger(name)
         logger.setLevel(level)
-        for handler in logger.handlers:
-            handler.setLevel(level)
     return level
 
 
@@ -213,8 +212,6 @@ class CloudWorker:
 
         self._cloud = WorxCloud(email, password, cloud_type, tz="Europe/Copenhagen")
         self._cloud._log.setLevel(self._log_level)
-        for handler in self._cloud._log.handlers:
-            handler.setLevel(self._log_level)
         _configure_logging()
 
         def _on_data(name: str, device: DeviceHandler) -> None:

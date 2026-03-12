@@ -4,23 +4,14 @@ from __future__ import annotations
 
 import logging
 
+PACKAGE_LOGGER_NAME = "pyworxcloud"
+
 
 def get_logger(name: str) -> logging.Logger:
-    """Configure the logger component."""
+    """Return a standard library logger for this package."""
 
-    logger = logging.getLogger(name)
+    package_logger = logging.getLogger(PACKAGE_LOGGER_NAME)
+    if not any(isinstance(handler, logging.NullHandler) for handler in package_logger.handlers):
+        package_logger.addHandler(logging.NullHandler())
 
-    # configure log formatter
-    logFormatter = logging.Formatter(
-        "%(asctime)s [%(filename)s] [%(funcName)s] [%(levelname)s] [%(lineno)d] %(message)s"
-    )
-
-    # configure stream handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logFormatter)
-
-    if not logger.handlers:
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(console_handler)
-
-    return logger
+    return logging.getLogger(name)
