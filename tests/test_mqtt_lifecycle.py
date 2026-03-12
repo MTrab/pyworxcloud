@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 import threading
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
-
 from pyworxcloud.utils.mqtt import MQTT
 
 
@@ -16,18 +16,26 @@ class _ImmediateFuture:
         return None
 
 
+class _TimeoutFuture:
+    """Future stub that always times out."""
+
+    def result(self, timeout: float | None = None) -> None:
+        raise FutureTimeoutError(f"timed out after {timeout}")
+
+
 class _ClientStub:
     """Client stub that records disconnect attempts."""
 
     def __init__(self, should_raise: bool = False) -> None:
         self.disconnect_calls = 0
         self.should_raise = should_raise
+        self.future: Any = _ImmediateFuture()
 
     def disconnect(self) -> _ImmediateFuture:
         self.disconnect_calls += 1
         if self.should_raise:
             raise RuntimeError("disconnect failed")
-        return _ImmediateFuture()
+        return self.future
 
 
 class _ShutdownEventStub:
@@ -57,6 +65,7 @@ def _build_mqtt_lifecycle_fixture(
     mqtt._shutdown_event = False
     mqtt._is_connected = connected
     mqtt._connection_future = object()
+    mqtt._shutdown_timeout = 5.0
     mqtt._topic = ["topic/out"]
     mqtt.client = client
     mqtt._host_resolver = _ShutdownResourceStub()
@@ -115,3 +124,32 @@ def test_shutdown_skips_second_disconnect_after_prior_disconnect() -> None:
     mqtt.shutdown()
 
     assert client.disconnect_calls == 1
+
+
+def test_shutdown_does_not_wait_for_resource_shutdown_events() -> None:
+    """Shutdown should detach CRT resources without blocking on shutdown events."""
+    client = _ClientStub()
+    mqtt = _build_mqtt_lifecycle_fixture(client=client)
+    host_resolver = mqtt._host_resolver
+    client_bootstrap = mqtt._client_bootstrap
+    event_loop_group = mqtt._event_loop_group
+
+    mqtt.shutdown()
+
+    assert (
+        host_resolver.shutdown_event.wait_calls,
+        client_bootstrap.shutdown_event.wait_calls,
+        event_loop_group.shutdown_event.wait_calls,
+    ) == (0, 0, 0)
+
+
+def test_shutdown_swallows_disconnect_future_timeout() -> None:
+    """Shutdown should not block indefinitely on disconnect futures."""
+    client = _ClientStub()
+    client.future = _TimeoutFuture()
+    mqtt = _build_mqtt_lifecycle_fixture(client=client)
+
+    mqtt.shutdown()
+
+    assert client.disconnect_calls == 1
+    assert mqtt._shutdown_event is True
