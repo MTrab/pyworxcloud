@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Sequence, Tuple
+from zoneinfo import ZoneInfo
 
 import pytest
-from zoneinfo import ZoneInfo
 
 from pyworxcloud.utils.capability import DeviceCapability
 from pyworxcloud.utils.devices import DeviceHandler

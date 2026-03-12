@@ -435,7 +435,9 @@ def test_repeated_connect_disconnect_closes_resources_each_cycle(monkeypatch) ->
     assert len(TrackingMQTT.instances) == 3
     assert all(instance.disconnect_calls == 1 for instance in TrackingMQTT.instances)
     assert all(instance.shutdown_calls == 1 for instance in TrackingMQTT.instances)
-    assert all(instance.subscriptions == ["topic/out"] for instance in TrackingMQTT.instances)
+    assert all(
+        instance.subscriptions == ["topic/out"] for instance in TrackingMQTT.instances
+    )
     assert len(sessions) == 3
     assert all(session.close_calls == 1 and session.closed for session in sessions)
     assert all(task.cancelled() for task in refresh_tasks)
