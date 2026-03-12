@@ -299,6 +299,46 @@ def test_protocol0_next_schedule_includes_secondary_same_day_slot(
 
     assert schedule["next_schedule_start"] == "2026-03-12 12:00:00"
 
+def test_devicehandler_maps_rtk_zone_ids_and_current_zone() -> None:
+    """RTK devices should expose current zone and known zone IDs from RTK payloads."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-RTK",
+            "rd": 0,
+            "tz": "UTC",
+            "sc": {"enabled": 1, "slots": []},
+            "rtk": {
+                "map": "fixture",
+                "ck": "fixture",
+                "st": 1,
+                "zs": [
+                    {"id": 1, "cfg": {}},
+                    {"id": 2, "cfg": {}},
+                    {"id": 4, "cfg": {}},
+                    {"id": 5, "cfg": {}},
+                ],
+            },
+        },
+        "dat": {
+            "uuid": "UUID-RTK",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "4G",
+            "ls": 7,
+            "le": 0,
+            "cut": {"z": 4},
+            "sc": {"slot": 0},
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 1, "RTK Fixture")
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.zone.ids == [1, 2, 4, 5]
+    assert device.zone.current == 4
+    assert device.zone.index == 2
+
 
 def test_next_schedule_skips_zero_duration_slots(monkeypatch) -> None:
     """Zero-duration slots should not be exposed as the next schedule."""

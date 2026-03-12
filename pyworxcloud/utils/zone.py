@@ -19,6 +19,7 @@ class Zone(LDict):
 
         self["current"] = 0
         self["index"] = 0
+        self["ids"] = []
         self["indicies"] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self["starting_point"] = [0, 0, 0, 0]
 
@@ -50,10 +51,24 @@ class Zone(LDict):
                 if "mz" in data["last_status"]["payload"]["cfg"]
                 else [0, 0, 0, 0]
             )
+            rtk = data["last_status"]["payload"]["cfg"].get("rtk")
+            if isinstance(rtk, dict) and isinstance(rtk.get("zs"), list):
+                self["ids"] = [
+                    int(zone["id"])
+                    for zone in rtk["zs"]
+                    if isinstance(zone, dict) and "id" in zone
+                ]
+
+            cut = data["last_status"]["payload"]["dat"].get("cut")
+            if isinstance(cut, dict) and "z" in cut:
+                self["current"] = int(cut["z"])
         except TypeError:  # pylint: disable=bare-except
             pass
 
-        self["current"] = self["indicies"][self["index"]]
+        if self["current"] == 0:
+            self["current"] = self["indicies"][self["index"]]
+        if self["ids"] and self["current"] in self["ids"]:
+            self["index"] = self["ids"].index(self["current"])
 
     @property
     def current(self) -> int:
@@ -94,3 +109,13 @@ class Zone(LDict):
     def starting_point(self, value: int) -> None:
         """Set starting points."""
         self["starting_point"] = value
+
+    @property
+    def ids(self) -> list[int]:
+        """Get RTK zone IDs."""
+        return self["ids"]
+
+    @ids.setter
+    def ids(self, value: list[int]) -> None:
+        """Set RTK zone IDs."""
+        self["ids"] = value

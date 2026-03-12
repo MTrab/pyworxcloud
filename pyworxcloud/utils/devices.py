@@ -270,6 +270,11 @@ class DeviceHandler(LDict):
             self.error.update(dat_payload["le"])
 
         self.zone.index = dat_payload.get("lz", self.zone.index)
+        cut = dat_payload.get("cut")
+        if isinstance(cut, dict) and "z" in cut and cut["z"] is not None:
+            self.zone.current = int(cut["z"])
+            if self.zone.ids and self.zone.current in self.zone.ids:
+                self.zone.index = self.zone.ids.index(self.zone.current)
 
         if "lk" in dat_payload:
             self.locked = bool(dat_payload["lk"])
@@ -322,6 +327,16 @@ class DeviceHandler(LDict):
             self.zone.starting_point = cfg_payload["mz"]
             self.zone.indicies = cfg_payload["mzv"]
             self.zone.current = self.zone.indicies[self.zone.index]
+
+        rtk_cfg = cfg_payload.get("rtk")
+        if isinstance(rtk_cfg, dict) and isinstance(rtk_cfg.get("zs"), list):
+            self.zone.ids = [
+                int(zone["id"])
+                for zone in rtk_cfg["zs"]
+                if isinstance(zone, dict) and "id" in zone
+            ]
+            if self.zone.current in self.zone.ids:
+                self.zone.index = self.zone.ids.index(self.zone.current)
 
         modules_cfg = cfg_payload.get("modules")
         if isinstance(modules_cfg, dict):
