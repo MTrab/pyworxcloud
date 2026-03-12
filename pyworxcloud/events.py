@@ -95,7 +95,14 @@ class EventHandler:
             return True
         elif LandroidEvent.API == event:
             # Preferred API callback payload.
-            if check_syntax(kwargs, ["api_data"], dict):
+            if "api_data" in kwargs:
+                if not isinstance(kwargs["api_data"], dict):
+                    _LOGGER.debug(
+                        "api_data was of type %s and not as expected %s",
+                        type(kwargs["api_data"]),
+                        dict,
+                    )
+                    return False
                 self._invoke(self.__events[event], api_data=kwargs["api_data"])
                 return True
 
