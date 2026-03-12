@@ -300,6 +300,48 @@ def test_protocol0_next_schedule_includes_secondary_same_day_slot(
     assert schedule["next_schedule_start"] == "2026-03-12 12:00:00"
 
 
+def test_next_schedule_skips_zero_duration_slots(monkeypatch) -> None:
+    """Zero-duration slots should not be exposed as the next schedule."""
+    real_datetime = schedules_module.datetime
+
+    class FrozenDateTime:
+        """Minimal datetime shim returning a fixed current time."""
+
+        @staticmethod
+        def now() -> Any:
+            return real_datetime(2026, 3, 12, 10, 30, tzinfo=ZoneInfo("UTC"))
+
+        strptime = staticmethod(real_datetime.strptime)
+
+    monkeypatch.setattr(schedules_module, "datetime", FrozenDateTime)
+
+    schedule = Schedule()
+    schedule["slots"] = [
+        {
+            "day": "thursday",
+            "start": "11:00",
+            "end": "11:00",
+            "duration": 0,
+            "duration_extended": 0,
+            "boundary": False,
+            "source": "protocol1",
+        },
+        {
+            "day": "thursday",
+            "start": "15:00",
+            "end": "15:30",
+            "duration": 30,
+            "duration_extended": 30,
+            "boundary": False,
+            "source": "protocol1",
+        },
+    ]
+
+    schedule.update_progress_and_next("UTC")
+
+    assert schedule["next_schedule_start"] == "2026-03-12 15:00:00"
+
+
 MQTT_FIXTURES = tuple(fixture_paths("mqtt.json"))
 
 

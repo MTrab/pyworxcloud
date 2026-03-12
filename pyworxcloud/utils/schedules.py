@@ -32,7 +32,11 @@ class ScheduleInfo:
 
     def _slots_for_date(self, date: datetime) -> list[dict[str, Any]]:
         day = DAY_MAP[int(date.strftime("%w"))]
-        slots = [slot for slot in self.__slots if slot.get("day") == day]
+        slots = [
+            slot
+            for slot in self.__slots
+            if slot.get("day") == day and int(slot.get("duration_extended", 0)) > 0
+        ]
         return sorted(slots, key=lambda slot: slot.get("start", "00:00"))
 
     def _slot_datetimes(
