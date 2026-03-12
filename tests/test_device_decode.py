@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Sequence, Tuple
 
 import pytest
+from zoneinfo import ZoneInfo
 
 from pyworxcloud.utils.capability import DeviceCapability
 from pyworxcloud.utils.devices import DeviceHandler
@@ -176,6 +177,21 @@ def test_devicehandler_updates_battery_cycle_current_from_live_nr() -> None:
         "reset_at": 0,
         "reset_time": None,
     }
+
+
+def test_devicehandler_uses_device_timezone_when_instance_timezone_is_missing() -> None:
+    """Schedule timestamps should fall back to device timezone before UTC."""
+    _, payload = _find_http_fixture(
+        lambda p: bool(p.get("cfg", {}).get("tz"))
+        and bool(p.get("cfg", {}).get("sc", {}).get("slots"))
+    )
+    mower = _build_mower(payload, 1, "Timezone Fixture")
+
+    device = DeviceHandler(api=object(), mower=mower, tz=None)
+
+    next_schedule = device.schedules["next_schedule_start"]
+    assert next_schedule is not None
+    assert next_schedule.tzinfo == ZoneInfo(payload["cfg"]["tz"])
 
 
 MQTT_FIXTURES = tuple(fixture_paths("mqtt.json"))
