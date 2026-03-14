@@ -283,20 +283,29 @@ class WorxCloud(dict):
         # Disconnect MQTT connection
         try:
             if self.mqtt is not None:
-                started = time.perf_counter()
-                await self.mqtt.adisconnect()
-                logger.debug(
-                    "MQTT adisconnect completed in %.3fs",
-                    time.perf_counter() - started,
-                )
-                started = time.perf_counter()
-                await self.mqtt.ashutdown()
-                logger.debug(
-                    "MQTT ashutdown completed in %.3fs",
-                    time.perf_counter() - started,
-                )
-        except Exception as err:
-            logger.debug("Could not disconnect MQTT cleanly: %s", err)
+                disconnect_failed = False
+                try:
+                    started = time.perf_counter()
+                    await self.mqtt.adisconnect()
+                    logger.debug(
+                        "MQTT adisconnect completed in %.3fs",
+                        time.perf_counter() - started,
+                    )
+                except Exception as err:
+                    disconnect_failed = True
+                    logger.debug("Could not disconnect MQTT cleanly: %s", err)
+
+                try:
+                    started = time.perf_counter()
+                    await self.mqtt.ashutdown()
+                    logger.debug(
+                        "MQTT ashutdown completed in %.3fs",
+                        time.perf_counter() - started,
+                    )
+                except Exception as err:
+                    logger.debug("Could not shutdown MQTT cleanly: %s", err)
+                    if not disconnect_failed:
+                        raise
         finally:
             self.mqtt = None
             started = time.perf_counter()
