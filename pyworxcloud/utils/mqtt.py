@@ -333,6 +333,7 @@ class MQTT(LDict):
 
         except Exception as exc:
             self._is_connected = False
+            self._connection_future = None
             self._log.error(f"Failed to connect to MQTT: {exc}")
             raise NoConnectionError() from exc
 
