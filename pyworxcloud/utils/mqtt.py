@@ -441,16 +441,28 @@ class MQTT(LDict):
                     time.perf_counter() - started,
                     exc_info=True,
                 )
+        shutdown_timeout = getattr(self, "_shutdown_timeout", DEFAULT_SHUTDOWN_TIMEOUT)
         for name, resource in (
             ("host_resolver", host_resolver),
             ("client_bootstrap", client_bootstrap),
             ("event_loop_group", event_loop_group),
         ):
-            if resource is not None:
-                # Rollback point: if repeated connect/disconnect cycles start leaking
-                # native AWS CRT resources again, restore the old shutdown_event.wait()
-                # logic here and re-enable the corresponding lifecycle wait test.
-                logger.debug("Detached %s without waiting for shutdown_event", name)
+            if resource is None:
+                continue
+
+            shutdown_event = getattr(resource, "shutdown_event", None)
+            if shutdown_event is None:
+                logger.debug("Detached %s without shutdown_event", name)
+                continue
+
+            started = time.perf_counter()
+            completed = shutdown_event.wait(shutdown_timeout)
+            logger.debug(
+                "Waited for %s shutdown_event; completed=%s in %.3fs",
+                name,
+                completed,
+                time.perf_counter() - started,
+            )
 
     async def ashutdown(self) -> None:
         """Async shutdown wrapper."""
