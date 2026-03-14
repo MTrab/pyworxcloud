@@ -129,8 +129,8 @@ def test_shutdown_skips_second_disconnect_after_prior_disconnect() -> None:
     assert client.disconnect_calls == 1
 
 
-def test_shutdown_does_not_wait_for_resource_shutdown_events() -> None:
-    """Shutdown should detach CRT resources without blocking on shutdown events."""
+def test_shutdown_waits_for_resource_shutdown_events() -> None:
+    """Shutdown should give CRT resources a bounded chance to tear down cleanly."""
     client = _ClientStub()
     mqtt = _build_mqtt_lifecycle_fixture(client=client)
     host_resolver = mqtt._host_resolver
@@ -143,7 +143,7 @@ def test_shutdown_does_not_wait_for_resource_shutdown_events() -> None:
         host_resolver.shutdown_event.wait_calls,
         client_bootstrap.shutdown_event.wait_calls,
         event_loop_group.shutdown_event.wait_calls,
-    ) == (0, 0, 0)
+    ) == (1, 1, 1)
 
 
 def test_shutdown_swallows_disconnect_future_timeout() -> None:

@@ -255,8 +255,10 @@ def test_fetch_skips_api_call_when_disconnecting() -> None:
     assert called["value"] is False
 
 
-def test_fetch_preserves_newer_existing_updated_timestamp(monkeypatch) -> None:
-    """API refresh should not replace a newer existing device timestamp."""
+def test_fetch_prefers_newer_cfg_timestamp_over_older_existing_timestamp(
+    monkeypatch,
+) -> None:
+    """API refresh should keep the newer cfg-derived timestamp."""
     cloud = WorxCloud("user@example.com", "secret", "worx", tz="Europe/Copenhagen")
     existing = DummyDevice()
     existing.updated = datetime.fromisoformat("2026-03-12T17:24:22+01:00")
@@ -302,8 +304,9 @@ def test_fetch_preserves_newer_existing_updated_timestamp(monkeypatch) -> None:
     asyncio.run(cloud._fetch())
 
     assert cloud.devices["Jim"].updated == datetime.fromisoformat(
-        "2026-03-12T17:24:22+01:00"
+        "2026-03-13T00:24:23+01:00"
     )
+    assert cloud.devices["Jim"].updated_origin == "cfg_tm"
 
 
 def test_token_updated_is_noop_without_mqtt() -> None:
