@@ -28,7 +28,7 @@ from .exceptions import (
     NoCuttingHeightError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
-    NoPartymodeError,
+    NoPauseModeError,
     OfflineError,
     TooManyRequestsError,
     ZoneNoProbability,
@@ -807,15 +807,15 @@ class WorxCloud(dict):
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    async def set_partymode(self, serial_number: str, state: bool) -> None:
-        """Turn on or off the partymode.
+    async def set_pause_mode(self, serial_number: str, state: bool) -> None:
+        """Turn on or off the pause mode.
 
         Args:
             serial_number (str): Serial number of the device
-            state (bool): True is enabling partymode, False is disabling partymode.
+            state (bool): True is enabling pause mode, False is disabling pause mode.
 
         Raises:
-            NoPartymodeError: Raised if the device does not support partymode.
+            NoPauseModeError: Raised if the device does not support pause mode.
             OfflineError: Raised if the device is offline.
         """
         state = self._require_bool(state, "state")
@@ -823,7 +823,7 @@ class WorxCloud(dict):
 
         if mower["online"]:
             device = DeviceHandler(self._api, mower, self._tz)
-            if device.capabilities.check(DeviceCapability.PARTY_MODE):
+            if device.capabilities.check(DeviceCapability.PAUSE_MODE):
                 if mower["protocol"] == 0:
                     await self.mqtt.apublish(
                         serial_number if mower["protocol"] == 0 else mower["uuid"],
@@ -842,8 +842,8 @@ class WorxCloud(dict):
                         {"sc": {"enabled": 0}} if state else {"sc": {"enabled": 1}},
                         mower["protocol"],
                     )
-            elif not device.capabilities.check(DeviceCapability.PARTY_MODE):
-                raise NoPartymodeError("This device does not support Partymode")
+            elif not device.capabilities.check(DeviceCapability.PAUSE_MODE):
+                raise NoPauseModeError("This device does not support Pause mode")
         elif not mower["online"]:
             raise OfflineError("The device is currently offline, no action was sent.")
 

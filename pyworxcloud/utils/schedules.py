@@ -93,7 +93,7 @@ class Schedule(LDict):
         self["time_extension"] = 0
         self["active"] = True
         self["slots"] = []
-        self["party_mode_enabled"] = False
+        self["pause_mode_enabled"] = False
         self["one_time_schedule"] = False
         self["auto_schedule"] = {
             "settings": (
