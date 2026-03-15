@@ -15,6 +15,7 @@ import pyworxcloud.utils.schedules as schedules_module
 from pyworxcloud.utils.capability import DeviceCapability
 from pyworxcloud.utils.devices import DeviceHandler
 from pyworxcloud.utils.schedules import Schedule
+from pyworxcloud.utils.zone import Zone
 from tests.fixture_utils import fixture_paths, load_fixture_payloads
 
 
@@ -112,6 +113,17 @@ def test_devicehandler_raw_data_setter_redecodes_payload() -> None:
 
     assert device.status.id == 34
     assert device.error.id == 5
+
+
+def test_zone_defaults_exist_without_input_data() -> None:
+    """Zone should expose safe defaults even before payload data is mapped."""
+    zone = Zone()
+
+    assert zone.index == 0
+    assert zone.current == 0
+    assert zone.indicies == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    assert zone.starting_point == [0, 0, 0, 0]
+    assert zone.ids == []
 
 
 def test_protocol1_slots_exposed() -> None:
