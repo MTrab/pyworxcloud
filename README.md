@@ -146,10 +146,16 @@ Notes:
 
 ## Deprecations
 
-The old Party mode API remains available for compatibility during the transition to Pause mode.
+> [!WARNING]
+> The old Party mode names are deprecated and are planned for removal after `2026-09-15`.
+> Compatibility aliases still work for now, but new integrations should use the Pause mode names below.
 
-- `set_partymode()` is deprecated; use `set_pause_mode()` instead.
-- `NoPartymodeError` is deprecated; use `NoPauseModeError` instead.
-- `DeviceCapability.PARTY_MODE` is deprecated; use `DeviceCapability.PAUSE_MODE` instead.
-- `partymode_enabled` and `party_mode_enabled` remain available as deprecated compatibility fields.
-- These aliases are planned for removal after `2026-09-15`, and CI includes a reminder test so we do not forget.
+| Deprecated | Use instead |
+| --- | --- |
+| `set_partymode()` | `set_pause_mode()` |
+| `NoPartymodeError` | `NoPauseModeError` |
+| `DeviceCapability.PARTY_MODE` | `DeviceCapability.PAUSE_MODE` |
+| `partymode_enabled` | `pause_mode_enabled` |
+| `party_mode_enabled` | `pause_mode_enabled` |
+
+CI includes a reminder test tied to the removal date so these compatibility aliases are not forgotten.
