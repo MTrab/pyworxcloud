@@ -247,7 +247,9 @@ def test_deprecated_party_mode_error_warns() -> None:
         err = NoPartymodeError("deprecated")
 
     assert str(err) == "deprecated"
-    assert any("NoPartymodeError is deprecated" in str(item.message) for item in captured)
+    assert any(
+        "NoPartymodeError is deprecated" in str(item.message) for item in captured
+    )
 
 
 def test_deprecated_party_mode_capability_warns() -> None:
@@ -257,4 +259,7 @@ def test_deprecated_party_mode_capability_warns() -> None:
         capability = DeviceCapability.PARTY_MODE
 
     assert capability is DeviceCapability.PAUSE_MODE
-    assert any("DeviceCapability.PARTY_MODE is deprecated" in str(item.message) for item in captured)
+    assert any(
+        "DeviceCapability.PARTY_MODE is deprecated" in str(item.message)
+        for item in captured
+    )
