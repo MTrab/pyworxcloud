@@ -116,7 +116,7 @@ What this means for integrations:
 - Replace `NoPartymodeError` with `NoPauseModeError`.
 - Replace `DeviceCapability.PARTY_MODE` with `DeviceCapability.PAUSE_MODE`.
 - Migrate from `partymode_enabled` / `party_mode_enabled` to `pause_mode_enabled`.
-- These compatibility aliases are scheduled for removal in `6.0.0`.
+- These compatibility aliases are scheduled for removal after `2026-09-15`.
 
 ## Recommended Integration Updates
 
