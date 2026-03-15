@@ -152,3 +152,4 @@ The old Party mode API remains available for compatibility during the transition
 - `NoPartymodeError` is deprecated; use `NoPauseModeError` instead.
 - `DeviceCapability.PARTY_MODE` is deprecated; use `DeviceCapability.PAUSE_MODE` instead.
 - `partymode_enabled` and `party_mode_enabled` remain available as deprecated compatibility fields.
+- These aliases are planned for removal in `6.0.0`, and CI includes a reminder test so we do not forget.
