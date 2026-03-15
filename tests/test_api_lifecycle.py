@@ -968,7 +968,7 @@ def test_schedule_crud_publishes_normalized_payload_and_refreshes() -> None:
     assert calls[1]["message"]["sc"]["slots"][0]["cfg"]["cut"]["ob"] == 1
     assert len(calls[2]["message"]["sc"]["slots"]) == 2
     assert calls[2]["message"]["sc"]["freq"] == 0
-    assert calls[3]["message"]["sc"]["enabled"] == 0
+    assert calls[3]["message"]["sc"]["enabled"] == 1
     assert refreshes == [False, False, False, False]
 
 

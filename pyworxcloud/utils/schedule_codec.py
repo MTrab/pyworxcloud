@@ -321,12 +321,10 @@ def schedule_payload_from_model(
 
     if model.protocol == 0:
         payload = {}
-        for key in ("distm", "ots"):
+        for key in ("m", "distm", "ots"):
             if key in current_payload:
                 payload[key] = deepcopy(current_payload[key])
 
-        current_mode = str(current_payload.get("m", 0))
-        payload["m"] = 2 if model.enabled and current_mode == "2" else (1 if model.enabled else 0)
         payload["p"] = int(model.time_extension or 0)
         primary = [deepcopy(EMPTY_P0_ENTRY) for _ in range(7)]
         secondary = [deepcopy(EMPTY_P0_ENTRY) for _ in range(7)]
@@ -347,9 +345,8 @@ def schedule_payload_from_model(
 
     payload = {}
     for key, value in current_payload.items():
-        if key not in {"enabled", "slots"}:
+        if key != "slots":
             payload[key] = deepcopy(value)
-    payload["enabled"] = 1 if model.enabled else 0
     slots: list[dict[str, Any]] = []
     for entry in model.entries:
         raw_slot = deepcopy(entry.metadata.get("raw_slot", {}))

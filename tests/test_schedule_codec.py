@@ -217,3 +217,20 @@ def test_protocol0_delete_preserves_party_mode() -> None:
 
     assert len(updated.entries) == 1
     assert encoded["m"] == 2
+
+
+def test_protocol1_set_schedule_preserves_enabled_state() -> None:
+    """Schedule serialization should not change protocol 1 enabled state."""
+    payload = {
+        "enabled": 1,
+        "paused": 0,
+        "slots": [
+            {"e": 1, "d": 1, "s": 600, "t": 120, "cfg": {"cut": {"z": [1]}}},
+        ],
+    }
+
+    model = schedule_model_from_payload(1, payload)
+    model.enabled = False
+    encoded = schedule_payload_from_model(model, payload)
+
+    assert encoded["enabled"] == 1
