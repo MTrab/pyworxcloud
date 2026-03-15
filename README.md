@@ -157,5 +157,3 @@ Notes:
 | `DeviceCapability.PARTY_MODE` | `DeviceCapability.PAUSE_MODE` |
 | `partymode_enabled` | `pause_mode_enabled` |
 | `party_mode_enabled` | `pause_mode_enabled` |
-
-CI includes a reminder test tied to the removal date so these compatibility aliases are not forgotten.
