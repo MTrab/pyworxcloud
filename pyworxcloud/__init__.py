@@ -38,14 +38,14 @@ from .helpers import convert_to_time, get_logger
 from .utils import MQTT, DeviceCapability, DeviceHandler, ScheduleEntry, ScheduleModel
 from .utils.mqtt import Command
 from .utils.requests import APOST, HEADERS
+from .utils.schedule_codec import add_schedule_entry as add_schedule_entry_model
+from .utils.schedule_codec import delete_schedule_entry as delete_schedule_entry_model
 from .utils.schedule_codec import (
-    add_schedule_entry as add_schedule_entry_model,
-    delete_schedule_entry as delete_schedule_entry_model,
     schedule_model_from_payload,
     schedule_payload_from_model,
-    update_schedule_entry as update_schedule_entry_model,
-    validate_schedule_model,
 )
+from .utils.schedule_codec import update_schedule_entry as update_schedule_entry_model
+from .utils.schedule_codec import validate_schedule_model
 
 if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
@@ -725,9 +725,7 @@ class WorxCloud(dict):
         if not mower["online"]:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-        identifier = (
-            mower["serial_number"] if mower["protocol"] == 0 else mower["uuid"]
-        )
+        identifier = mower["serial_number"] if mower["protocol"] == 0 else mower["uuid"]
         await self.mqtt.apublish(
             identifier,
             mower["mqtt_topics"]["command_in"],
@@ -1187,7 +1185,9 @@ class WorxCloud(dict):
         time_extension = self._require_step(time_extension, "time_extension", 10)
         mower = self.get_mower(serial_number)
         if mower["protocol"] != 0:
-            raise ValueError("time_extension is only supported for protocol 0 schedules")
+            raise ValueError(
+                "time_extension is only supported for protocol 0 schedules"
+            )
         current_payload = self._get_current_schedule_payload(mower)
         await self._publish_schedule_payload(
             mower,

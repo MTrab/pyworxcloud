@@ -702,8 +702,10 @@ def test_set_time_extension_publishes_schedule_payload() -> None:
             )
 
     cloud.mqtt = CapturingMQTT()
+
     async def _record_refresh(is_err: bool = False) -> None:
         refreshes.append(is_err)
+
     cloud._schedule_api_refresh = _record_refresh  # type: ignore[method-assign]
     cloud._mowers = [
         {
@@ -777,8 +779,10 @@ def test_toggle_schedule_uses_protocol_specific_payloads() -> None:
 
     cloud = WorxCloud("user@example.com", "secret", "worx")
     cloud.mqtt = CapturingMQTT()
+
     async def _noop_refresh(is_err: bool = False) -> None:
         return None
+
     cloud._schedule_api_refresh = _noop_refresh  # type: ignore[method-assign]
     cloud._mowers = [
         {

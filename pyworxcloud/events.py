@@ -59,8 +59,7 @@ class EventHandler:
         signature = inspect.signature(handler)
         parameters = signature.parameters.values()
         accepts_var_kwargs = any(
-            parameter.kind == inspect.Parameter.VAR_KEYWORD
-            for parameter in parameters
+            parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters
         )
 
         if accepts_var_kwargs:
@@ -131,9 +130,9 @@ class EventHandler:
                     return False
                 has_valid_api_payload = True
 
-            has_valid_name_device = check_syntax(kwargs, ["name"], str) and check_syntax(
-                kwargs, ["device"], DeviceHandler
-            )
+            has_valid_name_device = check_syntax(
+                kwargs, ["name"], str
+            ) and check_syntax(kwargs, ["device"], DeviceHandler)
 
             if has_valid_name_device and not has_valid_api_payload:
                 api_payload = {"name": kwargs["name"], "device": kwargs["device"]}

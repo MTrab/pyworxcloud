@@ -124,10 +124,10 @@ def _clone_model(model: ScheduleModel) -> ScheduleModel:
     )
 
 
-def _normalize_protocol_zero_entries(entries: list[ScheduleEntry]) -> list[ScheduleEntry]:
-    grouped: dict[str, dict[str, ScheduleEntry]] = {
-        day: {} for day in DAY_TO_INDEX
-    }
+def _normalize_protocol_zero_entries(
+    entries: list[ScheduleEntry],
+) -> list[ScheduleEntry]:
+    grouped: dict[str, dict[str, ScheduleEntry]] = {day: {} for day in DAY_TO_INDEX}
     for entry in entries:
         if entry.duration <= 0:
             continue
@@ -227,7 +227,9 @@ def validate_schedule_model(model: ScheduleModel) -> ScheduleModel:
     )
 
 
-def schedule_model_from_payload(protocol: int, sc_payload: dict[str, Any] | None) -> ScheduleModel:
+def schedule_model_from_payload(
+    protocol: int, sc_payload: dict[str, Any] | None
+) -> ScheduleModel:
     """Create a normalized model from a raw schedule payload."""
     sc_payload = deepcopy(sc_payload) if isinstance(sc_payload, dict) else {}
 
@@ -317,7 +319,9 @@ def schedule_payload_from_model(
 ) -> dict[str, Any]:
     """Serialize a normalized model into a protocol-specific payload."""
     model = validate_schedule_model(model)
-    current_payload = deepcopy(current_payload) if isinstance(current_payload, dict) else {}
+    current_payload = (
+        deepcopy(current_payload) if isinstance(current_payload, dict) else {}
+    )
 
     if model.protocol == 0:
         payload = {}
@@ -381,14 +385,17 @@ def add_schedule_entry(model: ScheduleModel, entry: ScheduleEntry) -> ScheduleMo
 
     if model.protocol == 0:
         if entry.secondary and not any(
-            existing.day == entry.day and not existing.secondary for existing in model.entries
+            existing.day == entry.day and not existing.secondary
+            for existing in model.entries
         ):
             entry.secondary = False
             entry.source = "primary"
             entry.entry_id = _entry_id_for_protocol_zero(entry.day, False)
         for existing in model.entries:
             if existing.day == entry.day and existing.source == entry.source:
-                raise ValueError("schedule entry already exists for the requested day/source")
+                raise ValueError(
+                    "schedule entry already exists for the requested day/source"
+                )
         if not entry.entry_id:
             entry.entry_id = _entry_id_for_protocol_zero(entry.day, entry.secondary)
     else:
@@ -408,7 +415,11 @@ def update_schedule_entry(
     updated_entry = validate_schedule_entry(entry, model.protocol)
 
     target_index = next(
-        (index for index, existing in enumerate(model.entries) if existing.entry_id == entry_id),
+        (
+            index
+            for index, existing in enumerate(model.entries)
+            if existing.entry_id == entry_id
+        ),
         None,
     )
     if target_index is None:
@@ -423,8 +434,13 @@ def update_schedule_entry(
         for index, existing in enumerate(model.entries):
             if index == target_index:
                 continue
-            if existing.day == updated_entry.day and existing.source == updated_entry.source:
-                raise ValueError("schedule entry already exists for the requested day/source")
+            if (
+                existing.day == updated_entry.day
+                and existing.source == updated_entry.source
+            ):
+                raise ValueError(
+                    "schedule entry already exists for the requested day/source"
+                )
     else:
         merged_metadata = deepcopy(current_entry.metadata)
         merged_metadata.update(deepcopy(updated_entry.metadata))
@@ -439,15 +455,15 @@ def update_schedule_entry(
 def delete_schedule_entry(model: ScheduleModel, entry_id: str) -> ScheduleModel:
     """Return a model with one entry deleted."""
     model = validate_schedule_model(model)
-    target = next((entry for entry in model.entries if entry.entry_id == entry_id), None)
+    target = next(
+        (entry for entry in model.entries if entry.entry_id == entry_id), None
+    )
     if target is None:
         raise ValueError(f"schedule entry '{entry_id}' was not found")
 
     if model.protocol == 0:
         updated_entries = [
-            _clone_entry(entry)
-            for entry in model.entries
-            if entry.entry_id != entry_id
+            _clone_entry(entry) for entry in model.entries if entry.entry_id != entry_id
         ]
         if not target.secondary:
             secondary = next(
