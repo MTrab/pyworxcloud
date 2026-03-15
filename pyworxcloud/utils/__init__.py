@@ -11,6 +11,7 @@ from .mqtt import MQTT, Command
 from .orientation import Orientation
 from .product import ProductInfo
 from .rainsensor import Rainsensor
+from .schedule_codec import ScheduleEntry, ScheduleModel
 from .schedules import Schedule
 from .state import States, StateType
 from .statistics import Statistic
@@ -29,6 +30,8 @@ __all__ = [
     Orientation,
     ProductInfo,
     Rainsensor,
+    ScheduleEntry,
+    ScheduleModel,
     Schedule,
     States,
     StateType,

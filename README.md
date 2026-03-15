@@ -110,3 +110,36 @@ from pyworxcloud import WorxCloud
 
 cloud = WorxCloud("user@example.com", "secret", "worx", command_timeout=15.0)
 ```
+
+## Schedule CRUD
+
+`WorxCloud` now exposes a normalized schedule API for both protocol 0 (`d`/`dd`) and protocol 1 (`slots`) mowers.
+
+```python
+from pyworxcloud import WorxCloud
+from pyworxcloud.utils.schedule_codec import ScheduleEntry
+
+
+schedule = cloud.get_schedule("SERIAL")
+
+await cloud.add_schedule_entry(
+    "SERIAL",
+    ScheduleEntry(
+        entry_id="",
+        day="monday",
+        start="09:00",
+        duration=60,
+        boundary=False,
+        source="slot",
+        secondary=False,
+    ),
+)
+```
+
+Notes:
+
+- `get_schedule()` returns a normalized `ScheduleModel`.
+- `set_schedule()`, `add_schedule_entry()`, `update_schedule_entry()`, and `delete_schedule_entry()` automatically serialize back to the correct protocol payload.
+- Protocol 0 deletion promotes same-day secondary schedules into primary when needed.
+- Protocol 1 updates preserve extra slot metadata such as zone lists when the current payload contains them.
+- `set_time_extension()` is only supported for protocol 0 mowers.

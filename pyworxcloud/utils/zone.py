@@ -12,9 +12,6 @@ class Zone(LDict):
 
     def __init__(self, data: Any | None = None) -> dict:
         """Initialize zone object."""
-        if isinstance(data, type(None)):
-            return
-
         super().__init__()
 
         self["current"] = 0
@@ -22,6 +19,9 @@ class Zone(LDict):
         self["ids"] = []
         self["indicies"] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self["starting_point"] = [0, 0, 0, 0]
+
+        if data is None:
+            return
 
         try:
             if not "last_status" in data:
