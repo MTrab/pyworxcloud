@@ -13,6 +13,7 @@ from pyworxcloud.api import LandroidCloudAPI
 from pyworxcloud.clouds import CloudType
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.helpers.logger import PACKAGE_LOGGER_NAME, get_logger
+from pyworxcloud.utils.schedule_codec import ScheduleEntry, ScheduleModel
 
 
 class DummyTimer:
@@ -681,6 +682,7 @@ def test_set_time_extension_publishes_schedule_payload() -> None:
     """set_time_extension should publish the documented sc.p payload."""
     cloud = WorxCloud("user@example.com", "secret", "worx")
     calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
 
     class CapturingMQTT(DummyMQTT):
         async def apublish(
@@ -700,6 +702,40 @@ def test_set_time_extension_publishes_schedule_payload() -> None:
             )
 
     cloud.mqtt = CapturingMQTT()
+    async def _record_refresh(is_err: bool = False) -> None:
+        refreshes.append(is_err)
+    cloud._schedule_api_refresh = _record_refresh  # type: ignore[method-assign]
+    cloud._mowers = [
+        {
+            "name": "Target",
+            "serial_number": "SERIAL-1",
+            "uuid": "UUID-1",
+            "mac_address": "MAC-1",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/in"},
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+
+    asyncio.run(cloud.set_time_extension("SERIAL-1", 20))
+
+    assert calls == [
+        {
+            "serial": "SERIAL-1",
+            "topic": "topic/in",
+            "message": {"sc": {"m": 1, "d": [], "p": 20}},
+            "protocol": 0,
+        }
+    ]
+    assert refreshes == [False]
+
+
+def test_set_time_extension_rejects_protocol1() -> None:
+    """Protocol 1 devices should reject schedule time extension writes."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud.mqtt = DummyMQTT()
     cloud._mowers = [
         {
             "name": "Target",
@@ -709,20 +745,231 @@ def test_set_time_extension_publishes_schedule_payload() -> None:
             "online": True,
             "protocol": 1,
             "mqtt_topics": {"command_in": "topic/in"},
+            "last_status": {"payload": {"cfg": {"sc": {"enabled": 1, "slots": []}}}},
         }
     ]
     cloud._rebuild_mower_indices()
 
-    asyncio.run(cloud.set_time_extension("SERIAL-1", 20))
+    with pytest.raises(ValueError):
+        asyncio.run(cloud.set_time_extension("SERIAL-1", 20))
+
+
+def test_toggle_schedule_uses_protocol_specific_payloads() -> None:
+    """toggle_schedule should publish m for protocol 0 and enabled for protocol 1."""
+    calls: list[dict[str, Any]] = []
+
+    class CapturingMQTT(DummyMQTT):
+        async def apublish(
+            self,
+            serial: str,
+            topic: str,
+            message: Any,
+            protocol: int | None = None,
+        ) -> None:
+            calls.append(
+                {
+                    "serial": serial,
+                    "topic": topic,
+                    "message": message,
+                    "protocol": protocol,
+                }
+            )
+
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud.mqtt = CapturingMQTT()
+    async def _noop_refresh(is_err: bool = False) -> None:
+        return None
+    cloud._schedule_api_refresh = _noop_refresh  # type: ignore[method-assign]
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "last_status": {"payload": {"cfg": {"sc": {"m": 0, "d": []}}}},
+        },
+        {
+            "name": "Proto1",
+            "serial_number": "SERIAL-1",
+            "uuid": "UUID-1",
+            "mac_address": "MAC-1",
+            "online": True,
+            "protocol": 1,
+            "mqtt_topics": {"command_in": "topic/p1"},
+            "last_status": {"payload": {"cfg": {"sc": {"enabled": 0, "slots": []}}}},
+        },
+    ]
+    cloud._rebuild_mower_indices()
+
+    asyncio.run(cloud.toggle_schedule("SERIAL-0", True))
+    asyncio.run(cloud.toggle_schedule("SERIAL-1", True))
 
     assert calls == [
         {
+            "serial": "SERIAL-0",
+            "topic": "topic/p0",
+            "message": {"sc": {"m": 1, "d": []}},
+            "protocol": 0,
+        },
+        {
             "serial": "UUID-1",
-            "topic": "topic/in",
-            "message": {"sc": {"p": 20}},
+            "topic": "topic/p1",
+            "message": {"sc": {"enabled": 1, "slots": []}},
             "protocol": 1,
-        }
+        },
     ]
+
+
+def test_schedule_crud_publishes_normalized_payload_and_refreshes() -> None:
+    """Schedule CRUD should publish protocol-specific payloads and trigger refresh."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+
+    class CapturingMQTT(DummyMQTT):
+        async def apublish(
+            self,
+            serial: str,
+            topic: str,
+            message: Any,
+            protocol: int | None = None,
+        ) -> None:
+            calls.append(
+                {
+                    "serial": serial,
+                    "topic": topic,
+                    "message": message,
+                    "protocol": protocol,
+                }
+            )
+
+    async def _record_refresh(is_err: bool = False) -> None:
+        refreshes.append(is_err)
+
+    cloud.mqtt = CapturingMQTT()
+    cloud._schedule_api_refresh = _record_refresh  # type: ignore[method-assign]
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "last_status": {
+                "payload": {
+                    "cfg": {
+                        "sc": {
+                            "m": 1,
+                            "p": 0,
+                            "d": [["09:00", 30, 1]] + [["00:00", 0, 0]] * 6,
+                            "dd": [["12:00", 20, 0]] + [["00:00", 0, 0]] * 6,
+                        }
+                    }
+                }
+            },
+        },
+        {
+            "name": "Proto1",
+            "serial_number": "SERIAL-1",
+            "uuid": "UUID-1",
+            "mac_address": "MAC-1",
+            "online": True,
+            "protocol": 1,
+            "mqtt_topics": {"command_in": "topic/p1"},
+            "last_status": {
+                "payload": {
+                    "cfg": {
+                        "sc": {
+                            "enabled": 1,
+                            "paused": 0,
+                            "freq": 0,
+                            "slots": [
+                                {
+                                    "e": 1,
+                                    "d": 1,
+                                    "s": 600,
+                                    "t": 120,
+                                    "cfg": {"cut": {"b": 0, "ob": 1, "z": [1, 2]}},
+                                }
+                            ],
+                        }
+                    }
+                }
+            },
+        },
+    ]
+    cloud._rebuild_mower_indices()
+
+    proto0_schedule = cloud.get_schedule("SERIAL-0")
+    assert proto0_schedule.entries[0].entry_id == "p0:sunday:primary"
+
+    asyncio.run(cloud.delete_schedule_entry("SERIAL-0", "p0:sunday:primary"))
+    asyncio.run(
+        cloud.update_schedule_entry(
+            "SERIAL-1",
+            "p1:0",
+            ScheduleEntry(
+                entry_id="ignored",
+                day="monday",
+                start="11:00",
+                duration=30,
+                boundary=True,
+                source="slot",
+                secondary=False,
+            ),
+        )
+    )
+    asyncio.run(
+        cloud.add_schedule_entry(
+            "SERIAL-1",
+            ScheduleEntry(
+                entry_id="",
+                day="tuesday",
+                start="12:00",
+                duration=50,
+                boundary=False,
+                source="slot",
+                secondary=False,
+            ),
+        )
+    )
+    asyncio.run(
+        cloud.set_schedule(
+            "SERIAL-1",
+            ScheduleModel(
+                enabled=False,
+                time_extension=None,
+                protocol=1,
+                entries=cloud.get_schedule("SERIAL-1").entries,
+            ),
+        )
+    )
+
+    assert calls[0] == {
+        "serial": "SERIAL-0",
+        "topic": "topic/p0",
+        "message": {
+            "sc": {
+                "m": 1,
+                "p": 0,
+                "d": [["12:00", 20, 0]] + [["00:00", 0, 0]] * 6,
+                "dd": [["00:00", 0, 0]] + [["00:00", 0, 0]] * 6,
+            }
+        },
+        "protocol": 0,
+    }
+    assert calls[1]["serial"] == "UUID-1"
+    assert calls[1]["message"]["sc"]["slots"][0]["s"] == 660
+    assert calls[1]["message"]["sc"]["slots"][0]["cfg"]["cut"]["ob"] == 1
+    assert len(calls[2]["message"]["sc"]["slots"]) == 2
+    assert calls[2]["message"]["sc"]["freq"] == 0
+    assert calls[3]["message"]["sc"]["enabled"] == 1
+    assert refreshes == [False, False, False, False]
 
 
 def test_set_torque_publishes_torque_payload() -> None:

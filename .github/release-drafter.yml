@@ -5,15 +5,13 @@ sort-direction: ascending
 exclude-labels:
   - "skip-changelog"
 categories:
-  - title: "🚀 Features"
+  - title: "🚀 Features / Enhancements"
     labels:
       - "feature request"
       - "enhancement"
 
   - title: "🐛 Bug Fixes"
     labels:
-      - "fix"
-      - "bugfix"
       - "bug"
 
   - title: "🧰 Maintenance"
@@ -56,3 +54,15 @@ autolabeler:
   - label: "chore"
     branch:
       - '/chore\/.+/'
+  - label: "enhancement"
+    branch:
+      - '/enhancement\/.+/'
+  - label: "patch"
+    branch:
+      - '/fix\/.+/'
+      - '/bug\/.+/'
+      - '/^patch-\d+$/i'
+      - '/patch\/.+/'
+      - '/feature\/.+/'
+      - '/chore\/.+/'
+      - '/enhancement\/.+/'

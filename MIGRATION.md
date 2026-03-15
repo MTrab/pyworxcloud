@@ -93,6 +93,19 @@ What this means for integrations:
 - You can rely on disconnect to stop background API refresh loops.
 - Reconnect paths should call `connect()` explicitly to re-enable background refresh.
 
+### 5. Schedule CRUD is now supported through a normalized model
+
+Schedule reads and writes no longer need separate frontend handling for protocol 0 and protocol 1 mowers.
+
+What this means for integrations:
+
+- Use `get_schedule()` to retrieve a normalized `ScheduleModel`.
+- Use `set_schedule()`, `add_schedule_entry()`, `update_schedule_entry()`, and `delete_schedule_entry()` for schedule mutations.
+- Protocol 0 primary/secondary schedules are normalized into entries and serialized back into `d`/`dd`.
+- Protocol 1 slot-based schedules are normalized into entries and serialized back into `slots` while preserving existing slot metadata.
+- `toggle_schedule()` now sends the correct protocol-specific payload for both schedule formats.
+- `set_time_extension()` is limited to protocol 0 schedules.
+
 ## Recommended Integration Updates
 
 1. Add explicit timeout handling around command dispatch.

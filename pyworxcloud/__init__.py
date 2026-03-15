@@ -35,9 +35,17 @@ from .exceptions import (
     ZoneNotDefined,
 )
 from .helpers import convert_to_time, get_logger
-from .utils import MQTT, DeviceCapability, DeviceHandler
+from .utils import MQTT, DeviceCapability, DeviceHandler, ScheduleEntry, ScheduleModel
 from .utils.mqtt import Command
 from .utils.requests import APOST, HEADERS
+from .utils.schedule_codec import (
+    add_schedule_entry as add_schedule_entry_model,
+    delete_schedule_entry as delete_schedule_entry_model,
+    schedule_model_from_payload,
+    schedule_payload_from_model,
+    update_schedule_entry as update_schedule_entry_model,
+    validate_schedule_model,
+)
 
 if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
@@ -666,6 +674,117 @@ class WorxCloud(dict):
             raise ValueError(f"{name} must be in steps of {step}")
         return value
 
+    @staticmethod
+    def _deep_merge_dict(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+        """Merge nested dictionaries without mutating the inputs."""
+        merged = json.loads(json.dumps(base))
+        for key, value in patch.items():
+            if (
+                key in merged
+                and isinstance(merged[key], dict)
+                and isinstance(value, dict)
+            ):
+                merged[key] = WorxCloud._deep_merge_dict(merged[key], value)
+            else:
+                merged[key] = value
+        return merged
+
+    @staticmethod
+    def _clone_dict(value: dict[str, Any] | None) -> dict[str, Any]:
+        """Return a JSON-safe deep copy."""
+        return json.loads(json.dumps(value)) if isinstance(value, dict) else {}
+
+    def _get_current_schedule_payload(self, mower: dict[str, Any]) -> dict[str, Any]:
+        """Return the latest raw schedule payload for a mower."""
+        last_status = mower.get("last_status")
+        if isinstance(last_status, dict):
+            payload = last_status.get("payload")
+            if isinstance(payload, dict):
+                cfg = payload.get("cfg")
+                if isinstance(cfg, dict):
+                    sc = cfg.get("sc")
+                    if isinstance(sc, dict):
+                        return self._clone_dict(sc)
+        return {}
+
+    def _build_schedule_model(self, mower: dict[str, Any]) -> ScheduleModel:
+        """Build a normalized schedule model from the mower cache."""
+        return schedule_model_from_payload(
+            mower["protocol"], self._get_current_schedule_payload(mower)
+        )
+
+    def get_schedule(self, serial_number: str) -> ScheduleModel:
+        """Return the normalized schedule model for a mower."""
+        mower = self.get_mower(serial_number)
+        return self._build_schedule_model(mower)
+
+    async def _publish_schedule_payload(
+        self, mower: dict[str, Any], sc_payload: dict[str, Any]
+    ) -> None:
+        """Publish a full schedule payload and update the local cache."""
+        if not mower["online"]:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+        identifier = (
+            mower["serial_number"] if mower["protocol"] == 0 else mower["uuid"]
+        )
+        await self.mqtt.apublish(
+            identifier,
+            mower["mqtt_topics"]["command_in"],
+            {"sc": sc_payload},
+            mower["protocol"],
+        )
+
+        last_status = mower.get("last_status")
+        if isinstance(last_status, dict):
+            payload = last_status.get("payload")
+            if isinstance(payload, dict):
+                cfg = payload.setdefault("cfg", {})
+                if isinstance(cfg, dict):
+                    cfg["sc"] = self._clone_dict(sc_payload)
+                    device = self.devices.get(mower["name"])
+                    if device is not None:
+                        device.raw_data = json.dumps(payload)
+
+        await self._schedule_api_refresh()
+
+    async def set_schedule(self, serial_number: str, schedule: ScheduleModel) -> None:
+        """Persist a normalized schedule model to the mower."""
+        mower = self.get_mower(serial_number)
+        schedule = validate_schedule_model(schedule)
+        if schedule.protocol != mower["protocol"]:
+            raise ValueError("schedule protocol does not match mower protocol")
+
+        current_payload = self._get_current_schedule_payload(mower)
+        sc_payload = schedule_payload_from_model(schedule, current_payload)
+        await self._publish_schedule_payload(mower, sc_payload)
+
+    async def add_schedule_entry(
+        self, serial_number: str, entry: ScheduleEntry
+    ) -> None:
+        """Add one normalized schedule entry."""
+        mower = self.get_mower(serial_number)
+        schedule = add_schedule_entry_model(self._build_schedule_model(mower), entry)
+        await self.set_schedule(serial_number, schedule)
+
+    async def update_schedule_entry(
+        self, serial_number: str, entry_id: str, entry: ScheduleEntry
+    ) -> None:
+        """Update one normalized schedule entry."""
+        mower = self.get_mower(serial_number)
+        schedule = update_schedule_entry_model(
+            self._build_schedule_model(mower), entry_id, entry
+        )
+        await self.set_schedule(serial_number, schedule)
+
+    async def delete_schedule_entry(self, serial_number: str, entry_id: str) -> None:
+        """Delete one normalized schedule entry."""
+        mower = self.get_mower(serial_number)
+        schedule = delete_schedule_entry_model(
+            self._build_schedule_model(mower), entry_id
+        )
+        await self.set_schedule(serial_number, schedule)
+
     async def update(self, serial_number: str) -> None:
         """Request a state refresh."""
         mower = self.get_mower(serial_number)
@@ -1043,15 +1162,14 @@ class WorxCloud(dict):
         """
         enable = self._require_bool(enable, "enable")
         mower = self.get_mower(serial_number)
-        if mower["online"]:
-            await self.mqtt.apublish(
-                serial_number if mower["protocol"] == 0 else mower["uuid"],
-                mower["mqtt_topics"]["command_in"],
-                {"sc": {"m": 1}} if enable else {"sc": {"m": 0}},
-                mower["protocol"],
-            )
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
+        current_payload = self._get_current_schedule_payload(mower)
+        sc_patch = {"m": 1} if enable else {"m": 0}
+        if mower["protocol"] == 1:
+            sc_patch = {"enabled": 1} if enable else {"enabled": 0}
+        await self._publish_schedule_payload(
+            mower,
+            self._deep_merge_dict(current_payload, sc_patch),
+        )
 
     async def set_time_extension(self, serial_number: str, time_extension: int) -> None:
         """Set schedule time extension percentage.
@@ -1068,15 +1186,13 @@ class WorxCloud(dict):
         )
         time_extension = self._require_step(time_extension, "time_extension", 10)
         mower = self.get_mower(serial_number)
-        if mower["online"]:
-            await self.mqtt.apublish(
-                serial_number if mower["protocol"] == 0 else mower["uuid"],
-                mower["mqtt_topics"]["command_in"],
-                {"sc": {"p": time_extension}},
-                mower["protocol"],
-            )
-        else:
-            raise OfflineError("The device is currently offline, no action was sent.")
+        if mower["protocol"] != 0:
+            raise ValueError("time_extension is only supported for protocol 0 schedules")
+        current_payload = self._get_current_schedule_payload(mower)
+        await self._publish_schedule_payload(
+            mower,
+            self._deep_merge_dict(current_payload, {"p": time_extension}),
+        )
 
     async def set_torque(self, serial_number: str, torque: int) -> None:
         """Set wheel torque percentage.

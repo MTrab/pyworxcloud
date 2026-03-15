@@ -2,7 +2,7 @@
 
 ## Git/PR
 
-*   Base branch: `main`
+*   Base branch: `master`
 *   Branch naming convention:
     *   `feature/<branch-name>` for new features
     *   `fix/<branch-name>` for bug fixes
