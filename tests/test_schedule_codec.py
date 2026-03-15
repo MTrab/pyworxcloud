@@ -193,3 +193,27 @@ def test_protocol1_delete_removes_slot() -> None:
     assert len(updated.entries) == 1
     assert len(encoded["slots"]) == 1
     assert encoded["slots"][0]["d"] == 2
+
+
+def test_protocol0_delete_preserves_party_mode() -> None:
+    """Deleting a protocol 0 entry should not disable party mode."""
+    payload = {
+        "m": 2,
+        "p": 0,
+        "d": [
+            ["09:00", 60, 0],
+            ["10:00", 45, 0],
+            ["00:00", 0, 0],
+            ["00:00", 0, 0],
+            ["00:00", 0, 0],
+            ["00:00", 0, 0],
+            ["00:00", 0, 0],
+        ],
+    }
+
+    model = schedule_model_from_payload(0, payload)
+    updated = delete_schedule_entry(model, "p0:sunday:primary")
+    encoded = schedule_payload_from_model(updated, payload)
+
+    assert len(updated.entries) == 1
+    assert encoded["m"] == 2
