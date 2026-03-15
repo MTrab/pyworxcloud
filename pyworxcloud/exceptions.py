@@ -2,13 +2,30 @@
 
 from __future__ import annotations
 
+import warnings
+
 
 class InvalidDataDecodeException(Exception):
     """Raised when there was an error decoding data."""
 
 
-class NoPauseModeError(Exception):
+class NoPartymodeError(Exception):
+    """Deprecated compatibility alias for the pause mode error."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        warnings.warn(
+            "NoPartymodeError is deprecated; use NoPauseModeError instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
+
+
+class NoPauseModeError(NoPartymodeError):
     """Define an error when pause mode is not supported."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        Exception.__init__(self, *args, **kwargs)
 
 
 class NoOfflimitsError(Exception):

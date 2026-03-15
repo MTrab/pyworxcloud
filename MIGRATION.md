@@ -106,6 +106,17 @@ What this means for integrations:
 - `toggle_schedule()` now sends the correct protocol-specific payload for both schedule formats.
 - `set_time_extension()` is limited to protocol 0 schedules.
 
+### 6. Party mode names are deprecated in favor of Pause mode
+
+The old Party mode names still work for now, but they emit `DeprecationWarning` where possible.
+
+What this means for integrations:
+
+- Replace `set_partymode()` with `set_pause_mode()`.
+- Replace `NoPartymodeError` with `NoPauseModeError`.
+- Replace `DeviceCapability.PARTY_MODE` with `DeviceCapability.PAUSE_MODE`.
+- Migrate from `partymode_enabled` / `party_mode_enabled` to `pause_mode_enabled`.
+
 ## Recommended Integration Updates
 
 1. Add explicit timeout handling around command dispatch.

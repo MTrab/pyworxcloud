@@ -28,6 +28,7 @@ from .exceptions import (
     NoCuttingHeightError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
+    NoPartymodeError,
     NoPauseModeError,
     OfflineError,
     TooManyRequestsError,
@@ -963,6 +964,15 @@ class WorxCloud(dict):
                 raise NoPauseModeError("This device does not support Pause mode")
         elif not mower["online"]:
             raise OfflineError("The device is currently offline, no action was sent.")
+
+    async def set_partymode(self, serial_number: str, state: bool) -> None:
+        """Deprecated compatibility wrapper for :meth:`set_pause_mode`."""
+        warnings.warn(
+            "set_partymode() is deprecated; use set_pause_mode() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        await self.set_pause_mode(serial_number, state)
 
     async def set_offlimits(self, serial_number: str, state: bool) -> None:
         """Turn on or off the off limits module.

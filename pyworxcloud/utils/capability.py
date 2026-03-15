@@ -3,13 +3,28 @@
 from __future__ import annotations
 
 import logging
-from enum import IntEnum
+import warnings
+from enum import EnumMeta, IntEnum
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class DeviceCapability(IntEnum):
+class _DeviceCapabilityMeta(EnumMeta):
+    """Enum metaclass that keeps deprecated aliases working."""
+
+    def __getattr__(cls, name: str):
+        if name == "PARTY_MODE":
+            warnings.warn(
+                "DeviceCapability.PARTY_MODE is deprecated; use DeviceCapability.PAUSE_MODE instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return cls.PAUSE_MODE
+        return super().__getattr__(name)
+
+
+class DeviceCapability(IntEnum, metaclass=_DeviceCapabilityMeta):
     """Available device capabilities."""
 
     EDGE_CUT = 1

@@ -143,3 +143,12 @@ Notes:
 - Protocol 0 deletion promotes same-day secondary schedules into primary when needed.
 - Protocol 1 updates preserve extra slot metadata such as zone lists when the current payload contains them.
 - `set_time_extension()` is only supported for protocol 0 mowers.
+
+## Deprecations
+
+The old Party mode API remains available for compatibility during the transition to Pause mode.
+
+- `set_partymode()` is deprecated; use `set_pause_mode()` instead.
+- `NoPartymodeError` is deprecated; use `NoPauseModeError` instead.
+- `DeviceCapability.PARTY_MODE` is deprecated; use `DeviceCapability.PAUSE_MODE` instead.
+- `partymode_enabled` and `party_mode_enabled` remain available as deprecated compatibility fields.
