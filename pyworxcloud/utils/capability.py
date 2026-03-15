@@ -24,7 +24,7 @@ class DeviceCapability(IntEnum):
 CAPABILITY_TO_TEXT = {
     DeviceCapability.EDGE_CUT: "Edge Cut",
     DeviceCapability.ONE_TIME_SCHEDULE: "One-Time-Schedule",
-    DeviceCapability.PAUSE_MODE: "Pause tilstand",
+    DeviceCapability.PAUSE_MODE: "Pause mode",
     DeviceCapability.TORQUE: "Motor Torque",
     DeviceCapability.OFF_LIMITS: "Off Limits",
     DeviceCapability.CUTTING_HEIGHT: "Cutting Height",
