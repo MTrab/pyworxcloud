@@ -47,7 +47,7 @@ class ScheduleParseResult:
     """Normalized schedule output used by DeviceHandler."""
 
     slots: list[ScheduleSlot]
-    party_mode_enabled: bool
+    pause_mode_enabled: bool
     active: bool
     time_extension: int
     one_time_schedule: bool
@@ -65,7 +65,7 @@ class ScheduleParser:
         sc = self._payload
         time_extension = int(sc.get("p", 0))
         one_time = "ots" in sc or "once" in sc
-        party_mode_enabled = bool(
+        pause_mode_enabled = bool(
             str(sc.get("m")) == "2" or str(sc.get("enabled")) == "0"
         )
         active = bool(
@@ -83,7 +83,7 @@ class ScheduleParser:
 
         return ScheduleParseResult(
             slots=self._slots,
-            party_mode_enabled=party_mode_enabled,
+            pause_mode_enabled=pause_mode_enabled,
             active=active,
             time_extension=time_extension,
             one_time_schedule=one_time,

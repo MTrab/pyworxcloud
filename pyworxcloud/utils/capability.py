@@ -14,7 +14,7 @@ class DeviceCapability(IntEnum):
 
     EDGE_CUT = 1
     ONE_TIME_SCHEDULE = 2
-    PARTY_MODE = 4
+    PAUSE_MODE = 4
     TORQUE = 8
     OFF_LIMITS = 16
     CUTTING_HEIGHT = 32
@@ -24,7 +24,7 @@ class DeviceCapability(IntEnum):
 CAPABILITY_TO_TEXT = {
     DeviceCapability.EDGE_CUT: "Edge Cut",
     DeviceCapability.ONE_TIME_SCHEDULE: "One-Time-Schedule",
-    DeviceCapability.PARTY_MODE: "Party Mode",
+    DeviceCapability.PAUSE_MODE: "Pause tilstand",
     DeviceCapability.TORQUE: "Motor Torque",
     DeviceCapability.OFF_LIMITS: "Off Limits",
     DeviceCapability.CUTTING_HEIGHT: "Cutting Height",
@@ -61,7 +61,7 @@ class Capability:
                     self.add(DeviceCapability.EDGE_CUT)
 
                 if "distm" in cfg["sc"] or "enabled" in cfg["sc"]:
-                    self.add(DeviceCapability.PARTY_MODE)
+                    self.add(DeviceCapability.PAUSE_MODE)
 
         except TypeError:
             pass

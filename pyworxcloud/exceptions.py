@@ -7,8 +7,8 @@ class InvalidDataDecodeException(Exception):
     """Raised when there was an error decoding data."""
 
 
-class NoPartymodeError(Exception):
-    """Define an error when partymode is not supported."""
+class NoPauseModeError(Exception):
+    """Define an error when pause mode is not supported."""
 
 
 class NoOfflimitsError(Exception):

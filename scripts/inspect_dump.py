@@ -129,7 +129,7 @@ def summarize(
 
     print("\nSchedule")
     print(f"  active: {device.schedules.get('active')}")
-    print(f"  party_mode_enabled: {device.schedules.get('party_mode_enabled')}")
+    print(f"  pause_mode_enabled: {device.schedules.get('pause_mode_enabled')}")
     print(f"  one_time_schedule: {device.schedules.get('one_time_schedule')}")
     print(
         f"  time_extension (sc.p): {sc.get('p', 0)} -> {device.schedules.get('time_extension')}"
