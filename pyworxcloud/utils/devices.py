@@ -77,6 +77,7 @@ class DeviceHandler(LDict):
         self.offlimit_shortcut: bool | None = None
         self.acs_enabled: bool | None = None
         self.partymode_enabled: bool | None = None
+        self.pause_mode_enabled: bool | None = None
 
         if not isinstance(mower, type(None)) and not isinstance(api, type(None)):
             self.__mapinfo(api, mower)
@@ -363,12 +364,14 @@ class DeviceHandler(LDict):
         result = ScheduleParser(sc_payload, self.protocol).parse()
 
         if "m" in sc_payload or "enabled" in sc_payload:
-            self.capabilities.add(DeviceCapability.PARTY_MODE)
+            self.capabilities.add(DeviceCapability.PAUSE_MODE)
 
-        self.partymode_enabled = result.party_mode_enabled
+        self.partymode_enabled = result.pause_mode_enabled
+        self.pause_mode_enabled = result.pause_mode_enabled
         self.schedules["active"] = result.active
         self.schedules["time_extension"] = result.time_extension
-        self.schedules["party_mode_enabled"] = result.party_mode_enabled
+        self.schedules["party_mode_enabled"] = result.pause_mode_enabled
+        self.schedules["pause_mode_enabled"] = result.pause_mode_enabled
         self.schedules["slots"] = [slot.as_dict() for slot in result.slots]
         self.schedules["one_time_schedule"] = result.one_time_schedule
 

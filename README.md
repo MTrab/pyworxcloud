@@ -91,7 +91,7 @@ You can also run `python scripts/dump_mapping.py` to print the decoded snapshot 
 - `schedules["slots"]` retains every slot that was present in `sc.slots` or `sc.d`, so protocol 1 devices with more end-of-day runs can be inspected.
 
 
-- slot-first schedule generation that captures each configured run (legacy `d` arrays and protocol 1 `slots`) along with calculated `end` times, party-mode awareness, and time-extension handling.
+- slot-first schedule generation that captures each configured run (legacy `d` arrays and protocol 1 `slots`) along with calculated `end` times, pause-mode awareness, and time-extension handling.
 - complete rain-delay state tracking (raw counter, active flag, remaining minutes) plus module status/configuration (ACS, Off Limits shortcuts, etc.).
 - real-time updates of lock state, battery/blade statistics, orientation, GPS hooks, and module-specific metadata so MQTT and API consumers stay synchronized.
 
@@ -143,3 +143,17 @@ Notes:
 - Protocol 0 deletion promotes same-day secondary schedules into primary when needed.
 - Protocol 1 updates preserve extra slot metadata such as zone lists when the current payload contains them.
 - `set_time_extension()` is only supported for protocol 0 mowers.
+
+## Deprecations
+
+> [!WARNING]
+> The old Party mode names are deprecated and are planned for removal after `2026-09-15`.
+> Compatibility aliases still work for now, but new integrations should use the Pause mode names below.
+
+| Deprecated | Use instead |
+| --- | --- |
+| `set_partymode()` | `set_pause_mode()` |
+| `NoPartymodeError` | `NoPauseModeError` |
+| `DeviceCapability.PARTY_MODE` | `DeviceCapability.PAUSE_MODE` |
+| `partymode_enabled` | `pause_mode_enabled` |
+| `party_mode_enabled` | `pause_mode_enabled` |

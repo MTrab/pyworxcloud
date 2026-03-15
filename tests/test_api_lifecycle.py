@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import warnings
 from datetime import datetime
 from typing import Any
 
@@ -1022,3 +1023,57 @@ def test_set_torque_publishes_torque_payload() -> None:
             "protocol": 1,
         }
     ]
+
+
+def test_set_partymode_warns_and_calls_pause_mode(monkeypatch) -> None:
+    """Deprecated set_partymode should warn and publish the pause-mode payload."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    calls: list[dict[str, Any]] = []
+
+    class CapturingMQTT(DummyMQTT):
+        async def apublish(
+            self,
+            serial: str,
+            topic: str,
+            message: Any,
+            protocol: int | None = None,
+        ) -> None:
+            calls.append(
+                {
+                    "serial": serial,
+                    "topic": topic,
+                    "message": message,
+                    "protocol": protocol,
+                }
+            )
+
+    class DummyCapabilities:
+        def check(self, _capability: Any) -> bool:
+            return True
+
+    class StubDeviceHandler:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            self.capabilities = DummyCapabilities()
+
+    monkeypatch.setattr("pyworxcloud.DeviceHandler", StubDeviceHandler)
+    cloud.mqtt = CapturingMQTT()
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}, "dat": {}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        asyncio.run(cloud.set_partymode("SERIAL-0", True))
+
+    assert any("set_partymode()" in str(item.message) for item in captured)
+    assert calls[0]["message"] == {"sc": {"m": 2, "distm": 0}}

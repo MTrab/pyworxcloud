@@ -29,10 +29,10 @@ This document visualizes how the JSON `cfg`/`dat` payloads from the Worx/Kress/L
 | `tq` | Torque helper flag. | Grants `DeviceCapability.TORQUE`. |
 | `mz` / `mzv` | Multi-zone start distances and index map. | Sets `zone.starting_point` / `zone.indicies` and derived `zone.current`. |
 | `modules` | Module configuration (`DF`, `US`, etc.). | Grants capabilities (Off-Limits / ACS) and flags `offlimit`, `offlimit_shortcut`, `acs_enabled`. |
-| `sc` | Schedule definition (legacy `d` arrays or new `slots`). | Drives `schedules["slots"]` plus `["active"]`, `["time_extension"]`, `["party_mode_enabled"]`, `["one_time_schedule"]` and related metadata. |
+| `sc` | Schedule definition (legacy `d` arrays or new `slots`). | Drives `schedules["slots"]` plus `["active"]`, `["time_extension"]`, `["pause_mode_enabled"]`, `["one_time_schedule"]` and related metadata. |
 | `slots` | Derived slot list for every configured run. | Exposed via `schedules["slots"]`, so protocol 1 devices with more than two programs can still enumerate each entry verbatim. |
 | `sc.p` | Time extension modifier (minutes to add to each slot). | Stored as `schedules["time_extension"]` and applied to every `slot` end time. |
-| `sc.m` / `sc.enabled` | Party mode toggles. | Trigger `DeviceCapability.PARTY_MODE` and populate `schedules["active"]`. |
+| `sc.m` / `sc.enabled` | Pause mode toggles. | Trigger `DeviceCapability.PAUSE_MODE` and populate `schedules["active"]`. |
 | `sc.ots` | One-time scheduling info. | Adds `DeviceCapability.ONE_TIME_SCHEDULE` and `DeviceCapability.EDGE_CUT` when present (`ots.bc`, `ots.wtm`). |
 | `sc.dd` | Secondary-day schedule matrix. | Mirrors `ScheduleType.SECONDARY` entries so protocol 0 devices keep their legacy extra cuts. |
 | `sc.distm` | Distance multiplier tracking. | Tracked under `schedules["slots"]` for reporting and future UI needs. |
@@ -44,7 +44,7 @@ For every `sc` payload:
 - If `sc.d` is present (protocol 0), each entry `<start, duration, boundary>` is converted into a slot regardless of weekday order; `time_extension` (`sc.p`) affects the computed `end` and `duration_extended`.
 - `sc.slots` entries (protocol 1) are mapped one-to-one, decoding `d` (weekday), `s` (start offset), `t` (duration), and nested `cfg.cut.b` (boundary) while recalculating actual start times.
 - `sc.dd` produces additional slots tagged with source `secondary`; these are preserved so legacy secondary runs stay visible.
-- Fields such as `sc.m`, `sc.enabled`, `sc.ots`/`ots.bc`/`ots.wtm`, and `sc.distm` influence party mode, one-time cuts, and edge cut flags, matching the reference apps.
+- Fields such as `sc.m`, `sc.enabled`, `sc.ots`/`ots.bc`/`ots.wtm`, and `sc.distm` influence pause mode, one-time cuts, and edge cut flags, matching the reference apps.
 
 ## Additional notes
 
