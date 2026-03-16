@@ -9,6 +9,7 @@
     *   `chore/<branch-name>` for maintenance/refactor/tooling
 *   PR title format: `Summary`
 *   PR description must include: Summary, Changes, Testing, Notes
+*   Every PR must have the correct semver label (`patch`, `minor`, or `major`) before merge
 *   Always run `git status` before commit
 *   Never commit `.env`
 *   If a PR closes a GitHub issue, the PR description must include `Fixes #<issue-number>` so PR and issue are linked automatically
