@@ -96,20 +96,95 @@ class Schedule(LDict):
         self["party_mode_enabled"] = False
         self["pause_mode_enabled"] = False
         self["one_time_schedule"] = False
-        self["auto_schedule"] = {
-            "settings": (
-                data["auto_schedule_settings"]
-                if isinstance(data, dict) and "auto_schedule_settings" in data
-                else {}
-            ),
-            "enabled": (
-                data["auto_schedule"]
-                if isinstance(data, dict) and "auto_schedule" in data
-                else False
-            ),
-        }
+        self["auto_schedule"] = self._normalize_auto_schedule(data)
 
     def update_progress_and_next(self, tz: str | None = None) -> None:
         info = ScheduleInfo(self, tz)
         self["daily_progress"] = info.calculate_progress()
         self["next_schedule_start"] = info.next_schedule()
+
+    @staticmethod
+    def _normalize_auto_schedule(data: Any | None) -> dict[str, Any]:
+        """Normalize auto-schedule settings to a stable read-side structure."""
+        raw_settings = (
+            data.get("auto_schedule_settings", {})
+            if isinstance(data, dict)
+            else {}
+        )
+        settings = raw_settings if isinstance(raw_settings, dict) else {}
+        exclusion = settings.get("exclusion_scheduler", {})
+        exclusion_scheduler = (
+            exclusion if isinstance(exclusion, dict) else {}
+        )
+        raw_days = exclusion_scheduler.get("days", [])
+        days = raw_days if isinstance(raw_days, list) else []
+
+        normalized_days = [
+            Schedule._normalize_auto_schedule_day(day)
+            for day in days[:7]
+        ]
+        while len(normalized_days) < 7:
+            normalized_days.append(Schedule._normalize_auto_schedule_day({}))
+
+        nutrition = settings.get("nutrition")
+        normalized_nutrition = (
+            Schedule._normalize_auto_schedule_nutrition(nutrition)
+            if isinstance(nutrition, dict)
+            else nutrition
+        )
+
+        return {
+            "enabled": (
+                bool(data.get("auto_schedule", False))
+                if isinstance(data, dict)
+                else False
+            ),
+            "settings": {
+                "boost": settings.get("boost"),
+                "grass_type": settings.get("grass_type"),
+                "soil_type": settings.get("soil_type"),
+                "irrigation": settings.get("irrigation"),
+                "nutrition": normalized_nutrition,
+                "exclusion_scheduler": {
+                    "exclude_nights": bool(
+                        exclusion_scheduler.get("exclude_nights", False)
+                    ),
+                    "days": normalized_days,
+                },
+            },
+        }
+
+    @staticmethod
+    def _normalize_auto_schedule_day(day: Any) -> dict[str, Any]:
+        """Normalize one auto-schedule exclusion day entry."""
+        day_entry = day if isinstance(day, dict) else {}
+        raw_slots = day_entry.get("slots", [])
+        slots = raw_slots if isinstance(raw_slots, list) else []
+        return {
+            "exclude_day": bool(day_entry.get("exclude_day", False)),
+            "slots": [
+                Schedule._normalize_auto_schedule_slot(slot)
+                for slot in slots
+                if isinstance(slot, dict)
+            ],
+        }
+
+    @staticmethod
+    def _normalize_auto_schedule_slot(slot: dict[str, Any]) -> dict[str, Any]:
+        """Normalize one auto-schedule exclusion slot entry."""
+        return {
+            "start_time": slot.get("start_time"),
+            "duration": slot.get("duration"),
+            "reason": slot.get("reason"),
+        }
+
+    @staticmethod
+    def _normalize_auto_schedule_nutrition(
+        nutrition: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Normalize NPK nutrition settings when present."""
+        return {
+            "n": nutrition.get("n"),
+            "p": nutrition.get("p"),
+            "k": nutrition.get("k"),
+        }

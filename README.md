@@ -89,7 +89,7 @@ You can also run `python scripts/dump_mapping.py` to print the decoded snapshot 
 `DeviceHandler` now keeps the raw `cfg`/`dat` dictionaries alongside the richer surface model that mirrors what is described in `code-ref`. Highlights include:
 
 - `schedules["slots"]` retains every slot that was present in `sc.slots` or `sc.d`, so protocol 1 devices with more end-of-day runs can be inspected.
-
+- `schedules["auto_schedule"]` now exposes a normalized automatic-scheduling view with typed `boost`, `grass_type`, `soil_type`, `irrigation`, `nutrition`, and exclusion-scheduler fields when the mower API payload provides them.
 
 - slot-first schedule generation that captures each configured run (legacy `d` arrays and protocol 1 `slots`) along with calculated `end` times, pause-mode awareness, and time-extension handling.
 - complete rain-delay state tracking (raw counter, active flag, remaining minutes) plus module status/configuration (ACS, Off Limits shortcuts, etc.).

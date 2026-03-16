@@ -36,6 +36,8 @@ This document visualizes how the JSON `cfg`/`dat` payloads from the Worx/Kress/L
 | `sc.ots` | One-time scheduling info. | Adds `DeviceCapability.ONE_TIME_SCHEDULE` and `DeviceCapability.EDGE_CUT` when present (`ots.bc`, `ots.wtm`). |
 | `sc.dd` | Secondary-day schedule matrix. | Mirrors `ScheduleType.SECONDARY` entries so protocol 0 devices keep their legacy extra cuts. |
 | `sc.distm` | Distance multiplier tracking. | Tracked under `schedules["slots"]` for reporting and future UI needs. |
+| `auto_schedule` | Automatic scheduling enabled state. | Exposed via `schedules["auto_schedule"]["enabled"]`. |
+| `auto_schedule_settings` | Automatic scheduling settings block from the mower API payload. | Normalized into `schedules["auto_schedule"]["settings"]` with typed `boost`, `grass_type`, `soil_type`, `irrigation`, `nutrition`, and `exclusion_scheduler` fields. |
 
 ### Schedule visualization
 
@@ -45,6 +47,8 @@ For every `sc` payload:
 - `sc.slots` entries (protocol 1) are mapped one-to-one, decoding `d` (weekday), `s` (start offset), `t` (duration), and nested `cfg.cut.b` (boundary) while recalculating actual start times.
 - `sc.dd` produces additional slots tagged with source `secondary`; these are preserved so legacy secondary runs stay visible.
 - Fields such as `sc.m`, `sc.enabled`, `sc.ots`/`ots.bc`/`ots.wtm`, and `sc.distm` influence pause mode, one-time cuts, and edge cut flags, matching the reference apps.
+- `auto_schedule_settings.exclusion_scheduler.days` is normalized to seven day entries; each entry contains `exclude_day` and a list of slots with `start_time`, `duration`, and `reason`.
+- Observed auto-schedule slot reasons currently include `generic` and `irrigation`; `nutrition` is normalized as a separate NPK object (`n`, `p`, `k`) rather than a slot reason.
 
 ## Additional notes
 

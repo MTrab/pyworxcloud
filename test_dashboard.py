@@ -144,6 +144,97 @@ def _schedule_slots(device: DeviceHandler) -> list[dict[str, Any]]:
     return slots if isinstance(slots, list) else []
 
 
+def _auto_schedule(device: DeviceHandler) -> dict[str, Any]:
+    """Extract normalized auto-schedule payload."""
+    schedules = getattr(device, "schedules", None)
+    if schedules is None:
+        return {}
+    value = None
+    if isinstance(schedules, dict):
+        value = schedules.get("auto_schedule")
+    if value is None:
+        try:
+            value = schedules["auto_schedule"]  # type: ignore[index]
+        except Exception:
+            value = None
+    return value if isinstance(value, dict) else {}
+
+
+def _auto_schedule_summary(device: DeviceHandler) -> str:
+    """Return compact auto-schedule summary for dashboard header."""
+    auto_schedule = _auto_schedule(device)
+    settings = auto_schedule.get("settings", {})
+    if not isinstance(settings, dict):
+        settings = {}
+    nutrition = settings.get("nutrition")
+    nutrition_text = "off"
+    if isinstance(nutrition, dict):
+        nutrition_text = (
+            f"n={nutrition.get('n', '?')},p={nutrition.get('p', '?')},k={nutrition.get('k', '?')}"
+        )
+    return (
+        f"enabled={auto_schedule.get('enabled', False)} | "
+        f"grass={settings.get('grass_type', '-') or '-'} | "
+        f"soil={settings.get('soil_type', '-') or '-'} | "
+        f"irrigation={settings.get('irrigation', False)} | "
+        f"nutrition={nutrition_text}"
+    )
+
+
+def _auto_schedule_lines(device: DeviceHandler) -> list[str]:
+    """Return detailed auto-schedule lines for schedule details view."""
+    auto_schedule = _auto_schedule(device)
+    settings = auto_schedule.get("settings", {})
+    if not isinstance(settings, dict):
+        settings = {}
+    exclusion = settings.get("exclusion_scheduler", {})
+    if not isinstance(exclusion, dict):
+        exclusion = {}
+    nutrition = settings.get("nutrition")
+    lines = [
+        f"Auto schedule enabled: {auto_schedule.get('enabled', False)}",
+        f"Boost: {settings.get('boost', '-')}",
+        f"Grass type: {settings.get('grass_type', '-') or '-'}",
+        f"Soil type: {settings.get('soil_type', '-') or '-'}",
+        f"Irrigation: {settings.get('irrigation', False)}",
+        f"Nutrition: {nutrition if nutrition is not None else 'off'}",
+        f"Exclude nights: {exclusion.get('exclude_nights', False)}",
+    ]
+    day_names = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+    ]
+    days = exclusion.get("days", [])
+    if isinstance(days, list):
+        lines.append("Exclusion days:")
+        for idx, day in enumerate(days):
+            if not isinstance(day, dict):
+                continue
+            slots = day.get("slots", [])
+            if day.get("exclude_day") or slots:
+                slot_texts = []
+                if isinstance(slots, list):
+                    for slot in slots:
+                        if not isinstance(slot, dict):
+                            continue
+                        slot_texts.append(
+                            "start="
+                            f"{slot.get('start_time', '?')}m "
+                            f"duration={slot.get('duration', '?')}m "
+                            f"reason={slot.get('reason', '-')}"
+                        )
+                detail = "; ".join(slot_texts) if slot_texts else "full-day exclude"
+                lines.append(
+                    f"- {day_names[idx] if idx < len(day_names) else idx}: {detail}"
+                )
+    return lines
+
+
 def _format_updated(device: DeviceHandler) -> dict[str, str]:
     """Return raw updated timestamp for dashboard diagnostics."""
     value = getattr(device, "updated", None)
@@ -167,6 +258,10 @@ async def _show_schedule_view(device: DeviceHandler, selected: str) -> None:
     print(f"Next schedule start: {_next_schedule_start(device)}")
     print(f"Daily progress: {device.schedules.get('daily_progress', 'unknown')}%")
     print(f"Schedule active: {device.schedules.get('active', 'unknown')}")
+    print(f"Auto schedule: {_auto_schedule_summary(device)}")
+    print("-" * 72)
+    for line in _auto_schedule_lines(device):
+        print(line)
     print("-" * 72)
     slots = _schedule_slots(device)
     if not slots:
@@ -225,6 +320,7 @@ def _render_device(device: DeviceHandler, selected: str, event_text: str) -> Non
     print(f"Locked: {getattr(device, 'locked', 'unknown')}")
     print(f"Firmware: {_firmware_version(device)}")
     print(f"Next schedule start: {_next_schedule_start(device)}")
+    print(f"Auto schedule: {_auto_schedule_summary(device)}")
     print(f"Device timezone: {updated['device_tz']}")
     print(f"Updated raw: {updated['raw']}")
     print(
