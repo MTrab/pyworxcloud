@@ -15,7 +15,7 @@ from pyworxcloud.utils.mqtt import MQTT
 class _ImmediateFuture:
     """Simple future stub with immediate completion."""
 
-    def result(self) -> None:
+    def result(self, timeout: float | None = None) -> None:
         return None
 
 
@@ -97,6 +97,19 @@ def test_disconnect_swallows_teardown_disconnect_errors() -> None:
 
     mqtt.disconnect()
 
+    assert mqtt._is_connected is False
+
+
+def test_disconnect_swallows_disconnect_future_timeout() -> None:
+    """Disconnect should not block indefinitely on disconnect futures."""
+    client = _ClientStub()
+    client.future = _TimeoutFuture()
+    mqtt = _build_mqtt_lifecycle_fixture(client=client)
+
+    mqtt.disconnect()
+
+    assert client.disconnect_calls == 1
+    assert mqtt._connection_future is None
     assert mqtt._is_connected is False
 
 
