@@ -330,47 +330,62 @@ class WorxCloud(dict):
         Returns:
             bool: True if connection was successful, otherwise False.
         """
+        logger = self._log.getChild("Connect")
         self._disconnecting = asyncio.Event()
         self._loop = asyncio.get_running_loop()
-        self._log.debug("Fetching basic API data")
-        await self._fetch()
-        self._log.debug("Done fetching basic API data")
+        try:
+            self._log.debug("Fetching basic API data")
+            await self._fetch()
+            self._log.debug("Done fetching basic API data")
 
-        if len(self._mowers) == 0:
-            self._log.debug("no mowers connected to account")
-            return False
+            if len(self._mowers) == 0:
+                self._log.debug("no mowers connected to account")
+                return False
 
-        self._endpoint = self._mowers[0]["mqtt_endpoint"]
-        self._user_id = self._mowers[0]["user_id"]
+            self._endpoint = self._mowers[0]["mqtt_endpoint"]
+            self._user_id = self._mowers[0]["user_id"]
 
-        self._log.debug("Setting up MQTT handler")
-        # setup MQTT handler
-        self.mqtt = MQTT(
-            self._api,
-            self._cloud.BRAND_PREFIX,
-            self._endpoint,
-            self._user_id,
-            self._log,
-            self._on_update,
-            identifier_resolver=self._resolve_mower_identifiers,
-            deduplicate_inflight_commands=self._deduplicate_inflight_commands,
-            response_timeout=self._command_timeout,
-        )
-
-        await self.mqtt.aconnect()
-
-        for mower in self._mowers:
-            await self.mqtt.asubscribe(mower["mqtt_topics"]["command_out"], True)
-
-        # Convert time strings to objects.
-        for name, device in self.devices.items():
-            convert_to_time(
-                name, device, device.time_zone, callback=self.update_attribute
+            self._log.debug("Setting up MQTT handler")
+            # setup MQTT handler
+            self.mqtt = MQTT(
+                self._api,
+                self._cloud.BRAND_PREFIX,
+                self._endpoint,
+                self._user_id,
+                self._log,
+                self._on_update,
+                identifier_resolver=self._resolve_mower_identifiers,
+                deduplicate_inflight_commands=self._deduplicate_inflight_commands,
+                response_timeout=self._command_timeout,
             )
 
-        self._log.debug("Connection tasks all done")
+            await self.mqtt.aconnect()
 
-        return True
+            for mower in self._mowers:
+                await self.mqtt.asubscribe(mower["mqtt_topics"]["command_out"], True)
+
+            # Convert time strings to objects.
+            for name, device in self.devices.items():
+                convert_to_time(
+                    name, device, device.time_zone, callback=self.update_attribute
+                )
+
+            self._log.debug("Connection tasks all done")
+
+            return True
+        except Exception:
+            logger.debug(
+                "Connect failed; cleaning up partial resources",
+                exc_info=True,
+            )
+            try:
+                await self.disconnect()
+            except Exception:
+                logger.debug(
+                    "Cleanup after failed connect raised",
+                    exc_info=True,
+                )
+            raise
 
     async def _token_updated(self) -> None:
         """Called when token is updated."""

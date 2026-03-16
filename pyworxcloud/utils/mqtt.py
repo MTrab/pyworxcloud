@@ -41,7 +41,8 @@ from .landroid_class import LDict
 
 QOS_FLAG = awscrt.mqtt.QoS.AT_LEAST_ONCE
 DEFAULT_RESPONSE_TIMEOUT = 30.0
-DEFAULT_SHUTDOWN_TIMEOUT = 5.0
+DEFAULT_DISCONNECT_TIMEOUT = 0.5
+DEFAULT_SHUTDOWN_TIMEOUT = 0.25
 
 
 class MQTTMsgType(LDict):
@@ -154,6 +155,7 @@ class MQTT(LDict):
             f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}"
         )
         self._shutdown_event = False
+        self._disconnect_timeout = DEFAULT_DISCONNECT_TIMEOUT
         self._shutdown_timeout = DEFAULT_SHUTDOWN_TIMEOUT
 
         # Create event loop group and connection
@@ -383,10 +385,21 @@ class MQTT(LDict):
                 if self._is_connected:
                     started = time.perf_counter()
                     disconnect_future = client.disconnect()
-                    disconnect_future.result()
+                    disconnect_future.result(
+                        timeout=getattr(
+                            self,
+                            "_disconnect_timeout",
+                            DEFAULT_DISCONNECT_TIMEOUT,
+                        )
+                    )
                     logger.debug(
                         "MQTT disconnected in %.3fs", time.perf_counter() - started
                     )
+            except FutureTimeoutError:  # pragma: no cover - defensive
+                logger.debug(
+                    "MQTT disconnect timed out after %.3fs",
+                    time.perf_counter() - started,
+                )
             except Exception as err:  # pragma: no cover - defensive
                 logger.debug("MQTT disconnect raised during teardown: %s", err)
             finally:
