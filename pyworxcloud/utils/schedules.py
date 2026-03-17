@@ -9,6 +9,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from ..day_map import DAY_MAP
 from .landroid_class import LDict
 
+AUTO_SCHEDULE_BOOST_LEVELS = (0, 1, 2)
+
 
 class ScheduleInfo:
     """Provide slot-based progress calculations."""
@@ -140,7 +142,9 @@ class Schedule(LDict):
                 else False
             ),
             "settings": {
-                "boost": settings.get("boost"),
+                "boost": Schedule._normalize_auto_schedule_boost(
+                    settings.get("boost")
+                ),
                 "grass_type": settings.get("grass_type"),
                 "soil_type": settings.get("soil_type"),
                 "irrigation": settings.get("irrigation"),
@@ -153,6 +157,15 @@ class Schedule(LDict):
                 },
             },
         }
+
+    @staticmethod
+    def _normalize_auto_schedule_boost(boost: Any) -> int | None:
+        """Normalize auto-schedule boost as an observed raw integer level."""
+        if boost is None or isinstance(boost, bool):
+            return None
+        if isinstance(boost, int):
+            return boost
+        return None
 
     @staticmethod
     def _normalize_auto_schedule_day(day: Any) -> dict[str, Any]:

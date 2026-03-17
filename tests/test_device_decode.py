@@ -608,6 +608,39 @@ def test_devicehandler_normalizes_auto_schedule_settings() -> None:
     }
 
 
+@pytest.mark.parametrize("boost", schedules_module.AUTO_SCHEDULE_BOOST_LEVELS)
+def test_devicehandler_preserves_observed_auto_schedule_boost_levels(
+    boost: int,
+) -> None:
+    """Observed auto-schedule boost levels should round-trip unchanged."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": f"SERIAL-AUTO-SCHEDULE-BOOST-{boost}",
+            "rd": 0,
+            "sc": {"d": [], "dd": False},
+            "tm": "12:00:00",
+            "dt": "11/03/2026",
+            "tz": "UTC",
+        },
+        "dat": {
+            "uuid": f"UUID-AUTO-SCHEDULE-BOOST-{boost}",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "Auto Schedule Boost Fixture")
+    mower["auto_schedule"] = True
+    mower["auto_schedule_settings"] = {"boost": boost}
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.schedules["auto_schedule"]["settings"]["boost"] == boost
+
+
 def test_devicehandler_fills_missing_auto_schedule_defaults() -> None:
     """Missing auto schedule fields should fall back to safe defaults."""
     payload = {
