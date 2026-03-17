@@ -28,7 +28,7 @@ from .exceptions import (
     NoCuttingHeightError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
-    NoPartymodeError,
+    NoPartymodeError as NoPartymodeError,
     NoPauseModeError,
     OfflineError,
     TooManyRequestsError,
@@ -1106,7 +1106,7 @@ class WorxCloud(dict):
                     f"Cannot request zone {zone} as it is not defined."
                 )
 
-            if not zone in device.zone["indicies"]:
+            if zone not in device.zone["indicies"]:
                 raise ZoneNoProbability(
                     f"Cannot request zone {zone} as it has no probability set."
                 )

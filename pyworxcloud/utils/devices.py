@@ -99,7 +99,7 @@ class DeviceHandler(LDict):
         self.__raw_data = value
         try:
             self.__json_data = json.loads(value)
-        except:  # pylint: disable=bare-except
+        except (TypeError, json.JSONDecodeError):
             pass  # Just continue if we couldn't decode the data
 
         self.decode_data()
@@ -125,7 +125,7 @@ class DeviceHandler(LDict):
         for attr, val in data.items():
             setattr(self, str(attr), val)
 
-        if not "time_zone" in data:
+        if "time_zone" not in data:
             data["time_zone"] = "UTC"
 
         self.battery = Battery(data, data)

@@ -27,7 +27,7 @@ _LOGGER = logging.getLogger("pyworxcloud.events")
 def check_syntax(args: dict[str, Any], objs: list[str], expected_type: Any) -> bool:
     """Check if the object is of the expected type."""
     for obj in objs:
-        if not obj in args:
+        if obj not in args:
             _LOGGER.debug("%s was not found in %s", obj, args)
             return False
         if not isinstance(args[obj], expected_type):
@@ -96,7 +96,7 @@ class EventHandler:
 
     def call(self, event: LandroidEvent, **kwargs) -> bool:
         """Call a handler if it was set."""
-        if not event in self.__events:
+        if event not in self.__events:
             # Event was not set
             return False
 

@@ -26,3 +26,13 @@
 *   ./code-ref are read-only for AI agents
 *   Reference code samples are found in ./code-ref, do not copy code blind - only use as reference
 *   ./code-ref/data-samples contains JSON dumps of actual data from real mowers
+*   Always push changes to repository, when making changes in a branch
+*   Before committing, the agent MUST run the agreed `ruff` commands for this repository, including `ruff format` and `ruff check`, and fix any reported issues
+
+## Release Notes
+
+*   Release notes should ALWAYS be in english
+*   Keep the existing release note structure unless explicitly asked to change it
+*   The `## Changes` section should be short, easy to read, and written as plain prose without bullets
+*   Prefer 2-3 short paragraphs under `## Changes` instead of one dense block of text
+*   Base the `## Changes` text only on the PRs already included in the release draft unless told otherwise

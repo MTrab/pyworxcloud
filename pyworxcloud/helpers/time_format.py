@@ -91,9 +91,6 @@ def convert_to_time(
         if key.startswith("_") or key == "devices":
             continue
 
-        if not key in data:
-            continue
-
         hits = []
         value = data[key]
 

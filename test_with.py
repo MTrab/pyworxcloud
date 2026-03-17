@@ -16,7 +16,9 @@ TYPE = environ["TYPE"]
 
 
 def receive_data(
-    self, name: str, device: DeviceHandler  # pylint: disable=unused-argument
+    self,
+    name: str,
+    device: DeviceHandler,  # pylint: disable=unused-argument
 ) -> None:
     """Callback function when the MQTT broker sends new data."""
     for _, device in cloud.devices.items():
