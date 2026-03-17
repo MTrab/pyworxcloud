@@ -320,7 +320,7 @@ def test_token_updated_is_noop_without_mqtt() -> None:
 
 def test_get_logger_does_not_accumulate_handlers() -> None:
     """Repeated logger setup should not attach output handlers or force levels."""
-    logger = get_logger("pyworxcloud.test_handlers")
+    get_logger("pyworxcloud.test_handlers")
     package_logger = get_logger(PACKAGE_LOGGER_NAME)
     original_handlers = list(package_logger.handlers)
     original_level = package_logger.level

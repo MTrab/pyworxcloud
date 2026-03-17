@@ -353,8 +353,10 @@ def test_devicehandler_keeps_monotonic_updated_when_cfg_timestamp_goes_backwards
 def test_devicehandler_uses_device_timezone_when_instance_timezone_is_missing() -> None:
     """Schedule timestamps should fall back to device timezone before UTC."""
     _, payload = _find_http_fixture(
-        lambda p: bool(p.get("cfg", {}).get("tz"))
-        and bool(p.get("cfg", {}).get("sc", {}).get("slots"))
+        lambda p: (
+            bool(p.get("cfg", {}).get("tz"))
+            and bool(p.get("cfg", {}).get("sc", {}).get("slots"))
+        )
     )
     mower = _build_mower(payload, 1, "Timezone Fixture")
 
