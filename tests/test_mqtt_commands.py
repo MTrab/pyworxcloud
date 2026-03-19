@@ -102,7 +102,7 @@ def test_publish_uses_default_response_timeout(monkeypatch: pytest.MonkeyPatch) 
 def test_publish_rebuilds_connection_before_first_command_after_resume(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """First command after a resumed session should rebuild the client first."""
+    """First command after a resumed session should reconnect and retry once."""
     mqtt, dummy = _build_mqtt(monkeypatch, response_timeout=0.05)
     reconnects: list[str] = []
 
@@ -123,8 +123,45 @@ def test_publish_rebuilds_connection_before_first_command_after_resume(
             protocol=0,
         )
 
+    assert reconnects == ["called", "called"]
+    assert len(dummy.published) == 2
+
+
+def test_publish_retries_once_after_connection_recovery_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A command started during recovery should get one silent retry."""
+    mqtt, dummy = _build_mqtt(monkeypatch, response_timeout=0.01)
+    reconnects: list[str] = []
+    attempts = {"count": 0}
+
+    mqtt._awaiting_post_resume_message = True
+
+    def _ensure_connection_ready(timeout: float) -> None:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            mqtt._awaiting_post_resume_message = False
+        return None
+
+    def _update_token() -> None:
+        reconnects.append("called")
+        mqtt._awaiting_post_resume_message = False
+        mqtt._is_connected = True
+
+    mqtt._ensure_connection_ready = _ensure_connection_ready  # type: ignore[method-assign]
+    mqtt.update_token = _update_token  # type: ignore[method-assign]
+
+    with pytest.raises(TimeoutException):
+        mqtt.publish(
+            serial_number="SN-1",
+            topic="topic/in",
+            message={"cmd": 1},
+            protocol=0,
+        )
+
     assert reconnects == ["called"]
-    assert len(dummy.published) == 1
+    assert attempts["count"] == 2
+    assert len(dummy.published) == 2
 
 
 def test_mqtt_rejects_non_positive_default_timeout(

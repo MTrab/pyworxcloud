@@ -675,10 +675,11 @@ class MQTT(LDict):
         if effective_timeout <= 0:
             raise ValueError("timeout must be greater than 0")
 
-        self._ensure_connection_ready(effective_timeout)
-        client = self.client
-        if client is None:
-            raise NoConnectionError("MQTT client is not available")
+        should_retry_after_reconnect = (
+            not self.connected
+            or self._awaiting_post_resume_message
+            or self._token_update_lock.locked()
+        )
 
         command_signature = (
             serial_number,
@@ -697,6 +698,47 @@ class MQTT(LDict):
                         message,
                     )
                     return
+
+        try:
+            self._publish_once(
+                serial_number=serial_number,
+                topic=topic,
+                message=message,
+                protocol=protocol,
+                effective_timeout=effective_timeout,
+                command_signature=command_signature,
+            )
+        except (NoConnectionError, TimeoutException) as err:
+            if not should_retry_after_reconnect:
+                raise
+
+            self._log.debug(
+                "Retrying MQTT publish once after reconnect recovery: %s", err
+            )
+            self.update_token()
+            self._publish_once(
+                serial_number=serial_number,
+                topic=topic,
+                message=message,
+                protocol=protocol,
+                effective_timeout=effective_timeout,
+                command_signature=command_signature,
+            )
+
+    def _publish_once(
+        self,
+        serial_number: str,
+        topic: str,
+        message: dict,
+        protocol: int,
+        effective_timeout: float,
+        command_signature: tuple[str, str, int, str],
+    ) -> None:
+        """Publish a single command attempt and wait for the matching response."""
+        self._ensure_connection_ready(effective_timeout)
+        client = self.client
+        if client is None:
+            raise NoConnectionError("MQTT client is not available")
 
         # Format the message
         formatted_message = self.format_message(serial_number, message, protocol)
@@ -728,12 +770,9 @@ class MQTT(LDict):
                 self._response_event.clear()
 
             try:
-                # Publish the message
                 publish_future, _ = client.publish(
                     topic=topic, payload=formatted_message, qos=QOS_FLAG
                 )
-
-                # Wait for the message to be published
                 publish_future.result()
 
                 if not self._response_event.wait(effective_timeout):
