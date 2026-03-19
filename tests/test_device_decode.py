@@ -375,8 +375,9 @@ def test_protocol1_next_schedule_prefers_next_same_day_slot(monkeypatch) -> None
         """Minimal datetime shim returning a fixed current time."""
 
         @staticmethod
-        def now() -> Any:
-            return real_datetime(2026, 3, 12, 10, 30, tzinfo=ZoneInfo("UTC"))
+        def now(tz=None) -> Any:
+            current = real_datetime(2026, 3, 12, 10, 30, tzinfo=ZoneInfo("UTC"))
+            return current if tz is None else current.astimezone(tz)
 
         strptime = staticmethod(real_datetime.strptime)
 
@@ -428,8 +429,9 @@ def test_protocol0_next_schedule_includes_secondary_same_day_slot(
         """Minimal datetime shim returning a fixed current time."""
 
         @staticmethod
-        def now() -> Any:
-            return real_datetime(2026, 3, 12, 10, 30, tzinfo=ZoneInfo("UTC"))
+        def now(tz=None) -> Any:
+            current = real_datetime(2026, 3, 12, 10, 30, tzinfo=ZoneInfo("UTC"))
+            return current if tz is None else current.astimezone(tz)
 
         strptime = staticmethod(real_datetime.strptime)
 
@@ -469,6 +471,98 @@ def test_protocol0_next_schedule_includes_secondary_same_day_slot(
     schedule.update_progress_and_next("UTC")
 
     assert schedule["next_schedule_start"] == "2026-03-12 12:00:00"
+
+
+def test_protocol1_schedule_progress_uses_mower_timezone(monkeypatch) -> None:
+    """Protocol 1 schedule progress should use mower timezone, not host local time."""
+    real_datetime = schedules_module.datetime
+    mower_now = real_datetime(2026, 3, 12, 23, 30, tzinfo=ZoneInfo("UTC"))
+
+    class FrozenDateTime:
+        """Datetime shim exposing different host-local and mower-timezone values."""
+
+        @staticmethod
+        def now(tz=None) -> Any:
+            if tz is None:
+                return real_datetime(2026, 3, 13, 0, 30, tzinfo=ZoneInfo("UTC"))
+            return mower_now.astimezone(tz)
+
+        strptime = staticmethod(real_datetime.strptime)
+
+    monkeypatch.setattr(schedules_module, "datetime", FrozenDateTime)
+
+    schedule = Schedule()
+    schedule["slots"] = [
+        {
+            "day": "thursday",
+            "start": "23:00",
+            "end": "23:40",
+            "duration": 40,
+            "duration_extended": 40,
+            "boundary": False,
+            "source": "protocol1",
+        },
+        {
+            "day": "friday",
+            "start": "00:15",
+            "end": "00:45",
+            "duration": 30,
+            "duration_extended": 30,
+            "boundary": False,
+            "source": "protocol1",
+        },
+    ]
+
+    schedule.update_progress_and_next("UTC")
+
+    assert schedule["daily_progress"] == 75
+    assert schedule["next_schedule_start"] == "2026-03-13 00:15:00"
+
+
+def test_protocol0_schedule_progress_uses_mower_timezone(monkeypatch) -> None:
+    """Protocol 0 schedule progress should use mower timezone, not host local time."""
+    real_datetime = schedules_module.datetime
+    mower_now = real_datetime(2026, 3, 12, 23, 30, tzinfo=ZoneInfo("UTC"))
+
+    class FrozenDateTime:
+        """Datetime shim exposing different host-local and mower-timezone values."""
+
+        @staticmethod
+        def now(tz=None) -> Any:
+            if tz is None:
+                return real_datetime(2026, 3, 13, 0, 30, tzinfo=ZoneInfo("UTC"))
+            return mower_now.astimezone(tz)
+
+        strptime = staticmethod(real_datetime.strptime)
+
+    monkeypatch.setattr(schedules_module, "datetime", FrozenDateTime)
+
+    schedule = Schedule()
+    schedule["slots"] = [
+        {
+            "day": "thursday",
+            "start": "23:00",
+            "end": "23:40",
+            "duration": 40,
+            "duration_extended": 40,
+            "boundary": False,
+            "source": "protocol0",
+        },
+        {
+            "day": "friday",
+            "start": "00:15",
+            "end": "00:45",
+            "duration": 30,
+            "duration_extended": 30,
+            "boundary": False,
+            "source": "secondary",
+        },
+    ]
+
+    schedule.update_progress_and_next("UTC")
+
+    assert schedule["daily_progress"] == 75
+    assert schedule["next_schedule_start"] == "2026-03-13 00:15:00"
 
 
 def test_devicehandler_maps_rtk_zone_ids_and_current_zone() -> None:

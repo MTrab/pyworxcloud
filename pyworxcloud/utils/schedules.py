@@ -15,10 +15,9 @@ class ScheduleInfo:
 
     def __init__(self, schedule: Schedule, tz: str | None = None) -> None:
         self.__schedule = schedule
-        now = datetime.now()
         timezone_info = self._resolve_timezone(tz)
         self._tz = tz
-        self.__now = now.astimezone(timezone_info)
+        self.__now = datetime.now(timezone_info)
         self.__slots = schedule.get("slots", []) or []
 
     @staticmethod
