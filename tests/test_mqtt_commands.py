@@ -99,6 +99,34 @@ def test_publish_uses_default_response_timeout(monkeypatch: pytest.MonkeyPatch) 
         )
 
 
+def test_publish_rebuilds_connection_before_first_command_after_resume(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """First command after a resumed session should rebuild the client first."""
+    mqtt, dummy = _build_mqtt(monkeypatch, response_timeout=0.05)
+    reconnects: list[str] = []
+
+    mqtt._awaiting_post_resume_message = True
+
+    def _update_token() -> None:
+        reconnects.append("called")
+        mqtt._awaiting_post_resume_message = False
+        mqtt._is_connected = True
+
+    mqtt.update_token = _update_token  # type: ignore[method-assign]
+
+    with pytest.raises(TimeoutException):
+        mqtt.publish(
+            serial_number="SN-1",
+            topic="topic/in",
+            message={"cmd": 1},
+            protocol=0,
+        )
+
+    assert reconnects == ["called"]
+    assert len(dummy.published) == 1
+
+
 def test_mqtt_rejects_non_positive_default_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

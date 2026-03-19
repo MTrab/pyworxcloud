@@ -152,6 +152,7 @@ class MQTT(LDict):
         self._message_id_seq = itertools.count(random.randint(1024, 65535))
         self._client_generation = 0
         self._active_generation = 0
+        self._awaiting_post_resume_message = False
         if response_timeout <= 0:
             raise ValueError("response_timeout must be greater than 0")
         self._response_timeout = float(response_timeout)
@@ -251,6 +252,7 @@ class MQTT(LDict):
 
         self._is_connected = False
         self._get_ready_event().clear()
+        self._awaiting_post_resume_message = False
         logger.debug(f"Connection interrupted. error: {error}")
         self._events.call(LandroidEvent.MQTT_CONNECTION, state=False)
 
@@ -285,6 +287,9 @@ class MQTT(LDict):
             for topic in self._topic:
                 logger.debug(f"Resubscribing to '{topic}'")
                 self._resubscribe_topic(topic, generation)
+            self._awaiting_post_resume_message = True
+        else:
+            self._awaiting_post_resume_message = False
 
         self._get_ready_event().set()
         self._events.call(LandroidEvent.MQTT_CONNECTION, state=True)
@@ -307,6 +312,7 @@ class MQTT(LDict):
             return
 
         msg = payload.decode("utf-8")
+        self._awaiting_post_resume_message = False
         self._log.debug("Received MQTT message on topic '%s':\n%s", topic, msg)
         identifiers, message_ids = self._extract_response_markers(msg)
         expanded_identifiers = self._expand_identifiers(identifiers)
@@ -429,6 +435,7 @@ class MQTT(LDict):
                 # Update connection state
                 self._is_connected = True
                 self._reconnected = False
+                self._awaiting_post_resume_message = False
 
             # Subscribe to saved topics
             for topic in self._topic:
@@ -760,6 +767,14 @@ class MQTT(LDict):
     def _ensure_connection_ready(self, timeout: float) -> None:
         """Ensure a usable MQTT connection exists before publishing."""
         if self.connected:
+            if self._awaiting_post_resume_message:
+                self._log.debug(
+                    "No MQTT traffic received after connection resume; rebuilding client before publish"
+                )
+                self.update_token()
+                if self.connected:
+                    return
+                raise NoConnectionError("MQTT connection did not recover after resume")
             return
 
         if self._token_update_lock.locked():

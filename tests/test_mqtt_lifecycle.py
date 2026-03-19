@@ -175,6 +175,7 @@ def test_connection_resumed_resubscribes_even_when_session_persists() -> None:
     """Resume should defensively resubscribe even when broker reports session_present."""
     mqtt = _build_mqtt_lifecycle_fixture(connected=False, client=_ClientStub())
     mqtt._topic = ["topic/a", "topic/b"]
+    mqtt._awaiting_post_resume_message = False
     subscribe_calls: list[tuple[str, bool]] = []
     events: list[bool] = []
     mqtt.subscribe = lambda topic, append=True: subscribe_calls.append((topic, append))
@@ -191,6 +192,7 @@ def test_connection_resumed_resubscribes_even_when_session_persists() -> None:
     )
 
     assert mqtt._is_connected is True
+    assert mqtt._awaiting_post_resume_message is True
     assert subscribe_calls == [("topic/a", False), ("topic/b", False)]
     assert events == [True]
 
@@ -199,6 +201,7 @@ def test_connection_resumed_resubscribes_when_session_is_not_present() -> None:
     """Resume should still resubscribe when broker reports a lost session."""
     mqtt = _build_mqtt_lifecycle_fixture(connected=False, client=_ClientStub())
     mqtt._topic = ["topic/out"]
+    mqtt._awaiting_post_resume_message = False
     subscribe_calls: list[tuple[str, bool]] = []
     mqtt.subscribe = lambda topic, append=True: subscribe_calls.append((topic, append))
     mqtt._events = type(
@@ -213,4 +216,5 @@ def test_connection_resumed_resubscribes_when_session_is_not_present() -> None:
         False,
     )
 
+    assert mqtt._awaiting_post_resume_message is True
     assert subscribe_calls == [("topic/out", False)]
