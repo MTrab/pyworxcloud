@@ -56,13 +56,10 @@ def test_connection_resumed_ignores_stale_generation() -> None:
 
 
 def test_connection_resumed_marks_active_generation_ready() -> None:
-    """Active callbacks should restore readiness and resubscribe saved topics."""
+    """Active resume callbacks should trigger a forced reconnect instead."""
     mqtt = _build_mqtt()
-    subscribe_calls: list[tuple[str, bool, int | None]] = []
-
-    mqtt.subscribe = lambda topic, append, generation=None: subscribe_calls.append(
-        (topic, append, generation)
-    )
+    reconnect_calls: list[str] = []
+    mqtt._schedule_reconnect_after_resume = lambda: reconnect_calls.append("called")
 
     mqtt._on_connection_resumed(
         object(),
@@ -71,9 +68,9 @@ def test_connection_resumed_marks_active_generation_ready() -> None:
         generation=2,
     )
 
-    assert mqtt.connected is True
-    assert mqtt._ready_event.is_set() is True
-    assert subscribe_calls == [("topic/out", False, 2)]
+    assert mqtt.connected is False
+    assert mqtt._ready_event.is_set() is False
+    assert reconnect_calls == ["called"]
 
 
 def test_ensure_connection_ready_waits_for_parallel_refresh() -> None:

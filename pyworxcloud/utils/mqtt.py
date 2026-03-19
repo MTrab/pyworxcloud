@@ -238,6 +238,25 @@ class MQTT(LDict):
                 raise
             self.subscribe(topic, False)
 
+    def _schedule_reconnect_after_resume(self) -> None:
+        """Kick off a full client rebuild after an AWS-level resume callback."""
+        worker = threading.Thread(
+            target=self._reconnect_after_resume,
+            name="pyworxcloud-mqtt-resume-reconnect",
+            daemon=True,
+        )
+        worker.start()
+
+    def _reconnect_after_resume(self) -> None:
+        """Rebuild the MQTT client after a resume callback we do not trust."""
+        try:
+            self.update_token()
+        except Exception:  # pragma: no cover - defensive logging path
+            self._log.debug(
+                "Forced reconnect after MQTT resume failed",
+                exc_info=True,
+            )
+
     def _on_connection_interrupted(self, connection, error, **kwargs):
         """Callback when a connection is accidentally lost."""
         del connection
@@ -275,24 +294,26 @@ class MQTT(LDict):
             f"Connection resumed. return_code: {return_code}, session_present: {session_present}"
         )
 
+        self._is_connected = False
+        self._get_ready_event().clear()
+        self._awaiting_post_resume_message = False
+
         if return_code == awscrt.mqtt.ConnectReturnCode.ACCEPTED:
             if session_present:
                 logger.debug(
-                    "Session resumed. Resubscribing to existing topics defensively..."
+                    "Session resumed, but forcing a full MQTT reconnect before trusting it"
                 )
             else:
                 logger.debug(
-                    "Session did not persist. Resubscribing to existing topics..."
+                    "Session did not persist; forcing a full MQTT reconnect"
                 )
-            for topic in self._topic:
-                logger.debug(f"Resubscribing to '{topic}'")
-                self._resubscribe_topic(topic, generation)
-            self._awaiting_post_resume_message = True
         else:
-            self._awaiting_post_resume_message = False
+            logger.debug(
+                "Resume returned non-accepted code %s; forcing a full MQTT reconnect",
+                return_code,
+            )
 
-        self._get_ready_event().set()
-        self._events.call(LandroidEvent.MQTT_CONNECTION, state=True)
+        self._schedule_reconnect_after_resume()
 
     @property
     def connected(self) -> bool:
