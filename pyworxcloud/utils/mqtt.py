@@ -191,15 +191,19 @@ class MQTT(LDict):
             auth_username=username,
             auth_password=None,
             client_bootstrap=self._client_bootstrap,
-            on_connection_interrupted=lambda connection, error, **kwargs: self._on_connection_interrupted(
-                connection, error, generation=generation, **kwargs
+            on_connection_interrupted=lambda connection, error, **kwargs: (
+                self._on_connection_interrupted(
+                    connection, error, generation=generation, **kwargs
+                )
             ),
-            on_connection_resumed=lambda connection, return_code, session_present, **kwargs: self._on_connection_resumed(
-                connection,
-                return_code,
-                session_present,
-                generation=generation,
-                **kwargs,
+            on_connection_resumed=lambda connection, return_code, session_present, **kwargs: (
+                self._on_connection_resumed(
+                    connection,
+                    return_code,
+                    session_present,
+                    generation=generation,
+                    **kwargs,
+                )
             ),
             clean_session=False,
             keep_alive_secs=30,
