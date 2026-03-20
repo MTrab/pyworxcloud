@@ -1242,6 +1242,46 @@ class WorxCloud(dict):
 
         await self._fetch(True)
 
+    async def set_auto_schedule_soil_type(
+        self, serial_number: str, soil_type: str
+    ) -> None:
+        """Set the observed auto-schedule soil type."""
+        if not isinstance(soil_type, str):
+            raise ValueError("soil_type must be a string value")
+        soil_type = soil_type.strip()
+        if soil_type not in {"clay", "silt", "sand", "ignore"}:
+            raise ValueError("soil_type must be one of clay, silt, sand, or ignore")
+
+        mower = self.get_mower(serial_number)
+        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
+        payload = {
+            "auto_schedule_settings": self._deep_merge_dict(
+                current_settings, {"soil_type": soil_type}
+            )
+        }
+
+        await self._api.check_token()
+        response = await APUT(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
+            payload,
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if isinstance(response, dict):
+            mower.update(response)
+
+        mower["auto_schedule_settings"] = payload["auto_schedule_settings"]
+        device = self.devices.get(mower["name"])
+        if device is not None:
+            auto_schedule = device.schedules.get("auto_schedule")
+            if isinstance(auto_schedule, dict):
+                settings = auto_schedule.get("settings")
+                if isinstance(settings, dict):
+                    settings["soil_type"] = soil_type
+
+        await self._fetch(True)
+
     async def set_time_extension(self, serial_number: str, time_extension: int) -> None:
         """Set schedule time extension percentage.
 
