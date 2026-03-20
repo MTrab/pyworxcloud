@@ -694,6 +694,101 @@ class WorxCloud(dict):
         """Return a JSON-safe deep copy."""
         return json.loads(json.dumps(value)) if isinstance(value, dict) else {}
 
+    @staticmethod
+    def _normalize_auto_schedule_exclusion_days_for_write(
+        days: Any,
+    ) -> list[dict[str, Any]]:
+        """Return a stable seven-day exclusion scheduler structure."""
+        raw_days = days if isinstance(days, list) else []
+        normalized_days = []
+        for day_index in range(7):
+            day_entry = raw_days[day_index] if day_index < len(raw_days) else {}
+            day = day_entry if isinstance(day_entry, dict) else {}
+            raw_slots = day.get("slots", [])
+            slots = raw_slots if isinstance(raw_slots, list) else []
+            normalized_days.append(
+                {
+                    "exclude_day": bool(day.get("exclude_day", False)),
+                    "slots": [slot for slot in slots if isinstance(slot, dict)],
+                }
+            )
+        return normalized_days
+
+    def _normalize_auto_schedule_exclusion_slots_for_write(
+        self, slots: Any
+    ) -> list[dict[str, Any]]:
+        """Validate and normalize exclusion slots for write operations."""
+        if not isinstance(slots, list):
+            raise ValueError("slots must be a list of exclusion slot objects")
+
+        normalized_slots = []
+        for index, slot in enumerate(slots):
+            if not isinstance(slot, dict):
+                raise ValueError(
+                    f"slots[{index}] must be a dictionary with slot values"
+                )
+            reason = slot.get("reason", "generic")
+            if not isinstance(reason, str):
+                raise ValueError(f"slots[{index}].reason must be a string value")
+            reason = reason.strip()
+            if reason not in {"generic", "irrigation"}:
+                raise ValueError(
+                    f"slots[{index}].reason must be one of generic or irrigation"
+                )
+            normalized_slots.append(
+                {
+                    "start_time": self._coerce_int(
+                        slot.get("start_time"),
+                        f"slots[{index}].start_time",
+                        minimum=0,
+                        maximum=1439,
+                    ),
+                    "duration": self._coerce_int(
+                        slot.get("duration"),
+                        f"slots[{index}].duration",
+                        minimum=0,
+                        maximum=1440,
+                    ),
+                    "reason": reason,
+                }
+            )
+
+        return normalized_slots
+
+    async def _put_auto_schedule_settings_patch(
+        self, serial_number: str, patch: dict[str, Any]
+    ) -> None:
+        """PUT a merged top-level auto-schedule settings patch."""
+        mower = self.get_mower(serial_number)
+        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
+        payload = {
+            "auto_schedule_settings": self._deep_merge_dict(current_settings, patch)
+        }
+
+        await self._api.check_token()
+        response = await APUT(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
+            payload,
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if isinstance(response, dict):
+            mower.update(response)
+
+        mower["auto_schedule_settings"] = payload["auto_schedule_settings"]
+        device = self.devices.get(mower["name"])
+        if device is not None:
+            auto_schedule = device.schedules.get("auto_schedule")
+            if isinstance(auto_schedule, dict):
+                settings = auto_schedule.get("settings")
+                if isinstance(settings, dict):
+                    auto_schedule["settings"] = self._deep_merge_dict(
+                        self._clone_dict(settings), patch
+                    )
+
+        await self._fetch(True)
+
     def _get_current_schedule_payload(self, mower: dict[str, Any]) -> dict[str, Any]:
         """Return the latest raw schedule payload for a mower."""
         last_status = mower.get("last_status")
@@ -1212,35 +1307,32 @@ class WorxCloud(dict):
         if boost not in (0, 1, 2):
             raise ValueError("boost must be one of 0, 1, or 2")
 
-        mower = self.get_mower(serial_number)
-        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
-        payload = {
-            "auto_schedule_settings": self._deep_merge_dict(
-                current_settings, {"boost": boost}
+        await self._put_auto_schedule_settings_patch(serial_number, {"boost": boost})
+
+    async def set_auto_schedule_grass_type(
+        self, serial_number: str, grass_type: str
+    ) -> None:
+        """Set the observed auto-schedule grass type."""
+        if not isinstance(grass_type, str):
+            raise ValueError("grass_type must be a string value")
+        grass_type = grass_type.strip()
+        if grass_type not in {
+            "mixed_species",
+            "festuca_arundinacea",
+            "lolium_perenne",
+            "poa_pratensis",
+            "festuca_rubra",
+            "agrostis_stolonifera",
+        }:
+            raise ValueError(
+                "grass_type must be one of mixed_species, festuca_arundinacea, "
+                "lolium_perenne, poa_pratensis, festuca_rubra, or "
+                "agrostis_stolonifera"
             )
-        }
 
-        await self._api.check_token()
-        response = await APUT(
-            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
-            payload,
-            HEADERS(self._api.access_token),
-            session=await self._api._ensure_session(),
+        await self._put_auto_schedule_settings_patch(
+            serial_number, {"grass_type": grass_type}
         )
-
-        if isinstance(response, dict):
-            mower.update(response)
-
-        mower["auto_schedule_settings"] = payload["auto_schedule_settings"]
-        device = self.devices.get(mower["name"])
-        if device is not None:
-            auto_schedule = device.schedules.get("auto_schedule")
-            if isinstance(auto_schedule, dict):
-                settings = auto_schedule.get("settings")
-                if isinstance(settings, dict):
-                    settings["boost"] = boost
-
-        await self._fetch(True)
 
     async def set_auto_schedule_soil_type(
         self, serial_number: str, soil_type: str
@@ -1252,71 +1344,18 @@ class WorxCloud(dict):
         if soil_type not in {"clay", "silt", "sand", "ignore"}:
             raise ValueError("soil_type must be one of clay, silt, sand, or ignore")
 
-        mower = self.get_mower(serial_number)
-        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
-        payload = {
-            "auto_schedule_settings": self._deep_merge_dict(
-                current_settings, {"soil_type": soil_type}
-            )
-        }
-
-        await self._api.check_token()
-        response = await APUT(
-            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
-            payload,
-            HEADERS(self._api.access_token),
-            session=await self._api._ensure_session(),
+        await self._put_auto_schedule_settings_patch(
+            serial_number, {"soil_type": soil_type}
         )
-
-        if isinstance(response, dict):
-            mower.update(response)
-
-        mower["auto_schedule_settings"] = payload["auto_schedule_settings"]
-        device = self.devices.get(mower["name"])
-        if device is not None:
-            auto_schedule = device.schedules.get("auto_schedule")
-            if isinstance(auto_schedule, dict):
-                settings = auto_schedule.get("settings")
-                if isinstance(settings, dict):
-                    settings["soil_type"] = soil_type
-
-        await self._fetch(True)
 
     async def set_auto_schedule_irrigation(
         self, serial_number: str, enabled: bool
     ) -> None:
         """Set the observed auto-schedule irrigation flag."""
         enabled = self._require_bool(enabled, "enabled")
-
-        mower = self.get_mower(serial_number)
-        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
-        payload = {
-            "auto_schedule_settings": self._deep_merge_dict(
-                current_settings, {"irrigation": enabled}
-            )
-        }
-
-        await self._api.check_token()
-        response = await APUT(
-            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
-            payload,
-            HEADERS(self._api.access_token),
-            session=await self._api._ensure_session(),
+        await self._put_auto_schedule_settings_patch(
+            serial_number, {"irrigation": enabled}
         )
-
-        if isinstance(response, dict):
-            mower.update(response)
-
-        mower["auto_schedule_settings"] = payload["auto_schedule_settings"]
-        device = self.devices.get(mower["name"])
-        if device is not None:
-            auto_schedule = device.schedules.get("auto_schedule")
-            if isinstance(auto_schedule, dict):
-                settings = auto_schedule.get("settings")
-                if isinstance(settings, dict):
-                    settings["irrigation"] = enabled
-
-        await self._fetch(True)
 
     async def set_auto_schedule_nutrition(
         self, serial_number: str, n: int, p: int, k: int
@@ -1327,68 +1366,62 @@ class WorxCloud(dict):
             "p": self._coerce_int(p, "p", minimum=0),
             "k": self._coerce_int(k, "k", minimum=0),
         }
-
-        mower = self.get_mower(serial_number)
-        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
-        payload = {
-            "auto_schedule_settings": self._deep_merge_dict(
-                current_settings, {"nutrition": nutrition}
-            )
-        }
-
-        await self._api.check_token()
-        response = await APUT(
-            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
-            payload,
-            HEADERS(self._api.access_token),
-            session=await self._api._ensure_session(),
+        await self._put_auto_schedule_settings_patch(
+            serial_number, {"nutrition": nutrition}
         )
-
-        if isinstance(response, dict):
-            mower.update(response)
-
-        mower["auto_schedule_settings"] = payload["auto_schedule_settings"]
-        device = self.devices.get(mower["name"])
-        if device is not None:
-            auto_schedule = device.schedules.get("auto_schedule")
-            if isinstance(auto_schedule, dict):
-                settings = auto_schedule.get("settings")
-                if isinstance(settings, dict):
-                    settings["nutrition"] = nutrition
-
-        await self._fetch(True)
 
     async def clear_auto_schedule_nutrition(self, serial_number: str) -> None:
         """Clear the observed auto-schedule nutrition settings."""
-        mower = self.get_mower(serial_number)
-        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
-        payload = {
-            "auto_schedule_settings": self._deep_merge_dict(
-                current_settings, {"nutrition": None}
-            )
-        }
+        await self._put_auto_schedule_settings_patch(serial_number, {"nutrition": None})
 
-        await self._api.check_token()
-        response = await APUT(
-            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
-            payload,
-            HEADERS(self._api.access_token),
-            session=await self._api._ensure_session(),
+    async def set_auto_schedule_exclude_nights(
+        self, serial_number: str, enabled: bool
+    ) -> None:
+        """Set the observed exclusion-scheduler exclude-nights flag."""
+        enabled = self._require_bool(enabled, "enabled")
+        await self._put_auto_schedule_settings_patch(
+            serial_number, {"exclusion_scheduler": {"exclude_nights": enabled}}
         )
 
-        if isinstance(response, dict):
-            mower.update(response)
+    async def set_auto_schedule_exclusion_day(
+        self, serial_number: str, day_index: int, exclude_day: bool
+    ) -> None:
+        """Set whether one exclusion-scheduler weekday is fully excluded."""
+        day_index = self._coerce_int(day_index, "day_index", minimum=0, maximum=6)
+        exclude_day = self._require_bool(exclude_day, "exclude_day")
 
-        mower["auto_schedule_settings"] = payload["auto_schedule_settings"]
-        device = self.devices.get(mower["name"])
-        if device is not None:
-            auto_schedule = device.schedules.get("auto_schedule")
-            if isinstance(auto_schedule, dict):
-                settings = auto_schedule.get("settings")
-                if isinstance(settings, dict):
-                    settings["nutrition"] = None
+        mower = self.get_mower(serial_number)
+        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
+        exclusion = current_settings.get("exclusion_scheduler", {})
+        days = self._normalize_auto_schedule_exclusion_days_for_write(
+            exclusion.get("days") if isinstance(exclusion, dict) else None
+        )
+        days[day_index]["exclude_day"] = exclude_day
 
-        await self._fetch(True)
+        await self._put_auto_schedule_settings_patch(
+            serial_number, {"exclusion_scheduler": {"days": days}}
+        )
+
+    async def set_auto_schedule_exclusion_slots(
+        self, serial_number: str, day_index: int, slots: list[dict[str, Any]]
+    ) -> None:
+        """Replace one weekday's exclusion-scheduler slots."""
+        day_index = self._coerce_int(day_index, "day_index", minimum=0, maximum=6)
+        normalized_slots = self._normalize_auto_schedule_exclusion_slots_for_write(
+            slots
+        )
+
+        mower = self.get_mower(serial_number)
+        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
+        exclusion = current_settings.get("exclusion_scheduler", {})
+        days = self._normalize_auto_schedule_exclusion_days_for_write(
+            exclusion.get("days") if isinstance(exclusion, dict) else None
+        )
+        days[day_index]["slots"] = normalized_slots
+
+        await self._put_auto_schedule_settings_patch(
+            serial_number, {"exclusion_scheduler": {"days": days}}
+        )
 
     async def set_time_extension(self, serial_number: str, time_extension: int) -> None:
         """Set schedule time extension percentage.

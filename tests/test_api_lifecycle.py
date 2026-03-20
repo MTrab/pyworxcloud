@@ -988,6 +988,96 @@ def test_set_auto_schedule_boost_puts_merged_settings_and_refreshes(
     assert refreshes == [True]
 
 
+def test_set_auto_schedule_grass_type_puts_merged_settings_and_refreshes(
+    monkeypatch,
+) -> None:
+    """set_auto_schedule_grass_type should PUT merged top-level settings."""
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "auto_schedule": True,
+            "auto_schedule_settings": {
+                "boost": 1,
+                "grass_type": "mixed_species",
+                "soil_type": "ignore",
+            },
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {
+                "schedules": {
+                    "auto_schedule": {
+                        "enabled": True,
+                        "settings": {
+                            "boost": 1,
+                            "grass_type": "mixed_species",
+                            "soil_type": "ignore",
+                        },
+                    }
+                }
+            },
+        )()
+    }
+
+    async def _put(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "body": body, "headers": headers, "session": session})
+        return {"auto_schedule_settings": body["auto_schedule_settings"]}
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    async def _record_fetch(forced: bool = False) -> None:
+        refreshes.append(forced)
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    cloud._fetch = _record_fetch  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APUT", _put)
+
+    asyncio.run(cloud.set_auto_schedule_grass_type("SERIAL-0", "festuca_arundinacea"))
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0")
+    assert calls[0]["body"] == {
+        "auto_schedule_settings": {
+            "boost": 1,
+            "grass_type": "festuca_arundinacea",
+            "soil_type": "ignore",
+        }
+    }
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    assert (
+        cloud.get_mower("SERIAL-0")["auto_schedule_settings"]["grass_type"]
+        == "festuca_arundinacea"
+    )
+    assert (
+        cloud.devices["Proto0"].schedules["auto_schedule"]["settings"]["grass_type"]
+        == "festuca_arundinacea"
+    )
+    assert refreshes == [True]
+
+
 def test_set_auto_schedule_soil_type_puts_merged_settings_and_refreshes(
     monkeypatch,
 ) -> None:
@@ -1158,6 +1248,325 @@ def test_set_auto_schedule_irrigation_puts_merged_settings_and_refreshes(
     assert (
         cloud.devices["Proto0"].schedules["auto_schedule"]["settings"]["irrigation"]
         is True
+    )
+    assert refreshes == [True]
+
+
+def test_set_auto_schedule_exclude_nights_puts_merged_settings_and_refreshes(
+    monkeypatch,
+) -> None:
+    """set_auto_schedule_exclude_nights should PUT merged nested settings."""
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "auto_schedule": True,
+            "auto_schedule_settings": {
+                "boost": 2,
+                "exclusion_scheduler": {
+                    "exclude_nights": False,
+                    "days": [{"exclude_day": False, "slots": []}] * 7,
+                },
+            },
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {
+                "schedules": {
+                    "auto_schedule": {
+                        "enabled": True,
+                        "settings": {
+                            "boost": 2,
+                            "exclusion_scheduler": {
+                                "exclude_nights": False,
+                                "days": [{"exclude_day": False, "slots": []}] * 7,
+                            },
+                        },
+                    }
+                }
+            },
+        )()
+    }
+
+    async def _put(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "body": body, "headers": headers, "session": session})
+        return {"auto_schedule_settings": body["auto_schedule_settings"]}
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    async def _record_fetch(forced: bool = False) -> None:
+        refreshes.append(forced)
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    cloud._fetch = _record_fetch  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APUT", _put)
+
+    asyncio.run(cloud.set_auto_schedule_exclude_nights("SERIAL-0", True))
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0")
+    assert calls[0]["body"] == {
+        "auto_schedule_settings": {
+            "boost": 2,
+            "exclusion_scheduler": {
+                "exclude_nights": True,
+                "days": [{"exclude_day": False, "slots": []}] * 7,
+            },
+        }
+    }
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    assert (
+        cloud.get_mower("SERIAL-0")["auto_schedule_settings"]["exclusion_scheduler"][
+            "exclude_nights"
+        ]
+        is True
+    )
+    assert (
+        cloud.devices["Proto0"].schedules["auto_schedule"]["settings"][
+            "exclusion_scheduler"
+        ]["exclude_nights"]
+        is True
+    )
+    assert refreshes == [True]
+
+
+def test_set_auto_schedule_exclusion_day_puts_merged_settings_and_refreshes(
+    monkeypatch,
+) -> None:
+    """set_auto_schedule_exclusion_day should PUT a full seven-day list."""
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    days = [{"exclude_day": False, "slots": []} for _ in range(7)]
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "auto_schedule": True,
+            "auto_schedule_settings": {
+                "soil_type": "ignore",
+                "exclusion_scheduler": {
+                    "exclude_nights": True,
+                    "days": days,
+                },
+            },
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {
+                "schedules": {
+                    "auto_schedule": {
+                        "enabled": True,
+                        "settings": {
+                            "soil_type": "ignore",
+                            "exclusion_scheduler": {
+                                "exclude_nights": True,
+                                "days": [
+                                    {"exclude_day": False, "slots": []}
+                                    for _ in range(7)
+                                ],
+                            },
+                        },
+                    }
+                }
+            },
+        )()
+    }
+
+    async def _put(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "body": body, "headers": headers, "session": session})
+        return {"auto_schedule_settings": body["auto_schedule_settings"]}
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    async def _record_fetch(forced: bool = False) -> None:
+        refreshes.append(forced)
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    cloud._fetch = _record_fetch  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APUT", _put)
+
+    asyncio.run(cloud.set_auto_schedule_exclusion_day("SERIAL-0", 2, True))
+
+    expected_days = [{"exclude_day": False, "slots": []} for _ in range(7)]
+    expected_days[2]["exclude_day"] = True
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0")
+    assert calls[0]["body"] == {
+        "auto_schedule_settings": {
+            "soil_type": "ignore",
+            "exclusion_scheduler": {
+                "exclude_nights": True,
+                "days": expected_days,
+            },
+        }
+    }
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    assert (
+        cloud.get_mower("SERIAL-0")["auto_schedule_settings"]["exclusion_scheduler"][
+            "days"
+        ][2]["exclude_day"]
+        is True
+    )
+    assert (
+        cloud.devices["Proto0"].schedules["auto_schedule"]["settings"][
+            "exclusion_scheduler"
+        ]["days"][2]["exclude_day"]
+        is True
+    )
+    assert refreshes == [True]
+
+
+def test_set_auto_schedule_exclusion_slots_puts_merged_settings_and_refreshes(
+    monkeypatch,
+) -> None:
+    """set_auto_schedule_exclusion_slots should replace one weekday slot list."""
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    days = [{"exclude_day": False, "slots": []} for _ in range(7)]
+    days[4]["slots"] = [{"start_time": 120, "duration": 30, "reason": "generic"}]
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "auto_schedule": True,
+            "auto_schedule_settings": {
+                "boost": 2,
+                "exclusion_scheduler": {
+                    "exclude_nights": False,
+                    "days": days,
+                },
+            },
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {
+                "schedules": {
+                    "auto_schedule": {
+                        "enabled": True,
+                        "settings": {
+                            "boost": 2,
+                            "exclusion_scheduler": {
+                                "exclude_nights": False,
+                                "days": [
+                                    {"exclude_day": False, "slots": []}
+                                    for _ in range(7)
+                                ],
+                            },
+                        },
+                    }
+                }
+            },
+        )()
+    }
+
+    async def _put(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "body": body, "headers": headers, "session": session})
+        return {"auto_schedule_settings": body["auto_schedule_settings"]}
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    async def _record_fetch(forced: bool = False) -> None:
+        refreshes.append(forced)
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    cloud._fetch = _record_fetch  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APUT", _put)
+
+    new_slots = [
+        {"start_time": 360, "duration": 45, "reason": "generic"},
+        {"start_time": 900, "duration": 60, "reason": "irrigation"},
+    ]
+    asyncio.run(cloud.set_auto_schedule_exclusion_slots("SERIAL-0", 4, new_slots))
+
+    expected_days = [{"exclude_day": False, "slots": []} for _ in range(7)]
+    expected_days[4]["slots"] = new_slots
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0")
+    assert calls[0]["body"] == {
+        "auto_schedule_settings": {
+            "boost": 2,
+            "exclusion_scheduler": {
+                "exclude_nights": False,
+                "days": expected_days,
+            },
+        }
+    }
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    assert (
+        cloud.get_mower("SERIAL-0")["auto_schedule_settings"]["exclusion_scheduler"][
+            "days"
+        ][4]["slots"]
+        == new_slots
+    )
+    assert (
+        cloud.devices["Proto0"].schedules["auto_schedule"]["settings"][
+            "exclusion_scheduler"
+        ]["days"][4]["slots"]
+        == new_slots
     )
     assert refreshes == [True]
 
