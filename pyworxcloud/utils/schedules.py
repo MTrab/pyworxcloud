@@ -44,12 +44,12 @@ class ScheduleInfo:
         end = string_to_time(f"{day_string} {slot['end']}:00", self._tz)
         return start, end
 
-    def calculate_progress(self) -> int | None:
+    def calculate_progress(self) -> int:
         """Return the percentage of the day already covered by slots."""
         slots = self._slots_for_date(self.__now)
         total_run = sum(slot.get("duration_extended", 0) for slot in slots)
         if total_run == 0:
-            return None
+            return 100
 
         has_run = 0.0
         for slot in slots:
