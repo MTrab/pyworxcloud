@@ -15,7 +15,7 @@ from pyworxcloud.utils.mqtt import MQTT
 class _ImmediateFuture:
     """Simple future stub with immediate completion."""
 
-    def result(self) -> None:
+    def result(self, timeout: float | None = None) -> None:
         return None
 
 
@@ -100,6 +100,19 @@ def test_disconnect_swallows_teardown_disconnect_errors() -> None:
     assert mqtt._is_connected is False
 
 
+def test_disconnect_swallows_disconnect_future_timeout() -> None:
+    """Disconnect should not block indefinitely on disconnect futures."""
+    client = _ClientStub()
+    client.future = _TimeoutFuture()
+    mqtt = _build_mqtt_lifecycle_fixture(client=client)
+
+    mqtt.disconnect()
+
+    assert client.disconnect_calls == 1
+    assert mqtt._connection_future is None
+    assert mqtt._is_connected is False
+
+
 def test_shutdown_is_idempotent_and_detaches_resources() -> None:
     """Shutdown should execute cleanup once and detach all AWS CRT resources."""
     client = _ClientStub()
@@ -159,17 +172,12 @@ def test_shutdown_swallows_disconnect_future_timeout() -> None:
 
 
 def test_connection_resumed_resubscribes_even_when_session_persists() -> None:
-    """Resume should defensively resubscribe even when broker reports session_present."""
+    """Resume should trigger a full reconnect even when session_present is true."""
     mqtt = _build_mqtt_lifecycle_fixture(connected=False, client=_ClientStub())
     mqtt._topic = ["topic/a", "topic/b"]
-    subscribe_calls: list[tuple[str, bool]] = []
-    events: list[bool] = []
-    mqtt.subscribe = lambda topic, append=True: subscribe_calls.append((topic, append))
-    mqtt._events = type(
-        "_Events",
-        (),
-        {"call": staticmethod(lambda _event, state: events.append(state))},
-    )()
+    mqtt._awaiting_post_resume_message = False
+    reconnect_calls: list[str] = []
+    mqtt._schedule_reconnect_after_resume = lambda: reconnect_calls.append("called")
 
     mqtt._on_connection_resumed(
         None,
@@ -177,22 +185,19 @@ def test_connection_resumed_resubscribes_even_when_session_persists() -> None:
         True,
     )
 
-    assert mqtt._is_connected is True
-    assert subscribe_calls == [("topic/a", False), ("topic/b", False)]
-    assert events == [True]
+    assert mqtt._is_connected is False
+    assert mqtt._get_ready_event().is_set() is False
+    assert mqtt._awaiting_post_resume_message is False
+    assert reconnect_calls == ["called"]
 
 
 def test_connection_resumed_resubscribes_when_session_is_not_present() -> None:
-    """Resume should still resubscribe when broker reports a lost session."""
+    """Resume should trigger a full reconnect when the session is lost."""
     mqtt = _build_mqtt_lifecycle_fixture(connected=False, client=_ClientStub())
     mqtt._topic = ["topic/out"]
-    subscribe_calls: list[tuple[str, bool]] = []
-    mqtt.subscribe = lambda topic, append=True: subscribe_calls.append((topic, append))
-    mqtt._events = type(
-        "_Events",
-        (),
-        {"call": staticmethod(lambda *_args, **_kwargs: None)},
-    )()
+    mqtt._awaiting_post_resume_message = False
+    reconnect_calls: list[str] = []
+    mqtt._schedule_reconnect_after_resume = lambda: reconnect_calls.append("called")
 
     mqtt._on_connection_resumed(
         None,
@@ -200,4 +205,6 @@ def test_connection_resumed_resubscribes_when_session_is_not_present() -> None:
         False,
     )
 
-    assert subscribe_calls == [("topic/out", False)]
+    assert mqtt._is_connected is False
+    assert mqtt._awaiting_post_resume_message is False
+    assert reconnect_calls == ["called"]

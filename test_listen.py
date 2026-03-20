@@ -50,7 +50,8 @@ async def async_worx():
 
 
 def receive_data(
-    name: str, device: DeviceHandler  # pylint: disable=unused-argument
+    name: str,
+    device: DeviceHandler,  # pylint: disable=unused-argument
 ) -> None:
     """Callback function when the MQTT broker sends new data."""
     print("Got data on MQTT from " + name)
@@ -58,7 +59,8 @@ def receive_data(
 
 
 def receive_api_data(
-    name: str, device: DeviceHandler  # pylint: disable=unused-argument
+    name: str,
+    device: DeviceHandler,  # pylint: disable=unused-argument
 ) -> None:
     """Callback function when the API data was updated."""
     print(f"API data was refreshed for {name}")

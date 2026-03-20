@@ -17,10 +17,9 @@ class ScheduleInfo:
 
     def __init__(self, schedule: Schedule, tz: str | None = None) -> None:
         self.__schedule = schedule
-        now = datetime.now()
         timezone_info = self._resolve_timezone(tz)
         self._tz = tz
-        self.__now = now.astimezone(timezone_info)
+        self.__now = datetime.now(timezone_info)
         self.__slots = schedule.get("slots", []) or []
 
     @staticmethod
@@ -47,12 +46,12 @@ class ScheduleInfo:
         end = string_to_time(f"{day_string} {slot['end']}:00", self._tz)
         return start, end
 
-    def calculate_progress(self) -> int:
+    def calculate_progress(self) -> int | None:
         """Return the percentage of the day already covered by slots."""
         slots = self._slots_for_date(self.__now)
         total_run = sum(slot.get("duration_extended", 0) for slot in slots)
         if total_run == 0:
-            return 100
+            return None
 
         has_run = 0.0
         for slot in slots:

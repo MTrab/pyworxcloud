@@ -87,11 +87,8 @@ def convert_to_time(
         else:
             parent += f";;{subkey}"
 
-    for key in data:
+    for key in list(data):
         if key.startswith("_") or key == "devices":
-            continue
-
-        if not key in data:
             continue
 
         hits = []

@@ -24,15 +24,15 @@ class Zone(LDict):
             return
 
         try:
-            if not "last_status" in data:
+            if "last_status" not in data:
                 return
 
-            if not "payload" in data["last_status"]:
+            if "payload" not in data["last_status"]:
                 return
 
             if (
-                not "dat" in data["last_status"]["payload"]
-                or not "cfg" in data["last_status"]["payload"]
+                "dat" not in data["last_status"]["payload"]
+                or "cfg" not in data["last_status"]["payload"]
             ):
                 return
 

@@ -41,7 +41,8 @@ from .landroid_class import LDict
 
 QOS_FLAG = awscrt.mqtt.QoS.AT_LEAST_ONCE
 DEFAULT_RESPONSE_TIMEOUT = 30.0
-DEFAULT_SHUTDOWN_TIMEOUT = 5.0
+DEFAULT_DISCONNECT_TIMEOUT = 0.5
+DEFAULT_SHUTDOWN_TIMEOUT = 0.25
 
 
 class MQTTMsgType(LDict):
@@ -145,8 +146,13 @@ class MQTT(LDict):
         self._pending_command_signature: tuple[str, str, int, str] | None = None
         self._last_command_payload: dict[str, Any] | None = None
         self._lifecycle_lock = threading.RLock()
+        self._token_update_lock = threading.Lock()
+        self._ready_event = threading.Event()
         self._message_id_lock = threading.Lock()
         self._message_id_seq = itertools.count(random.randint(1024, 65535))
+        self._client_generation = 0
+        self._active_generation = 0
+        self._awaiting_post_resume_message = False
         if response_timeout <= 0:
             raise ValueError("response_timeout must be greater than 0")
         self._response_timeout = float(response_timeout)
@@ -154,6 +160,7 @@ class MQTT(LDict):
             f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}"
         )
         self._shutdown_event = False
+        self._disconnect_timeout = DEFAULT_DISCONNECT_TIMEOUT
         self._shutdown_timeout = DEFAULT_SHUTDOWN_TIMEOUT
 
         # Create event loop group and connection
@@ -168,6 +175,10 @@ class MQTT(LDict):
 
     def _create_mqtt_connection(self):
         """Create an MQTT connection using awsiot.mqtt_connection_builder."""
+        generation = self._client_generation + 1
+        self._client_generation = generation
+        self._active_generation = generation
+
         # Format the JWT token for authentication
         accesstokenparts = (
             self._api.access_token.replace("_", "/").replace("-", "+").split(".")
@@ -181,18 +192,86 @@ class MQTT(LDict):
             auth_username=username,
             auth_password=None,
             client_bootstrap=self._client_bootstrap,
-            on_connection_interrupted=self._on_connection_interrupted,
-            on_connection_resumed=self._on_connection_resumed,
+            on_connection_interrupted=lambda connection, error, **kwargs: (
+                self._on_connection_interrupted(
+                    connection, error, generation=generation, **kwargs
+                )
+            ),
+            on_connection_resumed=lambda connection, return_code, session_present, **kwargs: (
+                self._on_connection_resumed(
+                    connection,
+                    return_code,
+                    session_present,
+                    generation=generation,
+                    **kwargs,
+                )
+            ),
             clean_session=False,
             keep_alive_secs=30,
         )
 
         return mqtt_connection
 
+    def _is_stale_generation(self, generation: int | None) -> bool:
+        """Return whether a callback generation no longer matches the active client."""
+        if generation is None:
+            return False
+        with self._lifecycle_lock:
+            return generation != self._active_generation
+
+    def _get_ready_event(self) -> threading.Event:
+        """Return the readiness event, creating it for bare test fixtures if needed."""
+        ready_event = getattr(self, "_ready_event", None)
+        if ready_event is None:
+            ready_event = threading.Event()
+            self._ready_event = ready_event
+            if getattr(self, "_is_connected", False):
+                ready_event.set()
+        return ready_event
+
+    def _resubscribe_topic(self, topic: str, generation: int | None = None) -> None:
+        """Resubscribe while tolerating older monkeypatched subscribe signatures."""
+        try:
+            self.subscribe(topic, False, generation=generation)
+        except TypeError as err:
+            if "generation" not in str(err):
+                raise
+            self.subscribe(topic, False)
+
+    def _schedule_reconnect_after_resume(self) -> None:
+        """Kick off a full client rebuild after an AWS-level resume callback."""
+        worker = threading.Thread(
+            target=self._reconnect_after_resume,
+            name="pyworxcloud-mqtt-resume-reconnect",
+            daemon=True,
+        )
+        worker.start()
+
+    def _reconnect_after_resume(self) -> None:
+        """Rebuild the MQTT client after a resume callback we do not trust."""
+        try:
+            self.update_token()
+        except Exception:  # pragma: no cover - defensive logging path
+            self._log.debug(
+                "Forced reconnect after MQTT resume failed",
+                exc_info=True,
+            )
+
     def _on_connection_interrupted(self, connection, error, **kwargs):
         """Callback when a connection is accidentally lost."""
+        del connection
         logger = self._log.getChild("Conn_State")
+        generation = kwargs.get("generation")
+        if self._is_stale_generation(generation):
+            logger.debug(
+                "Ignoring stale connection interrupted callback for generation %s",
+                generation,
+            )
+            return
+
         self._is_connected = False
+        self._get_ready_event().clear()
+        self._awaiting_post_resume_message = False
         logger.debug(f"Connection interrupted. error: {error}")
         self._events.call(LandroidEvent.MQTT_CONNECTION, state=False)
 
@@ -200,26 +279,41 @@ class MQTT(LDict):
         self, connection, return_code, session_present, **kwargs
     ):
         """Callback when an interrupted connection is re-established."""
+        del connection
         logger = self._log.getChild("Conn_State")
+        generation = kwargs.get("generation")
+        if self._is_stale_generation(generation):
+            logger.debug(
+                "Ignoring stale connection resumed callback for generation %s",
+                generation,
+            )
+            return
+
         self._is_connected = True
         logger.debug(
             f"Connection resumed. return_code: {return_code}, session_present: {session_present}"
         )
 
+        self._is_connected = False
+        self._get_ready_event().clear()
+        self._awaiting_post_resume_message = False
+
         if return_code == awscrt.mqtt.ConnectReturnCode.ACCEPTED:
             if session_present:
                 logger.debug(
-                    "Session resumed. Resubscribing to existing topics defensively..."
+                    "Session resumed, but forcing a full MQTT reconnect before trusting it"
                 )
             else:
                 logger.debug(
-                    "Session did not persist. Resubscribing to existing topics..."
+                    "Session did not persist; forcing a full MQTT reconnect"
                 )
-            for topic in self._topic:
-                logger.debug(f"Resubscribing to '{topic}'")
-                self.subscribe(topic, False)
+        else:
+            logger.debug(
+                "Resume returned non-accepted code %s; forcing a full MQTT reconnect",
+                return_code,
+            )
 
-        self._events.call(LandroidEvent.MQTT_CONNECTION, state=True)
+        self._schedule_reconnect_after_resume()
 
     @property
     def connected(self) -> bool:
@@ -227,9 +321,19 @@ class MQTT(LDict):
         return self._is_connected
         # return self.client.is_connected()
 
-    def _on_message_received(self, topic: str, payload: bytes, **kwargs) -> None:
+    def _on_message_received(
+        self, topic: str, payload: bytes, generation: int | None = None, **kwargs
+    ) -> None:
         """Callback when a message is received."""
+        del kwargs
+        if self._is_stale_generation(generation):
+            self._log.debug(
+                "Ignoring stale MQTT message callback for generation %s", generation
+            )
+            return
+
         msg = payload.decode("utf-8")
+        self._awaiting_post_resume_message = False
         self._log.debug("Received MQTT message on topic '%s':\n%s", topic, msg)
         identifiers, message_ids = self._extract_response_markers(msg)
         expanded_identifiers = self._expand_identifiers(identifiers)
@@ -293,47 +397,80 @@ class MQTT(LDict):
 
         return identifiers, message_ids
 
-    def subscribe(self, topic: str, append: bool = True) -> None:
+    def subscribe(
+        self, topic: str, append: bool = True, generation: int | None = None
+    ) -> None:
         """Subscribe to MQTT updates."""
         if append and topic not in self._topic:
             self._topic.append(topic)
 
-        subscribe_future, _ = self.client.subscribe(
-            topic=topic, qos=QOS_FLAG, callback=self._on_message_received
+        client = self.client
+        if client is None:
+            raise NoConnectionError("MQTT client is not available")
+
+        callback_generation = (
+            self._active_generation if generation is None else generation
+        )
+        subscribe_future, _ = client.subscribe(
+            topic=topic,
+            qos=QOS_FLAG,
+            callback=lambda topic, payload, **kwargs: self._on_message_received(
+                topic, payload, generation=callback_generation, **kwargs
+            ),
         )
 
         # Wait for a subscription to be confirmed
         subscribe_future.result()
         self._log.debug(f"Subscribed to topic: {topic}")
 
-    async def asubscribe(self, topic: str, append: bool = True) -> None:
+    async def asubscribe(
+        self, topic: str, append: bool = True, generation: int | None = None
+    ) -> None:
         """Async subscribe wrapper."""
-        await asyncio.to_thread(self.subscribe, topic, append)
+        await asyncio.to_thread(self.subscribe, topic, append, generation)
 
     def connect(self) -> None:
         """Connect to the MQTT service."""
+        with self._lifecycle_lock:
+            client = self.client
+            generation = self._active_generation
+        if client is None:
+            raise NoConnectionError("MQTT client is not available")
+
+        self._get_ready_event().clear()
         try:
             # Create a connection future
-            self._connection_future = self.client.connect()
+            self._connection_future = client.connect()
 
             # Wait for connection to complete
             self._connection_future.result()
 
-            # Update connection state
-            self._is_connected = True
-            self._reconnected = False
+            with self._lifecycle_lock:
+                if generation != self._active_generation or client is not self.client:
+                    self._log.debug(
+                        "Ignoring late connect completion for stale generation %s",
+                        generation,
+                    )
+                    return
+
+                # Update connection state
+                self._is_connected = True
+                self._reconnected = False
+                self._awaiting_post_resume_message = False
 
             # Subscribe to saved topics
             for topic in self._topic:
                 self._log.debug(f"Subscribing to '{topic}'")
-                self.subscribe(topic, False)
+                self._resubscribe_topic(topic, generation)
 
             # Notify about connection
+            self._get_ready_event().set()
             self._events.call(LandroidEvent.MQTT_CONNECTION, state=True)
 
         except Exception as exc:
             self._is_connected = False
             self._connection_future = None
+            self._get_ready_event().clear()
             self._log.error(f"Failed to connect to MQTT: {exc}")
             raise NoConnectionError() from exc
 
@@ -343,19 +480,29 @@ class MQTT(LDict):
 
     def update_token(self) -> None:
         """Update the token."""
-        self._log.debug("Updating token")
+        if not self._token_update_lock.acquire(blocking=False):
+            self._log.debug("Token update already in progress; waiting for MQTT ready")
+            self._wait_until_ready(self._response_timeout)
+            return
 
-        # Disconnect if connected
-        if self.connected:
-            self.disconnect(keep_topic=True)
+        try:
+            with self._command_lock:
+                self._log.debug("Updating token")
+                self._get_ready_event().clear()
 
-        # Create a new connection with updated token
-        self.client = self._create_mqtt_connection()
+                # Disconnect if connected
+                if self.connected:
+                    self.disconnect(keep_topic=True)
 
-        # Reconnect
-        self.connect()
+                # Create a new connection with updated token
+                self.client = self._create_mqtt_connection()
 
-        self._log.debug("Token updated")
+                # Reconnect
+                self.connect()
+
+                self._log.debug("Token updated")
+        finally:
+            self._token_update_lock.release()
 
     async def aupdate_token(self) -> None:
         """Async token update wrapper."""
@@ -368,6 +515,7 @@ class MQTT(LDict):
             if self._shutdown_event:
                 self._is_connected = False
                 self._connection_future = None
+                self._get_ready_event().clear()
                 return
 
             # Clear topic list
@@ -377,22 +525,35 @@ class MQTT(LDict):
             client = self.client
             if client is None:
                 self._is_connected = False
+                self._get_ready_event().clear()
                 return
 
             try:
                 if self._is_connected:
                     started = time.perf_counter()
                     disconnect_future = client.disconnect()
-                    disconnect_future.result()
+                    disconnect_future.result(
+                        timeout=getattr(
+                            self,
+                            "_disconnect_timeout",
+                            DEFAULT_DISCONNECT_TIMEOUT,
+                        )
+                    )
                     logger.debug(
                         "MQTT disconnected in %.3fs", time.perf_counter() - started
                     )
+            except FutureTimeoutError:  # pragma: no cover - defensive
+                logger.debug(
+                    "MQTT disconnect timed out after %.3fs",
+                    time.perf_counter() - started,
+                )
             except Exception as err:  # pragma: no cover - defensive
                 logger.debug("MQTT disconnect raised during teardown: %s", err)
             finally:
                 # Ensure internal state remains consistent after teardown attempts.
                 self._is_connected = False
                 self._connection_future = None
+                self._get_ready_event().clear()
 
     async def adisconnect(self, keep_topic: bool = False) -> None:
         """Async disconnect wrapper."""
@@ -418,6 +579,7 @@ class MQTT(LDict):
             self._event_loop_group = None
             self._is_connected = False
             self._connection_future = None
+            self._get_ready_event().clear()
 
         # Disconnect after detaching internals, so concurrent calls see teardown state.
         if client is not None and was_connected:
@@ -534,8 +696,11 @@ class MQTT(LDict):
         if effective_timeout <= 0:
             raise ValueError("timeout must be greater than 0")
 
-        if not self.connected:
-            self.update_token()
+        should_retry_after_reconnect = (
+            not self.connected
+            or self._awaiting_post_resume_message
+            or self._token_update_lock.locked()
+        )
 
         command_signature = (
             serial_number,
@@ -554,6 +719,47 @@ class MQTT(LDict):
                         message,
                     )
                     return
+
+        try:
+            self._publish_once(
+                serial_number=serial_number,
+                topic=topic,
+                message=message,
+                protocol=protocol,
+                effective_timeout=effective_timeout,
+                command_signature=command_signature,
+            )
+        except (NoConnectionError, TimeoutException) as err:
+            if not should_retry_after_reconnect:
+                raise
+
+            self._log.debug(
+                "Retrying MQTT publish once after reconnect recovery: %s", err
+            )
+            self.update_token()
+            self._publish_once(
+                serial_number=serial_number,
+                topic=topic,
+                message=message,
+                protocol=protocol,
+                effective_timeout=effective_timeout,
+                command_signature=command_signature,
+            )
+
+    def _publish_once(
+        self,
+        serial_number: str,
+        topic: str,
+        message: dict,
+        protocol: int,
+        effective_timeout: float,
+        command_signature: tuple[str, str, int, str],
+    ) -> None:
+        """Publish a single command attempt and wait for the matching response."""
+        self._ensure_connection_ready(effective_timeout)
+        client = self.client
+        if client is None:
+            raise NoConnectionError("MQTT client is not available")
 
         # Format the message
         formatted_message = self.format_message(serial_number, message, protocol)
@@ -585,12 +791,9 @@ class MQTT(LDict):
                 self._response_event.clear()
 
             try:
-                # Publish the message
-                publish_future, _ = self.client.publish(
+                publish_future, _ = client.publish(
                     topic=topic, payload=formatted_message, qos=QOS_FLAG
                 )
-
-                # Wait for the message to be published
                 publish_future.result()
 
                 if not self._response_event.wait(effective_timeout):
@@ -613,6 +816,45 @@ class MQTT(LDict):
                     self._pending_response_message_id = None
                     self._pending_command_signature = None
                     self._response_event.clear()
+
+    def _wait_until_ready(self, timeout: float) -> bool:
+        """Wait for the MQTT connection to become ready."""
+        ready_event = self._get_ready_event()
+        if self.connected or ready_event.is_set():
+            return True
+        return ready_event.wait(timeout)
+
+    def _ensure_connection_ready(self, timeout: float) -> None:
+        """Ensure a usable MQTT connection exists before publishing."""
+        if self.connected:
+            if self._awaiting_post_resume_message:
+                self._log.debug(
+                    "No MQTT traffic received after connection resume; rebuilding client before publish"
+                )
+                self.update_token()
+                if self.connected:
+                    return
+                raise NoConnectionError("MQTT connection did not recover after resume")
+            return
+
+        if self._token_update_lock.locked():
+            if self._wait_until_ready(timeout):
+                return
+            raise TimeoutException("MQTT connection unavailable during token refresh")
+
+        client = self.client
+        if client is not None and not hasattr(client, "connect"):
+            # Lightweight test doubles can inject a publish-only client and mark the
+            # transport as connected without implementing full reconnect support.
+            if self.connected:
+                self._get_ready_event().set()
+                return
+            raise NoConnectionError("MQTT client is not available for reconnect")
+
+        self.update_token()
+        if self.connected:
+            return
+        raise NoConnectionError("MQTT connection is not ready")
 
     async def apublish(
         self,
