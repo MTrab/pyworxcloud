@@ -49,6 +49,6 @@ For every `sc` payload:
 ## Additional notes
 
 - Raw payloads remain available via `device.raw_cfg`/`device.raw_dat`, ensuring every numeric value can be inspected even after transformation.
-- `schedules.update_progress_and_next()` keeps `daily_progress`/`next_schedule_start` synced with the current timezone; `daily_progress` stays `None` on days without schedule slots.
+- `schedules.update_progress_and_next()` keeps `daily_progress`/`next_schedule_start` synced with the current timezone.
 - Any new value in `code-ref/data-samples` should be documented here before adding a dedicated property so the visual map stays accurate.
 - MQTT fixtures (`mqtt.json`) now ship as sequential JSON payloads from the mower; `dump_mapping.py` and the device decoders iterate every document so the decoded slots/status stay aligned with what flows through the live MQTT stream.

@@ -565,41 +565,6 @@ def test_protocol0_schedule_progress_uses_mower_timezone(monkeypatch) -> None:
     assert schedule["next_schedule_start"] == "2026-03-13 00:15:00"
 
 
-def test_schedule_progress_is_none_without_active_slot_today(monkeypatch) -> None:
-    """Daily progress should be None when the current day has no schedule slots."""
-    real_datetime = schedules_module.datetime
-
-    class FrozenDateTime:
-        """Minimal datetime shim returning a fixed current time."""
-
-        @staticmethod
-        def now(tz=None) -> Any:
-            current = real_datetime(2026, 3, 12, 10, 30, tzinfo=ZoneInfo("UTC"))
-            return current if tz is None else current.astimezone(tz)
-
-        strptime = staticmethod(real_datetime.strptime)
-
-    monkeypatch.setattr(schedules_module, "datetime", FrozenDateTime)
-
-    schedule = Schedule()
-    schedule["slots"] = [
-        {
-            "day": "friday",
-            "start": "08:00",
-            "end": "08:30",
-            "duration": 30,
-            "duration_extended": 30,
-            "boundary": False,
-            "source": "protocol1",
-        }
-    ]
-
-    schedule.update_progress_and_next("UTC")
-
-    assert schedule["daily_progress"] is None
-    assert schedule["next_schedule_start"] == "2026-03-13 08:00:00"
-
-
 def test_devicehandler_maps_rtk_zone_ids_and_current_zone() -> None:
     """RTK devices should expose current zone and known zone IDs from RTK payloads."""
     payload = {
