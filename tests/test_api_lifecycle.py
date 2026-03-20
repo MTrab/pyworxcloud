@@ -1075,6 +1075,93 @@ def test_set_auto_schedule_soil_type_puts_merged_settings_and_refreshes(
     assert refreshes == [True]
 
 
+def test_set_auto_schedule_irrigation_puts_merged_settings_and_refreshes(
+    monkeypatch,
+) -> None:
+    """set_auto_schedule_irrigation should PUT merged top-level settings."""
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "auto_schedule": True,
+            "auto_schedule_settings": {
+                "boost": 2,
+                "soil_type": "ignore",
+                "irrigation": False,
+            },
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {
+                "schedules": {
+                    "auto_schedule": {
+                        "enabled": True,
+                        "settings": {
+                            "boost": 2,
+                            "soil_type": "ignore",
+                            "irrigation": False,
+                        },
+                    }
+                }
+            },
+        )()
+    }
+
+    async def _put(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "body": body, "headers": headers, "session": session})
+        return {"auto_schedule_settings": body["auto_schedule_settings"]}
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    async def _record_fetch(forced: bool = False) -> None:
+        refreshes.append(forced)
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    cloud._fetch = _record_fetch  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APUT", _put)
+
+    asyncio.run(cloud.set_auto_schedule_irrigation("SERIAL-0", True))
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0")
+    assert calls[0]["body"] == {
+        "auto_schedule_settings": {
+            "boost": 2,
+            "soil_type": "ignore",
+            "irrigation": True,
+        }
+    }
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    assert cloud.get_mower("SERIAL-0")["auto_schedule_settings"]["irrigation"] is True
+    assert (
+        cloud.devices["Proto0"].schedules["auto_schedule"]["settings"]["irrigation"]
+        is True
+    )
+    assert refreshes == [True]
+
+
 def test_schedule_crud_publishes_normalized_payload_and_refreshes() -> None:
     """Schedule CRUD should publish protocol-specific payloads and trigger refresh."""
     cloud = WorxCloud("user@example.com", "secret", "worx")
