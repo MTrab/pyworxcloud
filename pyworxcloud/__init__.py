@@ -28,7 +28,6 @@ from .exceptions import (
     NoCuttingHeightError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
-    NoPartymodeError as NoPartymodeError,
     NoPauseModeError,
     OfflineError,
     TooManyRequestsError,
