@@ -1318,6 +1318,78 @@ class WorxCloud(dict):
 
         await self._fetch(True)
 
+    async def set_auto_schedule_nutrition(
+        self, serial_number: str, n: int, p: int, k: int
+    ) -> None:
+        """Set the observed auto-schedule nutrition NPK values."""
+        nutrition = {
+            "n": self._coerce_int(n, "n", minimum=0),
+            "p": self._coerce_int(p, "p", minimum=0),
+            "k": self._coerce_int(k, "k", minimum=0),
+        }
+
+        mower = self.get_mower(serial_number)
+        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
+        payload = {
+            "auto_schedule_settings": self._deep_merge_dict(
+                current_settings, {"nutrition": nutrition}
+            )
+        }
+
+        await self._api.check_token()
+        response = await APUT(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
+            payload,
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if isinstance(response, dict):
+            mower.update(response)
+
+        mower["auto_schedule_settings"] = payload["auto_schedule_settings"]
+        device = self.devices.get(mower["name"])
+        if device is not None:
+            auto_schedule = device.schedules.get("auto_schedule")
+            if isinstance(auto_schedule, dict):
+                settings = auto_schedule.get("settings")
+                if isinstance(settings, dict):
+                    settings["nutrition"] = nutrition
+
+        await self._fetch(True)
+
+    async def clear_auto_schedule_nutrition(self, serial_number: str) -> None:
+        """Clear the observed auto-schedule nutrition settings."""
+        mower = self.get_mower(serial_number)
+        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
+        payload = {
+            "auto_schedule_settings": self._deep_merge_dict(
+                current_settings, {"nutrition": None}
+            )
+        }
+
+        await self._api.check_token()
+        response = await APUT(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
+            payload,
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if isinstance(response, dict):
+            mower.update(response)
+
+        mower["auto_schedule_settings"] = payload["auto_schedule_settings"]
+        device = self.devices.get(mower["name"])
+        if device is not None:
+            auto_schedule = device.schedules.get("auto_schedule")
+            if isinstance(auto_schedule, dict):
+                settings = auto_schedule.get("settings")
+                if isinstance(settings, dict):
+                    settings["nutrition"] = None
+
+        await self._fetch(True)
+
     async def set_time_extension(self, serial_number: str, time_extension: int) -> None:
         """Set schedule time extension percentage.
 

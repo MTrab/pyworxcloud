@@ -55,5 +55,7 @@ For every `sc` payload:
 
 - Raw payloads remain available via `device.raw_cfg`/`device.raw_dat`, ensuring every numeric value can be inspected even after transformation.
 - `schedules.update_progress_and_next()` keeps `daily_progress`/`next_schedule_start` synced with the current timezone.
+- Live write checks currently confirm that top-level `product-items` `PUT` calls can update `auto_schedule`, `auto_schedule_settings.boost`, `auto_schedule_settings.soil_type`, `auto_schedule_settings.irrigation`, and `auto_schedule_settings.nutrition`.
+- Disabling nutrition is currently observed by sending `auto_schedule_settings.nutrition = null`; sending `{ "n": 0, "p": 0, "k": 0 }` keeps nutrition enabled with zero values.
 - Any new value in `code-ref/data-samples` should be documented here before adding a dedicated property so the visual map stays accurate.
 - MQTT fixtures (`mqtt.json`) now ship as sequential JSON payloads from the mower; `dump_mapping.py` and the device decoders iterate every document so the decoded slots/status stay aligned with what flows through the live MQTT stream.
