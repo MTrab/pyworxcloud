@@ -31,6 +31,9 @@ class _FailingSession:
     def post(self, *args: Any, **kwargs: Any) -> None:
         raise urllib3.exceptions.MaxRetryError(None, None, "max retries exceeded")
 
+    def put(self, *args: Any, **kwargs: Any) -> None:
+        raise requests.exceptions.ConnectionError()
+
 
 def test_get_retries_connection_errors_and_fails(monkeypatch) -> None:
     """GET should retry and raise NoConnectionError on repeated transport failures."""
@@ -66,4 +69,29 @@ def test_post_returns_json_on_success(monkeypatch) -> None:
     monkeypatch.setattr(req_utils, "_DEFAULT_SESSION", _SuccessSession())
 
     payload = req_utils.POST("https://example.invalid", {})
+    assert payload["ok"] is True
+
+
+def test_put_retries_connection_errors_and_fails(monkeypatch) -> None:
+    """PUT should retry and raise NoConnectionError on repeated transport failures."""
+    monkeypatch.setattr(req_utils, "_DEFAULT_SESSION", _FailingSession())
+
+    try:
+        req_utils.PUT("https://example.invalid", {})
+    except NoConnectionError:
+        return
+
+    raise AssertionError("Expected NoConnectionError was not raised")
+
+
+def test_put_returns_json_on_success(monkeypatch) -> None:
+    """PUT should return JSON payload for successful request."""
+
+    class _SuccessSession:
+        def put(self, *args: Any, **kwargs: Any) -> DummyResponse:
+            return DummyResponse({"ok": True})
+
+    monkeypatch.setattr(req_utils, "_DEFAULT_SESSION", _SuccessSession())
+
+    payload = req_utils.PUT("https://example.invalid", {})
     assert payload["ok"] is True

@@ -28,7 +28,6 @@ from .exceptions import (
     NoCuttingHeightError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
-    NoPartymodeError,
     NoPauseModeError,
     OfflineError,
     TooManyRequestsError,
@@ -38,7 +37,7 @@ from .exceptions import (
 from .helpers import convert_to_time, get_logger
 from .utils import MQTT, DeviceCapability, DeviceHandler, ScheduleEntry, ScheduleModel
 from .utils.mqtt import Command
-from .utils.requests import APOST, HEADERS
+from .utils.requests import APOST, APUT, HEADERS
 from .utils.schedule_codec import add_schedule_entry as add_schedule_entry_model
 from .utils.schedule_codec import delete_schedule_entry as delete_schedule_entry_model
 from .utils.schedule_codec import (
@@ -1091,7 +1090,7 @@ class WorxCloud(dict):
                     f"Cannot request zone {zone} as it is not defined."
                 )
 
-            if not zone in device.zone["indicies"]:
+            if zone not in device.zone["indicies"]:
                 raise ZoneNoProbability(
                     f"Cannot request zone {zone} as it has no probability set."
                 )
@@ -1178,6 +1177,70 @@ class WorxCloud(dict):
             mower,
             self._deep_merge_dict(current_payload, sc_patch),
         )
+
+    async def toggle_auto_schedule(self, serial_number: str, enable: bool) -> None:
+        """Turn automatic scheduling on or off.
+
+        This helper is intentionally narrow and experimental. Current live
+        findings only confirm that ``auto_schedule`` is surfaced as a top-level
+        mower field, so this helper only toggles that observed flag.
+        """
+        enable = self._require_bool(enable, "enable")
+        mower = self.get_mower(serial_number)
+        await self._api.check_token()
+        response = await APUT(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
+            {"auto_schedule": enable},
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if isinstance(response, dict):
+            mower.update(response)
+        mower["auto_schedule"] = enable
+        device = self.devices.get(mower["name"])
+        if device is not None:
+            auto_schedule = device.schedules.get("auto_schedule")
+            if isinstance(auto_schedule, dict):
+                auto_schedule["enabled"] = enable
+
+        await self._fetch(True)
+
+    async def set_auto_schedule_boost(self, serial_number: str, boost: int) -> None:
+        """Set the observed auto-schedule boost level."""
+        boost = self._coerce_int(boost, "boost")
+        if boost not in (0, 1, 2):
+            raise ValueError("boost must be one of 0, 1, or 2")
+
+        mower = self.get_mower(serial_number)
+        current_settings = self._clone_dict(mower.get("auto_schedule_settings"))
+        payload = {
+            "auto_schedule_settings": self._deep_merge_dict(
+                current_settings, {"boost": boost}
+            )
+        }
+
+        await self._api.check_token()
+        response = await APUT(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
+            payload,
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if isinstance(response, dict):
+            mower.update(response)
+
+        mower["auto_schedule_settings"] = payload["auto_schedule_settings"]
+        device = self.devices.get(mower["name"])
+        if device is not None:
+            auto_schedule = device.schedules.get("auto_schedule")
+            if isinstance(auto_schedule, dict):
+                settings = auto_schedule.get("settings")
+                if isinstance(settings, dict):
+                    settings["boost"] = boost
+
+        await self._fetch(True)
 
     async def set_time_extension(self, serial_number: str, time_extension: int) -> None:
         """Set schedule time extension percentage.

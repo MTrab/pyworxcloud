@@ -142,6 +142,32 @@ async def AGET(
             await client.close()
 
 
+async def APUT(
+    URL: str,
+    REQUEST_BODY: Any,
+    HEADER: dict | None = None,
+    session: aiohttp.ClientSession | None = None,
+) -> Any:
+    """Perform an async PUT request."""
+    if isinstance(HEADER, type(None)):
+        HEADER = HEADERS()
+
+    owns_session = session is None
+    client = session or await create_async_session()
+    try:
+        async with client.put(URL, json=REQUEST_BODY, headers=HEADER) as resp:
+            if resp.status >= 400:
+                _raise_http_status(resp.status, Exception(f"HTTP {resp.status}"))
+            return await resp.json()
+    except aiohttp.ClientError as err:
+        raise NoConnectionError() from err
+    except asyncio.TimeoutError as err:
+        raise NoConnectionError() from err
+    finally:
+        if owns_session:
+            await client.close()
+
+
 _DEFAULT_SESSION = _build_session()
 
 
@@ -181,6 +207,33 @@ def GET(
     client = session if session is not None else _DEFAULT_SESSION
     try:
         req = client.get(URL, headers=HEADER, timeout=REQUEST_TIMEOUT)
+        req.raise_for_status()
+        return req.json()
+    except requests.exceptions.HTTPError as err:
+        _raise_http_status(err.response.status_code, err)
+    except (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        MaxRetryError,
+    ) as err:
+        raise NoConnectionError() from err
+
+
+def PUT(
+    URL: str,
+    REQUEST_BODY: Any,
+    HEADER: dict | None = None,
+    session: requests.Session | None = None,
+) -> Any:
+    """Perform a sync PUT request (legacy interface)."""
+    if isinstance(HEADER, type(None)):
+        HEADER = HEADERS()
+
+    client = session if session is not None else _DEFAULT_SESSION
+    try:
+        req = client.put(
+            URL, json=REQUEST_BODY, headers=HEADER, timeout=REQUEST_TIMEOUT
+        )
         req.raise_for_status()
         return req.json()
     except requests.exceptions.HTTPError as err:
