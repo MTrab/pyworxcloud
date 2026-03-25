@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 
-from pyworxcloud.exceptions import NoPartymodeError
+from pyworxcloud.exceptions import NoPauseModeError
 from pyworxcloud.utils.capability import DeviceCapability
 from pyworxcloud.utils.schedule_codec import (
     ScheduleEntry,
@@ -240,26 +240,26 @@ def test_protocol1_set_schedule_preserves_enabled_state() -> None:
     assert encoded["enabled"] == 1
 
 
-def test_deprecated_party_mode_error_warns() -> None:
+def test_deprecated_pause_mode_error_warns() -> None:
     """The deprecated exception alias should emit a warning."""
     with warnings.catch_warnings(record=True) as captured:
         warnings.simplefilter("always")
-        err = NoPartymodeError("deprecated")
+        err = NoPauseModeError("deprecated")
 
     assert str(err) == "deprecated"
     assert any(
-        "NoPartymodeError is deprecated" in str(item.message) for item in captured
+        "NoPauseModeError is deprecated" in str(item.message) for item in captured
     )
 
 
-def test_deprecated_party_mode_capability_warns() -> None:
+def test_deprecated_pause_mode_capability_warns() -> None:
     """The deprecated enum alias should emit a warning."""
     with warnings.catch_warnings(record=True) as captured:
         warnings.simplefilter("always")
-        capability = DeviceCapability.PARTY_MODE
+        capability = DeviceCapability.PAUSE_MODE
 
-    assert capability is DeviceCapability.PAUSE_MODE
+    assert capability is DeviceCapability.PARTY_MODE
     assert any(
-        "DeviceCapability.PARTY_MODE is deprecated" in str(item.message)
+        "DeviceCapability.PAUSE_MODE is deprecated" in str(item.message)
         for item in captured
     )
