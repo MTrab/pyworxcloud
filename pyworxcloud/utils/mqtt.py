@@ -304,9 +304,7 @@ class MQTT(LDict):
                     "Session resumed, but forcing a full MQTT reconnect before trusting it"
                 )
             else:
-                logger.debug(
-                    "Session did not persist; forcing a full MQTT reconnect"
-                )
+                logger.debug("Session did not persist; forcing a full MQTT reconnect")
         else:
             logger.debug(
                 "Resume returned non-accepted code %s; forcing a full MQTT reconnect",
