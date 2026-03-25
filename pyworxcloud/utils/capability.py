@@ -14,13 +14,13 @@ class _DeviceCapabilityMeta(EnumMeta):
     """Enum metaclass that keeps deprecated aliases working."""
 
     def __getattr__(cls, name: str):
-        if name == "PAUSE_MODE":
+        if name == "PARTY_MODE":
             warnings.warn(
-                "DeviceCapability.PAUSE_MODE is deprecated; use DeviceCapability.PARTY_MODE instead.",
+                "DeviceCapability.PARTY_MODE is deprecated; use DeviceCapability.PAUSE_MODE instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-            return cls.PARTY_MODE
+            return cls.PAUSE_MODE
         return super().__getattr__(name)
 
 
@@ -29,7 +29,7 @@ class DeviceCapability(IntEnum, metaclass=_DeviceCapabilityMeta):
 
     EDGE_CUT = 1
     ONE_TIME_SCHEDULE = 2
-    PARTY_MODE = 4
+    PAUSE_MODE = 4
     TORQUE = 8
     OFF_LIMITS = 16
     CUTTING_HEIGHT = 32
@@ -39,7 +39,7 @@ class DeviceCapability(IntEnum, metaclass=_DeviceCapabilityMeta):
 CAPABILITY_TO_TEXT = {
     DeviceCapability.EDGE_CUT: "Edge Cut",
     DeviceCapability.ONE_TIME_SCHEDULE: "One-Time-Schedule",
-    DeviceCapability.PARTY_MODE: "Party mode",
+    DeviceCapability.PAUSE_MODE: "Pause mode",
     DeviceCapability.TORQUE: "Motor Torque",
     DeviceCapability.OFF_LIMITS: "Off Limits",
     DeviceCapability.CUTTING_HEIGHT: "Cutting Height",
@@ -76,7 +76,7 @@ class Capability:
                     self.add(DeviceCapability.EDGE_CUT)
 
                 if "distm" in cfg["sc"] or "enabled" in cfg["sc"]:
-                    self.add(DeviceCapability.PARTY_MODE)
+                    self.add(DeviceCapability.PAUSE_MODE)
 
         except TypeError:
             pass

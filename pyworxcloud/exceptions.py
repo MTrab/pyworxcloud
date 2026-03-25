@@ -10,21 +10,21 @@ class InvalidDataDecodeException(Exception):
 
 
 class NoPartymodeError(Exception):
-    """Define an error when party mode is not supported."""
-
-    def __init__(self, *args, **kwargs) -> None:
-        Exception.__init__(self, *args, **kwargs)
-
-
-class NoPauseModeError(NoPartymodeError):
-    """Deprecated compatibility alias for NoPartymodeError."""
+    """Deprecated compatibility alias for the pause mode error."""
 
     def __init__(self, *args, **kwargs) -> None:
         warnings.warn(
-            "NoPauseModeError is deprecated; use NoPartymodeError instead.",
+            "NoPartymodeError is deprecated; use NoPauseModeError instead.",
             DeprecationWarning,
             stacklevel=2,
         )
+        super().__init__(*args, **kwargs)
+
+
+class NoPauseModeError(NoPartymodeError):
+    """Define an error when pause mode is not supported."""
+
+    def __init__(self, *args, **kwargs) -> None:
         Exception.__init__(self, *args, **kwargs)
 
 

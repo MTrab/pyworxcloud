@@ -364,7 +364,7 @@ class DeviceHandler(LDict):
         result = ScheduleParser(sc_payload, self.protocol).parse()
 
         if "m" in sc_payload or "enabled" in sc_payload:
-            self.capabilities.add(DeviceCapability.PARTY_MODE)
+            self.capabilities.add(DeviceCapability.PAUSE_MODE)
 
         self.partymode_enabled = result.pause_mode_enabled
         self.pause_mode_enabled = result.pause_mode_enabled

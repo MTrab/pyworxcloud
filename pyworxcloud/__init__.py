@@ -1034,15 +1034,15 @@ class WorxCloud(dict):
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    async def set_party_mode(self, serial_number: str, state: bool) -> None:
-        """Turn on or off the party mode.
+    async def set_pause_mode(self, serial_number: str, state: bool) -> None:
+        """Turn on or off the pause mode.
 
         Args:
             serial_number (str): Serial number of the device
-            state (bool): True is enabling party mode, False is disabling party mode.
+            state (bool): True is enabling pause mode, False is disabling pause mode.
 
         Raises:
-            NoPartymodeError: Raised if the device does not support party mode.
+            NoPauseModeError: Raised if the device does not support pause mode.
             OfflineError: Raised if the device is offline.
         """
         state = self._require_bool(state, "state")
@@ -1050,7 +1050,7 @@ class WorxCloud(dict):
 
         if mower["online"]:
             device = DeviceHandler(self._api, mower, self._tz)
-            if device.capabilities.check(DeviceCapability.PARTY_MODE):
+            if device.capabilities.check(DeviceCapability.PAUSE_MODE):
                 if mower["protocol"] == 0:
                     await self.mqtt.apublish(
                         serial_number if mower["protocol"] == 0 else mower["uuid"],
@@ -1069,20 +1069,19 @@ class WorxCloud(dict):
                         {"sc": {"enabled": 0}} if state else {"sc": {"enabled": 1}},
                         mower["protocol"],
                     )
-            elif not device.capabilities.check(DeviceCapability.PARTY_MODE):
-                raise NoPartymodeError("This device does not support Party mode")
+            elif not device.capabilities.check(DeviceCapability.PAUSE_MODE):
+                raise NoPauseModeError("This device does not support Pause mode")
         elif not mower["online"]:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    async def set_pause_mode(self, serial_number: str, state: bool) -> None:
-        """Deprecated compatibility wrapper for :meth:`set_party_mode`."""
-        import warnings
+    async def set_partymode(self, serial_number: str, state: bool) -> None:
+        """Deprecated compatibility wrapper for :meth:`set_pause_mode`."""
         warnings.warn(
-            "set_pause_mode() is deprecated; use set_party_mode() instead.",
+            "set_partymode() is deprecated; use set_pause_mode() instead.",
             DeprecationWarning,
             stacklevel=2,
         )
-        await self.set_party_mode(serial_number, state)
+        await self.set_pause_mode(serial_number, state)
 
     async def set_offlimits(self, serial_number: str, state: bool) -> None:
         """Turn on or off the off limits module.
