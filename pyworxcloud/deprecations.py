@@ -18,32 +18,32 @@ class DeprecationEntry:
 
 DEPRECATIONS: tuple[DeprecationEntry, ...] = (
     DeprecationEntry(
-        old_name="WorxCloud.set_partymode()",
-        replacement="WorxCloud.set_pause_mode()",
+        old_name="WorxCloud.set_pause_mode()",
+        replacement="WorxCloud.set_party_mode()",
         remove_after=date(2026, 9, 15),
-        note="Deprecated Party mode method alias.",
+        note="Deprecated pause mode method alias.",
     ),
     DeprecationEntry(
-        old_name="NoPartymodeError",
-        replacement="NoPauseModeError",
+        old_name="NoPauseModeError",
+        replacement="NoPartymodeError",
         remove_after=date(2026, 9, 15),
         note="Deprecated exception alias.",
     ),
     DeprecationEntry(
-        old_name="DeviceCapability.PARTY_MODE",
-        replacement="DeviceCapability.PAUSE_MODE",
+        old_name="DeviceCapability.PAUSE_MODE",
+        replacement="DeviceCapability.PARTY_MODE",
         remove_after=date(2026, 9, 15),
         note="Deprecated capability alias.",
     ),
     DeprecationEntry(
-        old_name="DeviceHandler.partymode_enabled",
-        replacement="DeviceHandler.pause_mode_enabled",
+        old_name="DeviceHandler.pause_mode_enabled",
+        replacement="DeviceHandler.partymode_enabled",
         remove_after=date(2026, 9, 15),
         note="Deprecated device attribute alias.",
     ),
     DeprecationEntry(
-        old_name='schedules["party_mode_enabled"]',
-        replacement='schedules["pause_mode_enabled"]',
+        old_name='schedules["pause_mode_enabled"]',
+        replacement='schedules["party_mode_enabled"]',
         remove_after=date(2026, 9, 15),
         note="Deprecated schedule field alias.",
     ),

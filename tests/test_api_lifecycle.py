@@ -1025,8 +1025,8 @@ def test_set_torque_publishes_torque_payload() -> None:
     ]
 
 
-def test_set_partymode_warns_and_calls_pause_mode(monkeypatch) -> None:
-    """Deprecated set_partymode should warn and publish the pause-mode payload."""
+def test_set_pause_mode_warns_and_calls_party_mode(monkeypatch) -> None:
+    """Deprecated set_pause_mode should warn and delegate to set_party_mode."""
     cloud = WorxCloud("user@example.com", "secret", "worx")
     calls: list[dict[str, Any]] = []
 
@@ -1073,7 +1073,9 @@ def test_set_partymode_warns_and_calls_pause_mode(monkeypatch) -> None:
 
     with warnings.catch_warnings(record=True) as captured:
         warnings.simplefilter("always")
-        asyncio.run(cloud.set_partymode("SERIAL-0", True))
+        asyncio.run(cloud.set_pause_mode("SERIAL-0", True))
 
-    assert any("set_partymode()" in str(item.message) for item in captured)
+    assert any(
+        "set_pause_mode() is deprecated" in str(item.message) for item in captured
+    )
     assert calls[0]["message"] == {"sc": {"m": 2, "distm": 0}}
