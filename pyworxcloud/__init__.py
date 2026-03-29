@@ -1408,19 +1408,30 @@ class WorxCloud(dict):
     async def get_firmware_upgrade_info(self, serial_number: str) -> dict[str, Any]:
         """Fetch firmware upgrade metadata and availability for a mower."""
         mower = self.get_mower(serial_number)
+        device = self.devices.get(mower["name"])
 
         await self._api.check_token()
-        response = await AGET(
-            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}/firmware-upgrade",
-            HEADERS(self._api.access_token),
-            session=await self._api._ensure_session(),
-        )
+        try:
+            response = await AGET(
+                f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}/firmware-upgrade",
+                HEADERS(self._api.access_token),
+                session=await self._api._ensure_session(),
+            )
+        except NotFoundError:
+            response = None
 
-        if not isinstance(response, dict):
+        if response is not None and not isinstance(response, dict):
             raise ValueError("Unexpected firmware-upgrade response payload")
 
-        product = self._normalize_firmware_info_entry(response.get("product"))
-        head = self._normalize_firmware_info_entry(response.get("head"))
+        product = None
+        head = None
+        ota_supported = self._firmware_ota_supported(mower, device)
+        upgrade_failed = False
+        if isinstance(response, dict):
+            product = self._normalize_firmware_info_entry(response.get("product"))
+            head = self._normalize_firmware_info_entry(response.get("head"))
+            ota_supported = response.get("has_ota_upgrade", ota_supported)
+            upgrade_failed = bool(response.get("upgrade_failed", False))
         current_version = mower.get("firmware_version")
         latest_version = product["version"] if isinstance(product, dict) else None
         update_available = (
@@ -1430,13 +1441,15 @@ class WorxCloud(dict):
         )
 
         normalized = {
-            "mandatory": bool(response.get("mandatory", False)),
+            "mandatory": bool(response.get("mandatory", False))
+            if isinstance(response, dict)
+            else False,
             "current_version": current_version,
             "latest_version": latest_version,
             "update_available": update_available,
-            "ota_supported": response.get("has_ota_upgrade"),
+            "ota_supported": ota_supported,
             "auto_upgrade": mower.get("firmware_auto_upgrade"),
-            "upgrade_failed": response.get("upgrade_failed"),
+            "upgrade_failed": upgrade_failed,
             "product": product,
             "head": head,
         }

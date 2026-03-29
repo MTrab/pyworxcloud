@@ -1056,6 +1056,69 @@ def test_get_firmware_upgrade_info_fetches_and_caches_normalized_payload(
     assert cloud.devices["Proto0"].firmware["update_available"] is True
 
 
+def test_get_firmware_upgrade_info_maps_not_found_to_no_available_upgrade(
+    monkeypatch,
+) -> None:
+    """get_firmware_upgrade_info should treat 404 as no current OTA upgrade."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "capabilities": ["mqtt", "ota_upgrade"],
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "firmware_version": "3.52",
+            "firmware_auto_upgrade": True,
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {"firmware": {"auto_upgrade": True, "version": "3.52"}},
+        )(),
+    }
+
+    async def _get(url: str, headers: dict, session=None) -> dict[str, Any]:
+        raise NotFoundError()
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.AGET", _get)
+
+    result = asyncio.run(cloud.get_firmware_upgrade_info("SERIAL-0"))
+
+    assert result == {
+        "mandatory": False,
+        "current_version": "3.52",
+        "latest_version": None,
+        "update_available": False,
+        "ota_supported": True,
+        "auto_upgrade": True,
+        "upgrade_failed": False,
+        "product": None,
+        "head": None,
+    }
+    assert cloud.get_mower("SERIAL-0")["firmware_upgrade"]["update_available"] is False
+    assert cloud.devices["Proto0"].firmware["update_available"] is False
+    assert cloud.devices["Proto0"].firmware["latest_version"] is None
+
+
 def test_start_firmware_upgrade_posts_to_firmware_endpoint_and_refreshes(
     monkeypatch,
 ) -> None:
