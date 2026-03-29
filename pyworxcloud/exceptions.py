@@ -124,3 +124,11 @@ class NoCuttingHeightError(Exception):
 
 class NoACSModuleError(Exception):
     """Raised when the mower doesn't have ACS module."""
+
+
+class NoFirmwareOtaError(Exception):
+    """Raised when the mower does not support OTA firmware upgrades."""
+
+
+class NoFirmwareAvailableError(Exception):
+    """Raised when no OTA firmware upgrade is currently available."""

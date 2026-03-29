@@ -24,10 +24,14 @@ from .exceptions import (
     InternalServerError,
     MowerNotFoundError,
     NoACSModuleError,
+    NoFirmwareAvailableError,
     NoConnectionError,
     NoCuttingHeightError,
+    NoFirmwareOtaError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
+    NotFoundError,
+    RequestError,
 )
 from .exceptions import NoPartymodeError as NoPartymodeError
 from .exceptions import NoPauseModeError as NoPauseModeError
@@ -808,6 +812,27 @@ class WorxCloud(dict):
         device.firmware["mandatory"] = normalized.get("mandatory")
         device.firmware["upgrade_failed"] = normalized.get("upgrade_failed")
 
+    @staticmethod
+    def _firmware_ota_supported(
+        mower: dict[str, Any], device: Any | None = None
+    ) -> bool | None:
+        """Return whether OTA firmware updates appear to be supported."""
+        firmware_upgrade = mower.get("firmware_upgrade")
+        if isinstance(firmware_upgrade, dict):
+            ota_supported = firmware_upgrade.get("ota_supported")
+            if isinstance(ota_supported, bool):
+                return ota_supported
+
+        capabilities = mower.get("capabilities")
+        if isinstance(capabilities, list):
+            return "ota_upgrade" in capabilities
+
+        api_capabilities = getattr(device, "api_capabilities", None)
+        if isinstance(api_capabilities, list):
+            return "ota_upgrade" in api_capabilities
+
+        return None
+
     async def _put_auto_schedule_settings_patch(
         self, serial_number: str, patch: dict[str, Any]
     ) -> None:
@@ -1417,6 +1442,40 @@ class WorxCloud(dict):
         }
         self._cache_firmware_upgrade_info(mower, normalized)
         return normalized
+
+    async def start_firmware_upgrade(self, serial_number: str) -> Any:
+        """Queue an OTA firmware upgrade for a mower when available."""
+        mower = self.get_mower(serial_number)
+        device = self.devices.get(mower["name"])
+        ota_supported = self._firmware_ota_supported(mower, device)
+        if ota_supported is False:
+            raise NoFirmwareOtaError(
+                "This device does not support OTA firmware upgrades"
+            )
+
+        await self._api.check_token()
+        try:
+            response = await APOST(
+                f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}/firmware-upgrade",
+                "",
+                HEADERS(self._api.access_token),
+                session=await self._api._ensure_session(),
+            )
+        except (NotFoundError, RequestError) as err:
+            raise NoFirmwareAvailableError("No firmware available") from err
+
+        firmware_upgrade = mower.get("firmware_upgrade")
+        if isinstance(firmware_upgrade, dict):
+            firmware_upgrade["command_queued"] = True
+            firmware_upgrade["upgrade_failed"] = False
+        if device is not None and isinstance(getattr(device, "firmware", None), dict):
+            upgrade = device.firmware.get("upgrade")
+            if isinstance(upgrade, dict):
+                upgrade["command_queued"] = True
+                upgrade["upgrade_failed"] = False
+
+        await self._fetch(True)
+        return response
 
     def _update_cached_lawn(
         self, mower: dict[str, Any], patch: dict[str, int | None]

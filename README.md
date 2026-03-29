@@ -224,6 +224,29 @@ Notes:
 - The normalized result is cached on both `mower["firmware_upgrade"]` and
   `device.firmware["upgrade"]`.
 
+## Firmware OTA trigger
+
+`WorxCloud` can queue an OTA firmware upgrade when the mower supports it and
+the backend exposes an available upgrade.
+
+```python
+from pyworxcloud import WorxCloud
+
+
+async with WorxCloud("user@example.com", "secret", "worx") as cloud:
+    serial = "SERIAL"
+    await cloud.start_firmware_upgrade(serial)
+```
+
+Notes:
+
+- The helper queues `POST /api/v2/product-items/{serial}/firmware-upgrade`.
+- `NoFirmwareOtaError` is raised when OTA updates are known unsupported for the mower.
+- `NoFirmwareAvailableError` is raised when the backend reports that no OTA
+  firmware is currently available.
+- On success the helper refreshes mower state and marks the cached firmware
+  upgrade payload as `command_queued = True` when it already exists locally.
+
 ## Lawn fields
 
 `WorxCloud` can now read and write top-level REST lawn fields on `product-items`:
