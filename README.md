@@ -144,6 +144,26 @@ Notes:
 - Protocol 1 updates preserve extra slot metadata such as zone lists when the current payload contains them.
 - `set_time_extension()` is only supported for protocol 0 mowers.
 
+## Lawn fields
+
+`WorxCloud` can now read and write top-level REST lawn fields on `product-items`:
+`lawn_size` (m²) and `lawn_perimeter` (m).
+
+```python
+from pyworxcloud import WorxCloud
+
+
+async with WorxCloud("user@example.com", "secret", "worx") as cloud:
+    serial = "SERIAL"
+
+    # Update fields individually.
+    await cloud.set_lawn_size(serial, 250)
+    await cloud.set_lawn_perimeter(serial, 115)
+
+    # Or update both in one request.
+    await cloud.set_lawn(serial, size=250, perimeter=115)
+```
+
 ## Deprecations
 
 > [!WARNING]

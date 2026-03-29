@@ -108,21 +108,16 @@ class Schedule(LDict):
     def _normalize_auto_schedule(data: Any | None) -> dict[str, Any]:
         """Normalize auto-schedule settings to a stable read-side structure."""
         raw_settings = (
-            data.get("auto_schedule_settings", {})
-            if isinstance(data, dict)
-            else {}
+            data.get("auto_schedule_settings", {}) if isinstance(data, dict) else {}
         )
         settings = raw_settings if isinstance(raw_settings, dict) else {}
         exclusion = settings.get("exclusion_scheduler", {})
-        exclusion_scheduler = (
-            exclusion if isinstance(exclusion, dict) else {}
-        )
+        exclusion_scheduler = exclusion if isinstance(exclusion, dict) else {}
         raw_days = exclusion_scheduler.get("days", [])
         days = raw_days if isinstance(raw_days, list) else []
 
         normalized_days = [
-            Schedule._normalize_auto_schedule_day(day)
-            for day in days[:7]
+            Schedule._normalize_auto_schedule_day(day) for day in days[:7]
         ]
         while len(normalized_days) < 7:
             normalized_days.append(Schedule._normalize_auto_schedule_day({}))
@@ -141,9 +136,7 @@ class Schedule(LDict):
                 else False
             ),
             "settings": {
-                "boost": Schedule._normalize_auto_schedule_boost(
-                    settings.get("boost")
-                ),
+                "boost": Schedule._normalize_auto_schedule_boost(settings.get("boost")),
                 "grass_type": settings.get("grass_type"),
                 "soil_type": settings.get("soil_type"),
                 "irrigation": settings.get("irrigation"),
