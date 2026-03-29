@@ -905,6 +905,189 @@ def test_toggle_auto_schedule_puts_top_level_flag_and_refreshes(monkeypatch) -> 
     assert refreshes == [True]
 
 
+def test_set_lawn_puts_top_level_fields_and_refreshes(monkeypatch) -> None:
+    """set_lawn should PUT both top-level lawn fields and refresh."""
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "lawn_size": 100,
+            "lawn_perimeter": 50,
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type("DeviceStub", (), {"lawn": {"perimeter": 50, "size": 100}})()
+    }
+
+    async def _put(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "body": body, "headers": headers, "session": session})
+        return {
+            "lawn_size": body["lawn_size"],
+            "lawn_perimeter": body["lawn_perimeter"],
+        }
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    async def _record_fetch(forced: bool = False) -> None:
+        refreshes.append(forced)
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    cloud._fetch = _record_fetch  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APUT", _put)
+
+    asyncio.run(cloud.set_lawn("SERIAL-0", size=250, perimeter=115))
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0")
+    assert calls[0]["body"] == {"lawn_size": 250, "lawn_perimeter": 115}
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    mower = cloud.get_mower("SERIAL-0")
+    assert mower["lawn_size"] == 250
+    assert mower["lawn_perimeter"] == 115
+    assert cloud.devices["Proto0"].lawn["size"] == 250
+    assert cloud.devices["Proto0"].lawn["perimeter"] == 115
+    assert refreshes == [True]
+
+
+def test_set_lawn_size_puts_top_level_field_and_refreshes(monkeypatch) -> None:
+    """set_lawn_size should PUT the lawn_size field and refresh."""
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "lawn_size": 100,
+            "lawn_perimeter": 50,
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type("DeviceStub", (), {"lawn": {"perimeter": 50, "size": 100}})()
+    }
+
+    async def _put(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "body": body, "headers": headers, "session": session})
+        return {"lawn_size": body["lawn_size"]}
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    async def _record_fetch(forced: bool = False) -> None:
+        refreshes.append(forced)
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    cloud._fetch = _record_fetch  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APUT", _put)
+
+    asyncio.run(cloud.set_lawn_size("SERIAL-0", 250))
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0")
+    assert calls[0]["body"] == {"lawn_size": 250}
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    mower = cloud.get_mower("SERIAL-0")
+    assert mower["lawn_size"] == 250
+    assert mower["lawn_perimeter"] == 50
+    assert cloud.devices["Proto0"].lawn["size"] == 250
+    assert cloud.devices["Proto0"].lawn["perimeter"] == 50
+    assert refreshes == [True]
+
+
+def test_set_lawn_perimeter_puts_top_level_field_and_refreshes(monkeypatch) -> None:
+    """set_lawn_perimeter should PUT the lawn_perimeter field and refresh."""
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "lawn_size": 100,
+            "lawn_perimeter": 50,
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type("DeviceStub", (), {"lawn": {"perimeter": 50, "size": 100}})()
+    }
+
+    async def _put(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "body": body, "headers": headers, "session": session})
+        return {"lawn_perimeter": body["lawn_perimeter"]}
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    async def _record_fetch(forced: bool = False) -> None:
+        refreshes.append(forced)
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    cloud._fetch = _record_fetch  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APUT", _put)
+
+    asyncio.run(cloud.set_lawn_perimeter("SERIAL-0", 115))
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0")
+    assert calls[0]["body"] == {"lawn_perimeter": 115}
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    mower = cloud.get_mower("SERIAL-0")
+    assert mower["lawn_size"] == 100
+    assert mower["lawn_perimeter"] == 115
+    assert cloud.devices["Proto0"].lawn["size"] == 100
+    assert cloud.devices["Proto0"].lawn["perimeter"] == 115
+    assert refreshes == [True]
+
+
 def test_set_auto_schedule_boost_puts_merged_settings_and_refreshes(
     monkeypatch,
 ) -> None:

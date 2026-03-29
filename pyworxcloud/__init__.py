@@ -36,6 +36,7 @@ from .exceptions import (
 )
 from .helpers import convert_to_time, get_logger
 from .utils import MQTT, DeviceCapability, DeviceHandler, ScheduleEntry, ScheduleModel
+from .utils.lawn import Lawn
 from .utils.mqtt import Command
 from .utils.requests import APOST, APUT, HEADERS
 from .utils.schedule_codec import add_schedule_entry as add_schedule_entry_model
@@ -1314,6 +1315,86 @@ class WorxCloud(dict):
             if isinstance(auto_schedule, dict):
                 auto_schedule["enabled"] = enable
 
+        await self._fetch(True)
+
+    def _update_cached_lawn(
+        self, mower: dict[str, Any], patch: dict[str, int | None]
+    ) -> None:
+        """Keep cached mower/device lawn values aligned with top-level API writes."""
+        if "lawn_size" in patch:
+            mower["lawn_size"] = patch["lawn_size"]
+        if "lawn_perimeter" in patch:
+            mower["lawn_perimeter"] = patch["lawn_perimeter"]
+
+        device = self.devices.get(mower["name"])
+        if device is None:
+            return
+
+        current_perimeter = mower.get("lawn_perimeter")
+        current_size = mower.get("lawn_size")
+        if isinstance(getattr(device, "lawn", None), dict):
+            device.lawn["perimeter"] = current_perimeter
+            device.lawn["size"] = current_size
+        else:
+            device.lawn = Lawn(current_perimeter, current_size)
+
+    async def set_lawn_size(self, serial_number: str, lawn_size: int) -> None:
+        """Set mower lawn size (m²) via top-level product-items REST field."""
+        lawn_size = self._coerce_int(lawn_size, "lawn_size", minimum=0)
+        mower = self.get_mower(serial_number)
+
+        await self._api.check_token()
+        response = await APUT(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
+            {"lawn_size": lawn_size},
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if isinstance(response, dict):
+            mower.update(response)
+        self._update_cached_lawn(mower, {"lawn_size": lawn_size})
+        await self._fetch(True)
+
+    async def set_lawn_perimeter(self, serial_number: str, lawn_perimeter: int) -> None:
+        """Set mower lawn perimeter (m) via top-level product-items REST field."""
+        lawn_perimeter = self._coerce_int(lawn_perimeter, "lawn_perimeter", minimum=0)
+        mower = self.get_mower(serial_number)
+
+        await self._api.check_token()
+        response = await APUT(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
+            {"lawn_perimeter": lawn_perimeter},
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if isinstance(response, dict):
+            mower.update(response)
+        self._update_cached_lawn(mower, {"lawn_perimeter": lawn_perimeter})
+        await self._fetch(True)
+
+    async def set_lawn(self, serial_number: str, size: int, perimeter: int) -> None:
+        """Set both lawn size (m²) and perimeter (m) in a single REST write."""
+        lawn_size = self._coerce_int(size, "size", minimum=0)
+        lawn_perimeter = self._coerce_int(perimeter, "perimeter", minimum=0)
+        mower = self.get_mower(serial_number)
+        patch = {
+            "lawn_size": lawn_size,
+            "lawn_perimeter": lawn_perimeter,
+        }
+
+        await self._api.check_token()
+        response = await APUT(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
+            patch,
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if isinstance(response, dict):
+            mower.update(response)
+        self._update_cached_lawn(mower, patch)
         await self._fetch(True)
 
     async def set_auto_schedule_boost(self, serial_number: str, boost: int) -> None:

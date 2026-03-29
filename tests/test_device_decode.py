@@ -98,6 +98,37 @@ def test_devicehandler_maps_module_capabilities() -> None:
     assert device.capabilities.check(DeviceCapability.ACS) is True
 
 
+def test_devicehandler_maps_lawn_from_top_level_api_fields() -> None:
+    """Top-level API lawn fields should populate device.lawn."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-LAWN",
+            "rd": 0,
+            "sc": {"d": [], "dd": False},
+            "tm": "12:00:00",
+            "dt": "11/03/2026",
+            "tz": "UTC",
+        },
+        "dat": {
+            "uuid": "UUID-LAWN",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "Lawn Fixture")
+    mower["lawn_size"] = 250
+    mower["lawn_perimeter"] = 115
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.lawn["size"] == 250
+    assert device.lawn["perimeter"] == 115
+
+
 def test_devicehandler_raw_data_setter_redecodes_payload() -> None:
     """Raw payload updates should trigger re-decoding of status fields."""
     _, payload = _find_http_fixture(
