@@ -1467,6 +1467,7 @@ class WorxCloud(dict):
             )
 
         await self._api.check_token()
+        _LOGGER.debug("Triggering firmware upgrade for '%s'", mower["name"])
         try:
             response = await APOST(
                 f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}/firmware-upgrade",
@@ -1475,6 +1476,10 @@ class WorxCloud(dict):
                 session=await self._api._ensure_session(),
             )
         except (NotFoundError, RequestError) as err:
+            _LOGGER.debug(
+                "Firmware upgrade rejected for '%s': no OTA update available",
+                mower["name"],
+            )
             raise NoFirmwareAvailableError("No firmware available") from err
 
         firmware_upgrade = mower.get("firmware_upgrade")
