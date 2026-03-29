@@ -89,7 +89,7 @@ You can also run `python scripts/dump_mapping.py` to print the decoded snapshot 
 `DeviceHandler` now keeps the raw `cfg`/`dat` dictionaries alongside the richer surface model that mirrors what is described in `code-ref`. Highlights include:
 
 - `schedules["slots"]` retains every slot that was present in `sc.slots` or `sc.d`, so protocol 1 devices with more end-of-day runs can be inspected.
-- `schedules["auto_schedule"]` now exposes a normalized automatic-scheduling view with typed `boost`, `grass_type`, `soil_type`, `irrigation`, `nutrition`, and exclusion-scheduler fields when the mower API payload provides them. Live-observed `boost` levels are `0`, `1`, and `2`.
+- `schedules["auto_schedule"]` now exposes a normalized automatic-scheduling view with typed `boost`, `grass_type`, `soil_type`, `irrigation`, `nutrition`, and exclusion-scheduler fields when the mower API payload provides them. Matching helpers can update the supported automatic-scheduling settings through the top-level REST payload. Live-observed `boost` levels are `0`, `1`, and `2`.
 
 - slot-first schedule generation that captures each configured run (legacy `d` arrays and protocol 1 `slots`) along with calculated `end` times, pause-mode awareness, and time-extension handling.
 - complete rain-delay state tracking (raw counter, active flag, remaining minutes) plus module status/configuration (ACS, Off Limits shortcuts, etc.).
@@ -144,6 +144,39 @@ Notes:
 - Protocol 1 updates preserve extra slot metadata such as zone lists when the current payload contains them.
 - `set_time_extension()` is only supported for protocol 0 mowers.
 
+## Automatic scheduling
+
+`WorxCloud` now supports both reading and updating the observed automatic-scheduling fields exposed on `product-items`.
+
+```python
+from pyworxcloud import WorxCloud
+
+
+async with WorxCloud("user@example.com", "secret", "worx") as cloud:
+    serial = "SERIAL"
+
+    await cloud.toggle_auto_schedule(serial, True)
+    await cloud.set_auto_schedule_boost(serial, 1)
+    await cloud.set_auto_schedule_grass_type(serial, "festuca_arundinacea")
+    await cloud.set_auto_schedule_soil_type(serial, "clay")
+    await cloud.set_auto_schedule_irrigation(serial, True)
+    await cloud.set_auto_schedule_nutrition(serial, 10, 20, 5)
+    await cloud.set_auto_schedule_exclude_nights(serial, True)
+    await cloud.set_auto_schedule_exclusion_day(serial, 2, True)
+    await cloud.set_auto_schedule_exclusion_slots(
+        serial,
+        4,
+        [{"start_time": 900, "duration": 60, "reason": "irrigation"}],
+    )
+```
+
+Notes:
+
+- `device.schedules["auto_schedule"]` exposes the normalized read model with `enabled` and `settings`.
+- Supported write helpers cover `auto_schedule`, `boost`, `grass_type`, `soil_type`, `irrigation`, `nutrition`, `exclude_nights`, and per-day exclusion slots.
+- Use `clear_auto_schedule_nutrition()` to send `nutrition = null` when nutrition should be disabled.
+- Exclusion slot writes currently send a full seven-day `exclusion_scheduler.days` payload, with the selected day replaced by the provided slots.
+
 ## Lawn fields
 
 `WorxCloud` can now read and write top-level REST lawn fields on `product-items`:
@@ -167,13 +200,12 @@ async with WorxCloud("user@example.com", "secret", "worx") as cloud:
 ## Deprecations
 
 > [!WARNING]
-> The old Party mode names are deprecated and are planned for removal after `2026-09-15`.
-> Compatibility aliases still work for now, but new integrations should use the Pause mode names below.
+> The old Pause mode names are deprecated and are planned for removal after `2026-09-15`.
+> Compatibility aliases still work for now, but new integrations should use the Party mode names below.
 
 | Deprecated | Use instead |
 | --- | --- |
-| `set_partymode()` | `set_pause_mode()` |
-| `NoPartymodeError` | `NoPauseModeError` |
-| `DeviceCapability.PARTY_MODE` | `DeviceCapability.PAUSE_MODE` |
-| `partymode_enabled` | `pause_mode_enabled` |
-| `party_mode_enabled` | `pause_mode_enabled` |
+| `set_pause_mode()` | `set_party_mode()` |
+| `NoPauseModeError` | `NoPartymodeError` |
+| `DeviceCapability.PAUSE_MODE` | `DeviceCapability.PARTY_MODE` |
+| `pause_mode_enabled` | `party_mode_enabled` |
