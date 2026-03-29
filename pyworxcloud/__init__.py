@@ -1322,6 +1322,30 @@ class WorxCloud(dict):
 
         await self._fetch(True)
 
+    async def set_firmware_auto_upgrade(
+        self, serial_number: str, enabled: bool
+    ) -> None:
+        """Turn automatic firmware upgrades on or off."""
+        enabled = self._require_bool(enabled, "enabled")
+        mower = self.get_mower(serial_number)
+
+        await self._api.check_token()
+        response = await APUT(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
+            {"firmware_auto_upgrade": enabled},
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if isinstance(response, dict):
+            mower.update(response)
+        mower["firmware_auto_upgrade"] = enabled
+        device = self.devices.get(mower["name"])
+        if device is not None and isinstance(getattr(device, "firmware", None), dict):
+            device.firmware["auto_upgrade"] = enabled
+
+        await self._fetch(True)
+
     def _update_cached_lawn(
         self, mower: dict[str, Any], patch: dict[str, int | None]
     ) -> None:

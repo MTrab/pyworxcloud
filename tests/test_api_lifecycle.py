@@ -905,6 +905,68 @@ def test_toggle_auto_schedule_puts_top_level_flag_and_refreshes(monkeypatch) -> 
     assert refreshes == [True]
 
 
+def test_set_firmware_auto_upgrade_puts_top_level_flag_and_refreshes(
+    monkeypatch,
+) -> None:
+    """set_firmware_auto_upgrade should PUT the top-level firmware flag."""
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "firmware_auto_upgrade": False,
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {"firmware": {"auto_upgrade": False, "version": 3.52}},
+        )(),
+    }
+
+    async def _put(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "body": body, "headers": headers, "session": session})
+        return {"firmware_auto_upgrade": True}
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    async def _record_fetch(forced: bool = False) -> None:
+        refreshes.append(forced)
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    cloud._fetch = _record_fetch  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APUT", _put)
+
+    asyncio.run(cloud.set_firmware_auto_upgrade("SERIAL-0", True))
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0")
+    assert calls[0]["body"] == {"firmware_auto_upgrade": True}
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    assert cloud.get_mower("SERIAL-0")["firmware_auto_upgrade"] is True
+    assert cloud.devices["Proto0"].firmware["auto_upgrade"] is True
+    assert refreshes == [True]
+
+
 def test_set_lawn_puts_top_level_fields_and_refreshes(monkeypatch) -> None:
     """set_lawn should PUT both top-level lawn fields and refresh."""
     calls: list[dict[str, Any]] = []

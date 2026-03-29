@@ -177,6 +177,27 @@ Notes:
 - Use `clear_auto_schedule_nutrition()` to send `nutrition = null` when nutrition should be disabled.
 - Exclusion slot writes currently send a full seven-day `exclusion_scheduler.days` payload, with the selected day replaced by the provided slots.
 
+## Firmware auto-upgrade
+
+`WorxCloud` can now update the observed top-level `firmware_auto_upgrade` field on
+`product-items`.
+
+```python
+from pyworxcloud import WorxCloud
+
+
+async with WorxCloud("user@example.com", "secret", "worx") as cloud:
+    serial = "SERIAL"
+
+    await cloud.set_firmware_auto_upgrade(serial, True)
+```
+
+Notes:
+
+- `device.firmware["auto_upgrade"]` reflects the current auto-upgrade setting.
+- This helper only toggles the top-level auto-upgrade flag. Firmware availability
+  and OTA-trigger flows are handled separately.
+
 ## Lawn fields
 
 `WorxCloud` can now read and write top-level REST lawn fields on `product-items`:
