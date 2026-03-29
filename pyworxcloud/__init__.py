@@ -28,8 +28,10 @@ from .exceptions import (
     NoCuttingHeightError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
-    NoPartymodeError as NoPartymodeError,
-    NoPauseModeError as NoPauseModeError,
+)
+from .exceptions import NoPartymodeError as NoPartymodeError
+from .exceptions import NoPauseModeError as NoPauseModeError
+from .exceptions import (
     OfflineError,
     TooManyRequestsError,
     ZoneNoProbability,

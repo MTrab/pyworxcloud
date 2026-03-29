@@ -169,9 +169,7 @@ def _auto_schedule_summary(device: DeviceHandler) -> str:
     nutrition = settings.get("nutrition")
     nutrition_text = "off"
     if isinstance(nutrition, dict):
-        nutrition_text = (
-            f"n={nutrition.get('n', '?')},p={nutrition.get('p', '?')},k={nutrition.get('k', '?')}"
-        )
+        nutrition_text = f"n={nutrition.get('n', '?')},p={nutrition.get('p', '?')},k={nutrition.get('k', '?')}"
     return (
         f"enabled={auto_schedule.get('enabled', False)} | "
         f"grass={settings.get('grass_type', '-') or '-'} | "
