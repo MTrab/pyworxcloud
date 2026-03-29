@@ -1011,7 +1011,9 @@ def test_get_firmware_upgrade_info_fetches_and_caches_normalized_payload(
                 "uuid": "fw-product-1",
                 "version": "3.60",
                 "releasedAt": "2026-03-01",
-                "changelog": {"en": "Bug fixes"},
+                "changelog": {
+                    "en": "• Bug fixes\n• Better battery life\n\nThanks for testing"
+                },
             },
             "head": None,
         }
@@ -1047,13 +1049,32 @@ def test_get_firmware_upgrade_info_fetches_and_caches_normalized_payload(
             "uuid": "fw-product-1",
             "version": "3.60",
             "released_at": "2026-03-01",
-            "changelog": {"en": "Bug fixes"},
+            "changelog": {
+                "en": "• Bug fixes\n• Better battery life\n\nThanks for testing"
+            },
+            "changelog_markdown": {
+                "en": "- Bug fixes\n- Better battery life\n\nThanks for testing"
+            },
         },
         "head": None,
     }
     assert cloud.get_mower("SERIAL-0")["firmware_upgrade"]["latest_version"] == "3.60"
     assert cloud.devices["Proto0"].firmware["latest_version"] == "3.60"
     assert cloud.devices["Proto0"].firmware["update_available"] is True
+
+
+def test_firmware_changelog_markdown_conversion_preserves_paragraphs() -> None:
+    """Firmware changelog conversion should map bullets into Markdown lists."""
+    result = WorxCloud._firmware_changelog_to_markdown(
+        {
+            "en": "• First item\n• Second item\n\nClosing note",
+            "de": "",
+        }
+    )
+
+    assert result == {
+        "en": "- First item\n- Second item\n\nClosing note",
+    }
 
 
 def test_get_firmware_upgrade_info_maps_not_found_to_no_available_upgrade(

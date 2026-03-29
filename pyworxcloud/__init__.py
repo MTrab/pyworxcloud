@@ -779,6 +779,61 @@ class WorxCloud(dict):
         return normalized_slots
 
     @staticmethod
+    def _firmware_changelog_to_markdown(changelog: Any) -> Any:
+        """Convert firmware changelog text into a Markdown-friendly structure."""
+        if isinstance(changelog, dict):
+            normalized: dict[str, str] = {}
+            for language, text in changelog.items():
+                if not isinstance(text, str):
+                    continue
+                markdown = WorxCloud._firmware_changelog_text_to_markdown(text)
+                if markdown:
+                    normalized[str(language)] = markdown
+            return normalized or None
+
+        if isinstance(changelog, str):
+            return WorxCloud._firmware_changelog_text_to_markdown(changelog)
+
+        return None
+
+    @staticmethod
+    def _firmware_changelog_text_to_markdown(text: str) -> str | None:
+        """Normalize a single changelog string into readable Markdown."""
+        stripped = text.strip()
+        if not stripped:
+            return None
+
+        lines = []
+        for raw_line in stripped.splitlines():
+            line = raw_line.strip()
+            if not line:
+                lines.append("")
+                continue
+
+            if line.startswith("• "):
+                lines.append(f"- {line[2:].strip()}")
+                continue
+            if line.startswith("* "):
+                lines.append(f"- {line[2:].strip()}")
+                continue
+
+            lines.append(line)
+
+        markdown_lines: list[str] = []
+        previous_blank = False
+        for line in lines:
+            if not line:
+                if not previous_blank and markdown_lines:
+                    markdown_lines.append("")
+                previous_blank = True
+                continue
+            markdown_lines.append(line)
+            previous_blank = False
+
+        markdown = "\n".join(markdown_lines).strip()
+        return markdown or None
+
+    @staticmethod
     def _normalize_firmware_info_entry(entry: Any) -> dict[str, Any] | None:
         """Return a normalized firmware info entry from the app-observed payload."""
         if not isinstance(entry, dict):
@@ -793,6 +848,9 @@ class WorxCloud(dict):
             "version": version.strip(),
             "released_at": entry.get("releasedAt"),
             "changelog": entry.get("changelog"),
+            "changelog_markdown": WorxCloud._firmware_changelog_to_markdown(
+                entry.get("changelog")
+            ),
         }
         return normalized
 

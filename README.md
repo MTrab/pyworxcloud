@@ -221,6 +221,8 @@ Notes:
 - The returned dictionary includes `current_version`, `latest_version`,
   `update_available`, `mandatory`, `ota_supported`, `auto_upgrade`,
   `upgrade_failed`, and normalized `product` / `head` entries when present.
+- Firmware changelogs are exposed both as the raw `changelog` payload and as a
+  Markdown-friendly `changelog_markdown` variant for UIs that render rich text.
 - The normalized result is cached on both `mower["firmware_upgrade"]` and
   `device.firmware["upgrade"]`.
 
