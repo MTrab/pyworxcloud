@@ -98,6 +98,37 @@ def test_devicehandler_maps_module_capabilities() -> None:
     assert device.capabilities.check(DeviceCapability.ACS) is True
 
 
+def test_devicehandler_maps_lawn_from_top_level_api_fields() -> None:
+    """Top-level API lawn fields should populate device.lawn."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-LAWN",
+            "rd": 0,
+            "sc": {"d": [], "dd": False},
+            "tm": "12:00:00",
+            "dt": "11/03/2026",
+            "tz": "UTC",
+        },
+        "dat": {
+            "uuid": "UUID-LAWN",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "Lawn Fixture")
+    mower["lawn_size"] = 250
+    mower["lawn_perimeter"] = 115
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.lawn["size"] == 250
+    assert device.lawn["perimeter"] == 115
+
+
 def test_devicehandler_raw_data_setter_redecodes_payload() -> None:
     """Raw payload updates should trigger re-decoding of status fields."""
     _, payload = _find_http_fixture(
@@ -639,6 +670,195 @@ def test_devicehandler_maps_rtk_zone_ids_and_current_zone() -> None:
     assert device.zone.ids == [1, 2, 4, 5]
     assert device.zone.current == 4
     assert device.zone.index == 2
+
+
+def test_devicehandler_normalizes_auto_schedule_settings() -> None:
+    """Auto schedule settings should be exposed via a stable normalized shape."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-AUTO-SCHEDULE",
+            "rd": 0,
+            "sc": {"d": [], "dd": False},
+            "tm": "12:00:00",
+            "dt": "11/03/2026",
+            "tz": "UTC",
+        },
+        "dat": {
+            "uuid": "UUID-AUTO-SCHEDULE",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "Auto Schedule Fixture")
+    mower["auto_schedule"] = True
+    mower["auto_schedule_settings"] = {
+        "boost": 0,
+        "grass_type": "mixed_species",
+        "soil_type": "ignore",
+        "irrigation": True,
+        "nutrition": {"n": 18, "p": 24, "k": 6},
+        "exclusion_scheduler": {
+            "exclude_nights": True,
+            "days": [
+                {"exclude_day": False, "slots": []},
+                {"exclude_day": False, "slots": []},
+                {"exclude_day": False, "slots": []},
+                {
+                    "exclude_day": False,
+                    "slots": [
+                        {
+                            "start_time": 540,
+                            "duration": 180,
+                            "reason": "generic",
+                            "ignored": "value",
+                        },
+                        {
+                            "start_time": 60,
+                            "duration": 135,
+                            "reason": "irrigation",
+                        },
+                    ],
+                },
+                {"exclude_day": False, "slots": []},
+                {"exclude_day": False, "slots": []},
+                {"exclude_day": False, "slots": []},
+            ],
+        },
+    }
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.schedules["auto_schedule"] == {
+        "enabled": True,
+        "settings": {
+            "boost": 0,
+            "grass_type": "mixed_species",
+            "soil_type": "ignore",
+            "irrigation": True,
+            "nutrition": {"n": 18, "p": 24, "k": 6},
+            "exclusion_scheduler": {
+                "exclude_nights": True,
+                "days": [
+                    {"exclude_day": False, "slots": []},
+                    {"exclude_day": False, "slots": []},
+                    {"exclude_day": False, "slots": []},
+                    {
+                        "exclude_day": False,
+                        "slots": [
+                            {
+                                "start_time": 540,
+                                "duration": 180,
+                                "reason": "generic",
+                            },
+                            {
+                                "start_time": 60,
+                                "duration": 135,
+                                "reason": "irrigation",
+                            },
+                        ],
+                    },
+                    {"exclude_day": False, "slots": []},
+                    {"exclude_day": False, "slots": []},
+                    {"exclude_day": False, "slots": []},
+                ],
+            },
+        },
+    }
+
+
+@pytest.mark.parametrize("boost", schedules_module.AUTO_SCHEDULE_BOOST_LEVELS)
+def test_devicehandler_preserves_observed_auto_schedule_boost_levels(
+    boost: int,
+) -> None:
+    """Observed auto-schedule boost levels should round-trip unchanged."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": f"SERIAL-AUTO-SCHEDULE-BOOST-{boost}",
+            "rd": 0,
+            "sc": {"d": [], "dd": False},
+            "tm": "12:00:00",
+            "dt": "11/03/2026",
+            "tz": "UTC",
+        },
+        "dat": {
+            "uuid": f"UUID-AUTO-SCHEDULE-BOOST-{boost}",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "Auto Schedule Boost Fixture")
+    mower["auto_schedule"] = True
+    mower["auto_schedule_settings"] = {"boost": boost}
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.schedules["auto_schedule"]["settings"]["boost"] == boost
+
+
+def test_devicehandler_fills_missing_auto_schedule_defaults() -> None:
+    """Missing auto schedule fields should fall back to safe defaults."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-AUTO-SCHEDULE-DEFAULTS",
+            "rd": 0,
+            "sc": {"d": [], "dd": False},
+            "tm": "12:00:00",
+            "dt": "11/03/2026",
+            "tz": "UTC",
+        },
+        "dat": {
+            "uuid": "UUID-AUTO-SCHEDULE-DEFAULTS",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "Auto Schedule Defaults Fixture")
+    mower["auto_schedule"] = False
+    mower["auto_schedule_settings"] = {
+        "exclusion_scheduler": {
+            "days": [
+                {"exclude_day": True, "slots": [{"start_time": 15}]},
+            ]
+        }
+    }
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+    auto_schedule = device.schedules["auto_schedule"]
+
+    assert auto_schedule["enabled"] is False
+    assert auto_schedule["settings"]["boost"] is None
+    assert auto_schedule["settings"]["grass_type"] is None
+    assert auto_schedule["settings"]["soil_type"] is None
+    assert auto_schedule["settings"]["irrigation"] is None
+    assert auto_schedule["settings"]["nutrition"] is None
+    assert auto_schedule["settings"]["exclusion_scheduler"]["exclude_nights"] is False
+    assert len(auto_schedule["settings"]["exclusion_scheduler"]["days"]) == 7
+    assert auto_schedule["settings"]["exclusion_scheduler"]["days"][0] == {
+        "exclude_day": True,
+        "slots": [
+            {
+                "start_time": 15,
+                "duration": None,
+                "reason": None,
+            }
+        ],
+    }
+    assert all(
+        day == {"exclude_day": False, "slots": []}
+        for day in auto_schedule["settings"]["exclusion_scheduler"]["days"][1:]
+    )
 
 
 MQTT_FIXTURES = tuple(fixture_paths("mqtt.json"))

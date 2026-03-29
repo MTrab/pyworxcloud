@@ -154,6 +154,90 @@ def _schedule_slots(device: DeviceHandler) -> list[dict[str, Any]]:
     return slots if isinstance(slots, list) else []
 
 
+def _auto_schedule(device: DeviceHandler) -> dict[str, Any]:
+    schedules = getattr(device, "schedules", None)
+    if schedules is None:
+        return {}
+    value = None
+    if isinstance(schedules, dict):
+        value = schedules.get("auto_schedule")
+    if value is None:
+        try:
+            value = schedules["auto_schedule"]  # type: ignore[index]
+        except Exception:
+            value = None
+    return value if isinstance(value, dict) else {}
+
+
+def _auto_schedule_summary(auto_schedule: dict[str, Any]) -> str:
+    settings = auto_schedule.get("settings", {})
+    if not isinstance(settings, dict):
+        settings = {}
+    nutrition = settings.get("nutrition")
+    nutrition_text = "off"
+    if isinstance(nutrition, dict):
+        nutrition_text = (
+            f"n={nutrition.get('n', '?')},p={nutrition.get('p', '?')},k={nutrition.get('k', '?')}"
+        )
+    return (
+        f"enabled={auto_schedule.get('enabled', False)} | "
+        f"grass={settings.get('grass_type', '-') or '-'} | "
+        f"soil={settings.get('soil_type', '-') or '-'} | "
+        f"irrigation={settings.get('irrigation', False)} | "
+        f"nutrition={nutrition_text}"
+    )
+
+
+def _auto_schedule_lines(auto_schedule: dict[str, Any]) -> list[str]:
+    settings = auto_schedule.get("settings", {})
+    if not isinstance(settings, dict):
+        settings = {}
+    exclusion = settings.get("exclusion_scheduler", {})
+    if not isinstance(exclusion, dict):
+        exclusion = {}
+    lines = [
+        f"Auto schedule enabled: {auto_schedule.get('enabled', False)}",
+        f"Boost: {settings.get('boost', '-')}",
+        f"Grass type: {settings.get('grass_type', '-') or '-'}",
+        f"Soil type: {settings.get('soil_type', '-') or '-'}",
+        f"Irrigation: {settings.get('irrigation', False)}",
+        f"Nutrition: {settings.get('nutrition', 'off')}",
+        f"Exclude nights: {exclusion.get('exclude_nights', False)}",
+    ]
+    day_names = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+    ]
+    days = exclusion.get("days", [])
+    if isinstance(days, list):
+        for idx, day in enumerate(days):
+            if not isinstance(day, dict):
+                continue
+            slots = day.get("slots", [])
+            if day.get("exclude_day") or slots:
+                slot_texts = []
+                if isinstance(slots, list):
+                    for slot in slots:
+                        if not isinstance(slot, dict):
+                            continue
+                        slot_texts.append(
+                            "start="
+                            f"{slot.get('start_time', '?')}m "
+                            f"duration={slot.get('duration', '?')}m "
+                            f"reason={slot.get('reason', '-')}"
+                        )
+                detail = "; ".join(slot_texts) if slot_texts else "full-day exclude"
+                lines.append(
+                    f"{day_names[idx] if idx < len(day_names) else idx}: {detail}"
+                )
+    return lines
+
+
 def _snapshot_device(device: DeviceHandler) -> dict[str, Any]:
     device_updated = getattr(device, "updated", None)
     if device_updated is None:
@@ -165,6 +249,7 @@ def _snapshot_device(device: DeviceHandler) -> dict[str, Any]:
     if isinstance(device_updated, datetime):
         device_updated_raw = device_updated.isoformat()
 
+    auto_schedule = _auto_schedule(device)
     return {
         "name": getattr(device, "name", "unknown"),
         "serial": getattr(device, "serial_number", "unknown"),
@@ -176,6 +261,8 @@ def _snapshot_device(device: DeviceHandler) -> dict[str, Any]:
         "locked": str(getattr(device, "locked", "unknown")),
         "firmware": _firmware_version(device),
         "next_start": _next_schedule_start(device),
+        "auto_schedule_summary": _auto_schedule_summary(auto_schedule),
+        "auto_schedule_lines": _auto_schedule_lines(auto_schedule),
         "rain_triggered": str(getattr(device.rainsensor, "triggered", "unknown")),
         "rain_remaining": str(getattr(device.rainsensor, "remaining", "unknown")),
         "device_updated": (
@@ -480,6 +567,7 @@ class DashboardApp:
             "locked": StringVar(value="-"),
             "firmware": StringVar(value="-"),
             "next_start": StringVar(value="-"),
+            "auto_schedule": StringVar(value="-"),
             "rain": StringVar(value="-"),
             "last_refresh": StringVar(value="-"),
         }
@@ -550,6 +638,7 @@ class DashboardApp:
             ("Locked", "locked"),
             ("Firmware", "firmware"),
             ("Next schedule start", "next_start"),
+            ("Auto schedule", "auto_schedule"),
             ("Rain", "rain"),
             ("Last data refresh", "last_refresh"),
         ]
@@ -904,6 +993,9 @@ class DashboardApp:
         self.status_vars["locked"].set(str(snapshot.get("locked", "-")))
         self.status_vars["firmware"].set(str(snapshot.get("firmware", "-")))
         self.status_vars["next_start"].set(str(snapshot.get("next_start", "-")))
+        self.status_vars["auto_schedule"].set(
+            str(snapshot.get("auto_schedule_summary", "-"))
+        )
         self.status_vars["rain"].set(
             f"triggered={snapshot.get('rain_triggered', '-')} remaining={snapshot.get('rain_remaining', '-')}"
         )
@@ -917,6 +1009,10 @@ class DashboardApp:
         )
         self.schedule_list.configure(state="normal")
         self.schedule_list.delete("1.0", "end")
+        for line in snapshot.get("auto_schedule_lines", []):
+            self.schedule_list.insert("end", f"{line}\n")
+        if snapshot.get("auto_schedule_lines"):
+            self.schedule_list.insert("end", "-" * 72 + "\n")
         for slot in snapshot.get("schedules", []):
             self.schedule_list.insert(
                 "end",

@@ -36,6 +36,8 @@ This document visualizes how the JSON `cfg`/`dat` payloads from the Worx/Kress/L
 | `sc.ots` | One-time scheduling info. | Adds `DeviceCapability.ONE_TIME_SCHEDULE` and `DeviceCapability.EDGE_CUT` when present (`ots.bc`, `ots.wtm`). |
 | `sc.dd` | Secondary-day schedule matrix. | Mirrors `ScheduleType.SECONDARY` entries so protocol 0 devices keep their legacy extra cuts. |
 | `sc.distm` | Distance multiplier tracking. | Tracked under `schedules["slots"]` for reporting and future UI needs. |
+| `auto_schedule` | Automatic scheduling enabled state. | Exposed via `schedules["auto_schedule"]["enabled"]`. |
+| `auto_schedule_settings` | Automatic scheduling settings block from the mower API payload. | Normalized into `schedules["auto_schedule"]["settings"]` with typed `boost`, `grass_type`, `soil_type`, `irrigation`, `nutrition`, and `exclusion_scheduler` fields. Live-observed `boost` levels are `0`, `1`, and `2`. |
 
 ### Schedule visualization
 
@@ -45,10 +47,16 @@ For every `sc` payload:
 - `sc.slots` entries (protocol 1) are mapped one-to-one, decoding `d` (weekday), `s` (start offset), `t` (duration), and nested `cfg.cut.b` (boundary) while recalculating actual start times.
 - `sc.dd` produces additional slots tagged with source `secondary`; these are preserved so legacy secondary runs stay visible.
 - Fields such as `sc.m`, `sc.enabled`, `sc.ots`/`ots.bc`/`ots.wtm`, and `sc.distm` influence pause mode, one-time cuts, and edge cut flags, matching the reference apps.
+- `auto_schedule_settings.boost` is normalized as a raw integer when present. Live payload checks currently confirm the values `0`, `1`, and `2`.
+- `auto_schedule_settings.exclusion_scheduler.days` is normalized to seven day entries; each entry contains `exclude_day` and a list of slots with `start_time`, `duration`, and `reason`.
+- Observed auto-schedule slot reasons currently include `generic` and `irrigation`; `nutrition` is normalized as a separate NPK object (`n`, `p`, `k`) rather than a slot reason.
 
 ## Additional notes
 
 - Raw payloads remain available via `device.raw_cfg`/`device.raw_dat`, ensuring every numeric value can be inspected even after transformation.
 - `schedules.update_progress_and_next()` keeps `daily_progress`/`next_schedule_start` synced with the current timezone; `daily_progress` stays `None` on days without schedule slots.
+- Live write checks currently confirm that top-level `product-items` `PUT` calls can update `auto_schedule`, `lawn_size`, `lawn_perimeter`, `auto_schedule_settings.boost`, `auto_schedule_settings.grass_type`, `auto_schedule_settings.soil_type`, `auto_schedule_settings.irrigation`, `auto_schedule_settings.nutrition`, and `auto_schedule_settings.exclusion_scheduler`.
+- Disabling nutrition is currently observed by sending `auto_schedule_settings.nutrition = null`; sending `{ "n": 0, "p": 0, "k": 0 }` keeps nutrition enabled with zero values.
+- Exclusion slots are currently observed to write back as full seven-day `exclusion_scheduler.days` payloads; clearing one day's exclusions works by sending that day's `slots` as an empty list.
 - Any new value in `code-ref/data-samples` should be documented here before adding a dedicated property so the visual map stays accurate.
 - MQTT fixtures (`mqtt.json`) now ship as sequential JSON payloads from the mower; `dump_mapping.py` and the device decoders iterate every document so the decoded slots/status stay aligned with what flows through the live MQTT stream.
