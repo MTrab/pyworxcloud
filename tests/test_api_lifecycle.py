@@ -967,6 +967,90 @@ def test_set_firmware_auto_upgrade_puts_top_level_flag_and_refreshes(
     assert refreshes == [True]
 
 
+def test_get_firmware_upgrade_info_fetches_and_caches_normalized_payload(
+    monkeypatch,
+) -> None:
+    """get_firmware_upgrade_info should normalize firmware endpoint payload."""
+    calls: list[dict[str, Any]] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "firmware_version": "3.52",
+            "firmware_auto_upgrade": False,
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {"firmware": {"auto_upgrade": False, "version": "3.52"}},
+        )(),
+    }
+
+    async def _get(url: str, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "headers": headers, "session": session})
+        return {
+            "mandatory": False,
+            "has_ota_upgrade": True,
+            "upgrade_failed": False,
+            "product": {
+                "uuid": "fw-product-1",
+                "version": "3.60",
+                "releasedAt": "2026-03-01",
+                "changelog": {"en": "Bug fixes"},
+            },
+            "head": None,
+        }
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.AGET", _get)
+
+    result = asyncio.run(cloud.get_firmware_upgrade_info("SERIAL-0"))
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0/firmware-upgrade")
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    assert result == {
+        "mandatory": False,
+        "current_version": "3.52",
+        "latest_version": "3.60",
+        "update_available": True,
+        "ota_supported": True,
+        "auto_upgrade": False,
+        "upgrade_failed": False,
+        "product": {
+            "uuid": "fw-product-1",
+            "version": "3.60",
+            "released_at": "2026-03-01",
+            "changelog": {"en": "Bug fixes"},
+        },
+        "head": None,
+    }
+    assert cloud.get_mower("SERIAL-0")["firmware_upgrade"]["latest_version"] == "3.60"
+    assert cloud.devices["Proto0"].firmware["latest_version"] == "3.60"
+    assert cloud.devices["Proto0"].firmware["update_available"] is True
+
+
 def test_set_lawn_puts_top_level_fields_and_refreshes(monkeypatch) -> None:
     """set_lawn should PUT both top-level lawn fields and refresh."""
     calls: list[dict[str, Any]] = []

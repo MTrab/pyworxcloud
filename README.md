@@ -198,6 +198,32 @@ Notes:
 - This helper only toggles the top-level auto-upgrade flag. Firmware availability
   and OTA-trigger flows are handled separately.
 
+## Firmware availability
+
+`WorxCloud` can fetch the app-observed firmware-upgrade metadata for a mower.
+
+```python
+from pyworxcloud import WorxCloud
+
+
+async with WorxCloud("user@example.com", "secret", "worx") as cloud:
+    serial = "SERIAL"
+    firmware = await cloud.get_firmware_upgrade_info(serial)
+
+    print(firmware["current_version"])
+    print(firmware["latest_version"])
+    print(firmware["update_available"])
+```
+
+Notes:
+
+- The helper reads `GET /api/v2/product-items/{serial}/firmware-upgrade`.
+- The returned dictionary includes `current_version`, `latest_version`,
+  `update_available`, `mandatory`, `ota_supported`, `auto_upgrade`,
+  `upgrade_failed`, and normalized `product` / `head` entries when present.
+- The normalized result is cached on both `mower["firmware_upgrade"]` and
+  `device.firmware["upgrade"]`.
+
 ## Lawn fields
 
 `WorxCloud` can now read and write top-level REST lawn fields on `product-items`:

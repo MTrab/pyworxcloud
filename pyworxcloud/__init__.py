@@ -41,7 +41,7 @@ from .helpers import convert_to_time, get_logger
 from .utils import MQTT, DeviceCapability, DeviceHandler, ScheduleEntry, ScheduleModel
 from .utils.lawn import Lawn
 from .utils.mqtt import Command
-from .utils.requests import APOST, APUT, HEADERS
+from .utils.requests import AGET, APOST, APUT, HEADERS
 from .utils.schedule_codec import add_schedule_entry as add_schedule_entry_model
 from .utils.schedule_codec import delete_schedule_entry as delete_schedule_entry_model
 from .utils.schedule_codec import (
@@ -774,6 +774,40 @@ class WorxCloud(dict):
 
         return normalized_slots
 
+    @staticmethod
+    def _normalize_firmware_info_entry(entry: Any) -> dict[str, Any] | None:
+        """Return a normalized firmware info entry from the app-observed payload."""
+        if not isinstance(entry, dict):
+            return None
+
+        version = entry.get("version")
+        if not isinstance(version, str) or not version.strip():
+            return None
+
+        normalized = {
+            "uuid": entry.get("uuid"),
+            "version": version.strip(),
+            "released_at": entry.get("releasedAt"),
+            "changelog": entry.get("changelog"),
+        }
+        return normalized
+
+    def _cache_firmware_upgrade_info(
+        self, mower: dict[str, Any], normalized: dict[str, Any]
+    ) -> None:
+        """Keep cached mower/device firmware upgrade data aligned."""
+        mower["firmware_upgrade"] = self._clone_dict(normalized)
+        device = self.devices.get(mower["name"])
+        if device is None or not isinstance(getattr(device, "firmware", None), dict):
+            return
+
+        device.firmware["upgrade"] = self._clone_dict(normalized)
+        device.firmware["latest_version"] = normalized.get("latest_version")
+        device.firmware["update_available"] = normalized.get("update_available")
+        device.firmware["ota_supported"] = normalized.get("ota_supported")
+        device.firmware["mandatory"] = normalized.get("mandatory")
+        device.firmware["upgrade_failed"] = normalized.get("upgrade_failed")
+
     async def _put_auto_schedule_settings_patch(
         self, serial_number: str, patch: dict[str, Any]
     ) -> None:
@@ -1345,6 +1379,44 @@ class WorxCloud(dict):
             device.firmware["auto_upgrade"] = enabled
 
         await self._fetch(True)
+
+    async def get_firmware_upgrade_info(self, serial_number: str) -> dict[str, Any]:
+        """Fetch firmware upgrade metadata and availability for a mower."""
+        mower = self.get_mower(serial_number)
+
+        await self._api.check_token()
+        response = await AGET(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}/firmware-upgrade",
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if not isinstance(response, dict):
+            raise ValueError("Unexpected firmware-upgrade response payload")
+
+        product = self._normalize_firmware_info_entry(response.get("product"))
+        head = self._normalize_firmware_info_entry(response.get("head"))
+        current_version = mower.get("firmware_version")
+        latest_version = product["version"] if isinstance(product, dict) else None
+        update_available = (
+            latest_version is not None
+            and current_version is not None
+            and str(latest_version) != str(current_version)
+        )
+
+        normalized = {
+            "mandatory": bool(response.get("mandatory", False)),
+            "current_version": current_version,
+            "latest_version": latest_version,
+            "update_available": update_available,
+            "ota_supported": response.get("has_ota_upgrade"),
+            "auto_upgrade": mower.get("firmware_auto_upgrade"),
+            "upgrade_failed": response.get("upgrade_failed"),
+            "product": product,
+            "head": head,
+        }
+        self._cache_firmware_upgrade_info(mower, normalized)
+        return normalized
 
     def _update_cached_lawn(
         self, mower: dict[str, Any], patch: dict[str, int | None]
