@@ -12,12 +12,12 @@ import pytest
 from pyworxcloud import WorxCloud
 from pyworxcloud.api import LandroidCloudAPI
 from pyworxcloud.clouds import CloudType
+from pyworxcloud.events import LandroidEvent
 from pyworxcloud.exceptions import (
     NoFirmwareAvailableError,
     NoFirmwareOtaError,
     NotFoundError,
 )
-from pyworxcloud.events import LandroidEvent
 from pyworxcloud.helpers.logger import PACKAGE_LOGGER_NAME, get_logger
 from pyworxcloud.utils.schedule_codec import ScheduleEntry, ScheduleModel
 

@@ -24,19 +24,19 @@ from .exceptions import (
     InternalServerError,
     MowerNotFoundError,
     NoACSModuleError,
-    NoFirmwareAvailableError,
     NoConnectionError,
     NoCuttingHeightError,
+    NoFirmwareAvailableError,
     NoFirmwareOtaError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
-    NotFoundError,
-    RequestError,
 )
 from .exceptions import NoPartymodeError as NoPartymodeError
 from .exceptions import NoPauseModeError as NoPauseModeError
 from .exceptions import (
+    NotFoundError,
     OfflineError,
+    RequestError,
     TooManyRequestsError,
     ZoneNoProbability,
     ZoneNotDefined,
@@ -1499,9 +1499,11 @@ class WorxCloud(dict):
         )
 
         normalized = {
-            "mandatory": bool(response.get("mandatory", False))
-            if isinstance(response, dict)
-            else False,
+            "mandatory": (
+                bool(response.get("mandatory", False))
+                if isinstance(response, dict)
+                else False
+            ),
             "current_version": current_version,
             "latest_version": latest_version,
             "update_available": update_available,
