@@ -177,6 +177,78 @@ Notes:
 - Use `clear_auto_schedule_nutrition()` to send `nutrition = null` when nutrition should be disabled.
 - Exclusion slot writes currently send a full seven-day `exclusion_scheduler.days` payload, with the selected day replaced by the provided slots.
 
+## Firmware auto-upgrade
+
+`WorxCloud` can now update the observed top-level `firmware_auto_upgrade` field on
+`product-items`.
+
+```python
+from pyworxcloud import WorxCloud
+
+
+async with WorxCloud("user@example.com", "secret", "worx") as cloud:
+    serial = "SERIAL"
+
+    await cloud.set_firmware_auto_upgrade(serial, True)
+```
+
+Notes:
+
+- `device.firmware["auto_upgrade"]` reflects the current auto-upgrade setting.
+- This helper only toggles the top-level auto-upgrade flag. Firmware availability
+  and OTA-trigger flows are handled separately.
+
+## Firmware availability
+
+`WorxCloud` can fetch the app-observed firmware-upgrade metadata for a mower.
+
+```python
+from pyworxcloud import WorxCloud
+
+
+async with WorxCloud("user@example.com", "secret", "worx") as cloud:
+    serial = "SERIAL"
+    firmware = await cloud.get_firmware_upgrade_info(serial)
+
+    print(firmware["current_version"])
+    print(firmware["latest_version"])
+    print(firmware["update_available"])
+```
+
+Notes:
+
+- The helper reads `GET /api/v2/product-items/{serial}/firmware-upgrade`.
+- The returned dictionary includes `current_version`, `latest_version`,
+  `update_available`, `mandatory`, `ota_supported`, `auto_upgrade`,
+  `upgrade_failed`, and normalized `product` / `head` entries when present.
+- Firmware changelogs are exposed both as the raw `changelog` payload and as a
+  Markdown-friendly `changelog_markdown` variant for UIs that render rich text.
+- The normalized result is cached on both `mower["firmware_upgrade"]` and
+  `device.firmware["upgrade"]`.
+
+## Firmware OTA trigger
+
+`WorxCloud` can queue an OTA firmware upgrade when the mower supports it and
+the backend exposes an available upgrade.
+
+```python
+from pyworxcloud import WorxCloud
+
+
+async with WorxCloud("user@example.com", "secret", "worx") as cloud:
+    serial = "SERIAL"
+    await cloud.start_firmware_upgrade(serial)
+```
+
+Notes:
+
+- The helper queues `POST /api/v2/product-items/{serial}/firmware-upgrade`.
+- `NoFirmwareOtaError` is raised when OTA updates are known unsupported for the mower.
+- `NoFirmwareAvailableError` is raised when the backend reports that no OTA
+  firmware is currently available.
+- On success the helper refreshes mower state and marks the cached firmware
+  upgrade payload as `command_queued = True` when it already exists locally.
+
 ## Lawn fields
 
 `WorxCloud` can now read and write top-level REST lawn fields on `product-items`:

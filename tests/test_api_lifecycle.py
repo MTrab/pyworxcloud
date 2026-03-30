@@ -12,6 +12,11 @@ import pytest
 from pyworxcloud import WorxCloud
 from pyworxcloud.api import LandroidCloudAPI
 from pyworxcloud.clouds import CloudType
+from pyworxcloud.exceptions import (
+    NoFirmwareAvailableError,
+    NoFirmwareOtaError,
+    NotFoundError,
+)
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.helpers.logger import PACKAGE_LOGGER_NAME, get_logger
 from pyworxcloud.utils.schedule_codec import ScheduleEntry, ScheduleModel
@@ -903,6 +908,381 @@ def test_toggle_auto_schedule_puts_top_level_flag_and_refreshes(monkeypatch) -> 
     assert cloud.get_mower("SERIAL-0")["auto_schedule"] is True
     assert cloud.devices["Proto0"].schedules["auto_schedule"]["enabled"] is True
     assert refreshes == [True]
+
+
+def test_set_firmware_auto_upgrade_puts_top_level_flag_and_refreshes(
+    monkeypatch,
+) -> None:
+    """set_firmware_auto_upgrade should PUT the top-level firmware flag."""
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "firmware_auto_upgrade": False,
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {"firmware": {"auto_upgrade": False, "version": 3.52}},
+        )(),
+    }
+
+    async def _put(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "body": body, "headers": headers, "session": session})
+        return {"firmware_auto_upgrade": True}
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    async def _record_fetch(forced: bool = False) -> None:
+        refreshes.append(forced)
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    cloud._fetch = _record_fetch  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APUT", _put)
+
+    asyncio.run(cloud.set_firmware_auto_upgrade("SERIAL-0", True))
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0")
+    assert calls[0]["body"] == {"firmware_auto_upgrade": True}
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    assert cloud.get_mower("SERIAL-0")["firmware_auto_upgrade"] is True
+    assert cloud.devices["Proto0"].firmware["auto_upgrade"] is True
+    assert refreshes == [True]
+
+
+def test_get_firmware_upgrade_info_fetches_and_caches_normalized_payload(
+    monkeypatch,
+) -> None:
+    """get_firmware_upgrade_info should normalize firmware endpoint payload."""
+    calls: list[dict[str, Any]] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "firmware_version": "3.52",
+            "firmware_auto_upgrade": False,
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {"firmware": {"auto_upgrade": False, "version": "3.52"}},
+        )(),
+    }
+
+    async def _get(url: str, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "headers": headers, "session": session})
+        return {
+            "mandatory": False,
+            "has_ota_upgrade": True,
+            "upgrade_failed": False,
+            "product": {
+                "uuid": "fw-product-1",
+                "version": "3.60",
+                "releasedAt": "2026-03-01",
+                "changelog": {
+                    "en": "• Bug fixes\n• Better battery life\n\nThanks for testing"
+                },
+            },
+            "head": None,
+        }
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.AGET", _get)
+
+    result = asyncio.run(cloud.get_firmware_upgrade_info("SERIAL-0"))
+
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0/firmware-upgrade")
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    assert result == {
+        "mandatory": False,
+        "current_version": "3.52",
+        "latest_version": "3.60",
+        "update_available": True,
+        "ota_supported": True,
+        "auto_upgrade": False,
+        "upgrade_failed": False,
+        "product": {
+            "uuid": "fw-product-1",
+            "version": "3.60",
+            "released_at": "2026-03-01",
+            "changelog": {
+                "en": "• Bug fixes\n• Better battery life\n\nThanks for testing"
+            },
+            "changelog_markdown": {
+                "en": "- Bug fixes\n- Better battery life\n\nThanks for testing"
+            },
+        },
+        "head": None,
+    }
+    assert cloud.get_mower("SERIAL-0")["firmware_upgrade"]["latest_version"] == "3.60"
+    assert cloud.devices["Proto0"].firmware["latest_version"] == "3.60"
+    assert cloud.devices["Proto0"].firmware["update_available"] is True
+
+
+def test_firmware_changelog_markdown_conversion_preserves_paragraphs() -> None:
+    """Firmware changelog conversion should map bullets into Markdown lists."""
+    result = WorxCloud._firmware_changelog_to_markdown(
+        {
+            "en": "• First item\n• Second item\n\nClosing note",
+            "de": "",
+        }
+    )
+
+    assert result == {
+        "en": "- First item\n- Second item\n\nClosing note",
+    }
+
+
+def test_get_firmware_upgrade_info_maps_not_found_to_no_available_upgrade(
+    monkeypatch,
+) -> None:
+    """get_firmware_upgrade_info should treat 404 as no current OTA upgrade."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "capabilities": ["mqtt", "ota_upgrade"],
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "firmware_version": "3.52",
+            "firmware_auto_upgrade": True,
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {"firmware": {"auto_upgrade": True, "version": "3.52"}},
+        )(),
+    }
+
+    async def _get(url: str, headers: dict, session=None) -> dict[str, Any]:
+        raise NotFoundError()
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.AGET", _get)
+
+    result = asyncio.run(cloud.get_firmware_upgrade_info("SERIAL-0"))
+
+    assert result == {
+        "mandatory": False,
+        "current_version": "3.52",
+        "latest_version": None,
+        "update_available": False,
+        "ota_supported": True,
+        "auto_upgrade": True,
+        "upgrade_failed": False,
+        "product": None,
+        "head": None,
+    }
+    assert cloud.get_mower("SERIAL-0")["firmware_upgrade"]["update_available"] is False
+    assert cloud.devices["Proto0"].firmware["update_available"] is False
+    assert cloud.devices["Proto0"].firmware["latest_version"] is None
+
+
+def test_start_firmware_upgrade_posts_to_firmware_endpoint_and_refreshes(
+    monkeypatch,
+) -> None:
+    """start_firmware_upgrade should queue OTA updates through the REST endpoint."""
+    calls: list[dict[str, Any]] = []
+    refreshes: list[bool] = []
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "capabilities": ["mqtt", "ota_upgrade"],
+            "firmware_upgrade": {
+                "ota_supported": True,
+                "latest_version": "3.60",
+                "update_available": True,
+            },
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub",
+            (),
+            {
+                "firmware": {
+                    "upgrade": {
+                        "ota_supported": True,
+                        "latest_version": "3.60",
+                        "update_available": True,
+                    }
+                }
+            },
+        )(),
+    }
+
+    async def _post(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        calls.append({"url": url, "body": body, "headers": headers, "session": session})
+        return {"queued": True}
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    async def _record_fetch(forced: bool = False) -> None:
+        refreshes.append(forced)
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    cloud._fetch = _record_fetch  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APOST", _post)
+
+    result = asyncio.run(cloud.start_firmware_upgrade("SERIAL-0"))
+
+    assert result == {"queued": True}
+    assert len(calls) == 1
+    assert calls[0]["url"].endswith("/api/v2/product-items/SERIAL-0/firmware-upgrade")
+    assert calls[0]["body"] == ""
+    assert calls[0]["headers"]["Authorization"] == "Bearer token"
+    assert calls[0]["session"] is session_holder
+    assert cloud.get_mower("SERIAL-0")["firmware_upgrade"]["command_queued"] is True
+    assert cloud.devices["Proto0"].firmware["upgrade"]["command_queued"] is True
+    assert refreshes == [True]
+
+
+def test_start_firmware_upgrade_raises_when_ota_is_not_supported() -> None:
+    """start_firmware_upgrade should fail fast when OTA is known unsupported."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "capabilities": ["mqtt"],
+            "firmware_upgrade": {"ota_supported": False},
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {
+        "Proto0": type(
+            "DeviceStub", (), {"firmware": {"upgrade": {"ota_supported": False}}}
+        )(),
+    }
+
+    with pytest.raises(NoFirmwareOtaError, match="does not support OTA"):
+        asyncio.run(cloud.start_firmware_upgrade("SERIAL-0"))
+
+
+def test_start_firmware_upgrade_maps_missing_update_to_domain_error(
+    monkeypatch,
+) -> None:
+    """start_firmware_upgrade should map missing OTA payloads to a clear error."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0"},
+            "capabilities": ["mqtt", "ota_upgrade"],
+            "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
+        }
+    ]
+    cloud._rebuild_mower_indices()
+    cloud.devices = {"Proto0": type("DeviceStub", (), {"firmware": {}})()}
+
+    async def _post(url: str, body: Any, headers: dict, session=None) -> dict[str, Any]:
+        raise NotFoundError()
+
+    async def _check_token() -> None:
+        return None
+
+    session_holder = object()
+
+    async def _ensure_session() -> object:
+        return session_holder
+
+    cloud._api.access_token = "token"
+    cloud._api.check_token = _check_token  # type: ignore[method-assign]
+    cloud._api._ensure_session = _ensure_session  # type: ignore[method-assign]
+    monkeypatch.setattr("pyworxcloud.APOST", _post)
+
+    with pytest.raises(NoFirmwareAvailableError, match="No firmware available"):
+        asyncio.run(cloud.start_firmware_upgrade("SERIAL-0"))
 
 
 def test_set_lawn_puts_top_level_fields_and_refreshes(monkeypatch) -> None:

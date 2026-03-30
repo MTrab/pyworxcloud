@@ -24,10 +24,14 @@ from .exceptions import (
     InternalServerError,
     MowerNotFoundError,
     NoACSModuleError,
+    NoFirmwareAvailableError,
     NoConnectionError,
     NoCuttingHeightError,
+    NoFirmwareOtaError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
+    NotFoundError,
+    RequestError,
 )
 from .exceptions import NoPartymodeError as NoPartymodeError
 from .exceptions import NoPauseModeError as NoPauseModeError
@@ -41,7 +45,7 @@ from .helpers import convert_to_time, get_logger
 from .utils import MQTT, DeviceCapability, DeviceHandler, ScheduleEntry, ScheduleModel
 from .utils.lawn import Lawn
 from .utils.mqtt import Command
-from .utils.requests import APOST, APUT, HEADERS
+from .utils.requests import AGET, APOST, APUT, HEADERS
 from .utils.schedule_codec import add_schedule_entry as add_schedule_entry_model
 from .utils.schedule_codec import delete_schedule_entry as delete_schedule_entry_model
 from .utils.schedule_codec import (
@@ -774,6 +778,119 @@ class WorxCloud(dict):
 
         return normalized_slots
 
+    @staticmethod
+    def _firmware_changelog_to_markdown(changelog: Any) -> Any:
+        """Convert firmware changelog text into a Markdown-friendly structure."""
+        if isinstance(changelog, dict):
+            normalized: dict[str, str] = {}
+            for language, text in changelog.items():
+                if not isinstance(text, str):
+                    continue
+                markdown = WorxCloud._firmware_changelog_text_to_markdown(text)
+                if markdown:
+                    normalized[str(language)] = markdown
+            return normalized or None
+
+        if isinstance(changelog, str):
+            return WorxCloud._firmware_changelog_text_to_markdown(changelog)
+
+        return None
+
+    @staticmethod
+    def _firmware_changelog_text_to_markdown(text: str) -> str | None:
+        """Normalize a single changelog string into readable Markdown."""
+        stripped = text.strip()
+        if not stripped:
+            return None
+
+        lines = []
+        for raw_line in stripped.splitlines():
+            line = raw_line.strip()
+            if not line:
+                lines.append("")
+                continue
+
+            if line.startswith("• "):
+                lines.append(f"- {line[2:].strip()}")
+                continue
+            if line.startswith("* "):
+                lines.append(f"- {line[2:].strip()}")
+                continue
+
+            lines.append(line)
+
+        markdown_lines: list[str] = []
+        previous_blank = False
+        for line in lines:
+            if not line:
+                if not previous_blank and markdown_lines:
+                    markdown_lines.append("")
+                previous_blank = True
+                continue
+            markdown_lines.append(line)
+            previous_blank = False
+
+        markdown = "\n".join(markdown_lines).strip()
+        return markdown or None
+
+    @staticmethod
+    def _normalize_firmware_info_entry(entry: Any) -> dict[str, Any] | None:
+        """Return a normalized firmware info entry from the app-observed payload."""
+        if not isinstance(entry, dict):
+            return None
+
+        version = entry.get("version")
+        if not isinstance(version, str) or not version.strip():
+            return None
+
+        normalized = {
+            "uuid": entry.get("uuid"),
+            "version": version.strip(),
+            "released_at": entry.get("releasedAt"),
+            "changelog": entry.get("changelog"),
+            "changelog_markdown": WorxCloud._firmware_changelog_to_markdown(
+                entry.get("changelog")
+            ),
+        }
+        return normalized
+
+    def _cache_firmware_upgrade_info(
+        self, mower: dict[str, Any], normalized: dict[str, Any]
+    ) -> None:
+        """Keep cached mower/device firmware upgrade data aligned."""
+        mower["firmware_upgrade"] = self._clone_dict(normalized)
+        device = self.devices.get(mower["name"])
+        if device is None or not isinstance(getattr(device, "firmware", None), dict):
+            return
+
+        device.firmware["upgrade"] = self._clone_dict(normalized)
+        device.firmware["latest_version"] = normalized.get("latest_version")
+        device.firmware["update_available"] = normalized.get("update_available")
+        device.firmware["ota_supported"] = normalized.get("ota_supported")
+        device.firmware["mandatory"] = normalized.get("mandatory")
+        device.firmware["upgrade_failed"] = normalized.get("upgrade_failed")
+
+    @staticmethod
+    def _firmware_ota_supported(
+        mower: dict[str, Any], device: Any | None = None
+    ) -> bool | None:
+        """Return whether OTA firmware updates appear to be supported."""
+        firmware_upgrade = mower.get("firmware_upgrade")
+        if isinstance(firmware_upgrade, dict):
+            ota_supported = firmware_upgrade.get("ota_supported")
+            if isinstance(ota_supported, bool):
+                return ota_supported
+
+        capabilities = mower.get("capabilities")
+        if isinstance(capabilities, list):
+            return "ota_upgrade" in capabilities
+
+        api_capabilities = getattr(device, "api_capabilities", None)
+        if isinstance(api_capabilities, list):
+            return "ota_upgrade" in api_capabilities
+
+        return None
+
     async def _put_auto_schedule_settings_patch(
         self, serial_number: str, patch: dict[str, Any]
     ) -> None:
@@ -1321,6 +1438,120 @@ class WorxCloud(dict):
                 auto_schedule["enabled"] = enable
 
         await self._fetch(True)
+
+    async def set_firmware_auto_upgrade(
+        self, serial_number: str, enabled: bool
+    ) -> None:
+        """Turn automatic firmware upgrades on or off."""
+        enabled = self._require_bool(enabled, "enabled")
+        mower = self.get_mower(serial_number)
+
+        await self._api.check_token()
+        response = await APUT(
+            f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}",
+            {"firmware_auto_upgrade": enabled},
+            HEADERS(self._api.access_token),
+            session=await self._api._ensure_session(),
+        )
+
+        if isinstance(response, dict):
+            mower.update(response)
+        mower["firmware_auto_upgrade"] = enabled
+        device = self.devices.get(mower["name"])
+        if device is not None and isinstance(getattr(device, "firmware", None), dict):
+            device.firmware["auto_upgrade"] = enabled
+
+        await self._fetch(True)
+
+    async def get_firmware_upgrade_info(self, serial_number: str) -> dict[str, Any]:
+        """Fetch firmware upgrade metadata and availability for a mower."""
+        mower = self.get_mower(serial_number)
+        device = self.devices.get(mower["name"])
+
+        await self._api.check_token()
+        try:
+            response = await AGET(
+                f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}/firmware-upgrade",
+                HEADERS(self._api.access_token),
+                session=await self._api._ensure_session(),
+            )
+        except NotFoundError:
+            response = None
+
+        if response is not None and not isinstance(response, dict):
+            raise ValueError("Unexpected firmware-upgrade response payload")
+
+        product = None
+        head = None
+        ota_supported = self._firmware_ota_supported(mower, device)
+        upgrade_failed = False
+        if isinstance(response, dict):
+            product = self._normalize_firmware_info_entry(response.get("product"))
+            head = self._normalize_firmware_info_entry(response.get("head"))
+            ota_supported = response.get("has_ota_upgrade", ota_supported)
+            upgrade_failed = bool(response.get("upgrade_failed", False))
+        current_version = mower.get("firmware_version")
+        latest_version = product["version"] if isinstance(product, dict) else None
+        update_available = (
+            latest_version is not None
+            and current_version is not None
+            and str(latest_version) != str(current_version)
+        )
+
+        normalized = {
+            "mandatory": bool(response.get("mandatory", False))
+            if isinstance(response, dict)
+            else False,
+            "current_version": current_version,
+            "latest_version": latest_version,
+            "update_available": update_available,
+            "ota_supported": ota_supported,
+            "auto_upgrade": mower.get("firmware_auto_upgrade"),
+            "upgrade_failed": upgrade_failed,
+            "product": product,
+            "head": head,
+        }
+        self._cache_firmware_upgrade_info(mower, normalized)
+        return normalized
+
+    async def start_firmware_upgrade(self, serial_number: str) -> Any:
+        """Queue an OTA firmware upgrade for a mower when available."""
+        mower = self.get_mower(serial_number)
+        device = self.devices.get(mower["name"])
+        ota_supported = self._firmware_ota_supported(mower, device)
+        if ota_supported is False:
+            raise NoFirmwareOtaError(
+                "This device does not support OTA firmware upgrades"
+            )
+
+        await self._api.check_token()
+        _LOGGER.debug("Triggering firmware upgrade for '%s'", mower["name"])
+        try:
+            response = await APOST(
+                f"https://{self._api.cloud.ENDPOINT}/api/v2/product-items/{serial_number}/firmware-upgrade",
+                "",
+                HEADERS(self._api.access_token),
+                session=await self._api._ensure_session(),
+            )
+        except (NotFoundError, RequestError) as err:
+            _LOGGER.debug(
+                "Firmware upgrade rejected for '%s': no OTA update available",
+                mower["name"],
+            )
+            raise NoFirmwareAvailableError("No firmware available") from err
+
+        firmware_upgrade = mower.get("firmware_upgrade")
+        if isinstance(firmware_upgrade, dict):
+            firmware_upgrade["command_queued"] = True
+            firmware_upgrade["upgrade_failed"] = False
+        if device is not None and isinstance(getattr(device, "firmware", None), dict):
+            upgrade = device.firmware.get("upgrade")
+            if isinstance(upgrade, dict):
+                upgrade["command_queued"] = True
+                upgrade["upgrade_failed"] = False
+
+        await self._fetch(True)
+        return response
 
     def _update_cached_lawn(
         self, mower: dict[str, Any], patch: dict[str, int | None]
