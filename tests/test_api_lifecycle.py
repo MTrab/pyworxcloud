@@ -2566,3 +2566,63 @@ def test_set_pause_mode_warns_and_calls_party_mode(monkeypatch) -> None:
         "set_pause_mode() is deprecated" in str(item.message) for item in captured
     )
     assert calls[0]["message"] == {"sc": {"m": 2, "distm": 0}}
+
+
+def test_set_party_mode_protocol1_includes_cmd0(monkeypatch) -> None:
+    """Protocol 1 party mode writes should include the cmd=0 scheduler envelope."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    calls: list[dict[str, Any]] = []
+
+    class CapturingMQTT(DummyMQTT):
+        async def apublish(
+            self,
+            serial: str,
+            topic: str,
+            message: Any,
+            protocol: int | None = None,
+        ) -> None:
+            calls.append(
+                {
+                    "serial": serial,
+                    "topic": topic,
+                    "message": message,
+                    "protocol": protocol,
+                }
+            )
+
+    class DummyCapabilities:
+        def check(self, _capability: Any) -> bool:
+            return True
+
+    class StubDeviceHandler:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            self.capabilities = DummyCapabilities()
+
+    monkeypatch.setattr("pyworxcloud.DeviceHandler", StubDeviceHandler)
+    cloud.mqtt = CapturingMQTT()
+    cloud._mowers = [
+        {
+            "name": "Proto1",
+            "serial_number": "SERIAL-1",
+            "uuid": "UUID-1",
+            "mac_address": "MAC-1",
+            "online": True,
+            "protocol": 1,
+            "mqtt_topics": {"command_in": "topic/p1"},
+            "last_status": {
+                "payload": {"cfg": {"sc": {"enabled": 0, "paused": 0}}, "dat": {}}
+            },
+        }
+    ]
+    cloud._rebuild_mower_indices()
+
+    asyncio.run(cloud.set_party_mode("SERIAL-1", False))
+
+    assert calls == [
+        {
+            "serial": "UUID-1",
+            "topic": "topic/p1",
+            "message": {"cmd": 0, "sc": {"enabled": 1}},
+            "protocol": 1,
+        }
+    ]
