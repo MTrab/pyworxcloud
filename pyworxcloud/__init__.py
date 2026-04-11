@@ -1187,7 +1187,9 @@ class WorxCloud(dict):
                     await self.mqtt.apublish(
                         serial_number if mower["protocol"] == 0 else mower["uuid"],
                         mower["mqtt_topics"]["command_in"],
-                        {"sc": {"enabled": 0}} if state else {"sc": {"enabled": 1}},
+                        {"cmd": 0, "sc": {"enabled": 0}}
+                        if state
+                        else {"cmd": 0, "sc": {"enabled": 1}},
                         mower["protocol"],
                     )
             elif not device.capabilities.check(DeviceCapability.PARTY_MODE):
