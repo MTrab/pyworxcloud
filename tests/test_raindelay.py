@@ -1,6 +1,7 @@
 """Tests for rain_delay validation."""
 
 import pytest
+
 from pyworxcloud import WorxCloud
 
 
@@ -21,5 +22,7 @@ def test_coerce_int_accepts_1440() -> None:
 def test_coerce_int_rejects_1441() -> None:
     """_coerce_int should reject values above 1440."""
     cloud = WorxCloud("test@example.com", "password")
-    with pytest.raises(ValueError, match="rain_delay must be less than or equal to 1440"):
+    with pytest.raises(
+        ValueError, match="rain_delay must be less than or equal to 1440"
+    ):
         cloud._coerce_int("1441", "rain_delay", minimum=0, maximum=1440)

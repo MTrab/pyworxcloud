@@ -1124,7 +1124,9 @@ class WorxCloud(dict):
         """
         mower = self.get_mower(serial_number)
         if mower["online"]:
-            rain_delay = self._coerce_int(rain_delay, "rain_delay", minimum=0, maximum=1440)
+            rain_delay = self._coerce_int(
+                rain_delay, "rain_delay", minimum=0, maximum=1440
+            )
             if mower["protocol"] == 0:
                 await self.mqtt.apublish(
                     serial_number,
@@ -1197,9 +1199,11 @@ class WorxCloud(dict):
                     await self.mqtt.apublish(
                         serial_number if mower["protocol"] == 0 else mower["uuid"],
                         mower["mqtt_topics"]["command_in"],
-                        {"cmd": 0, "sc": {"enabled": 0}}
-                        if state
-                        else {"cmd": 0, "sc": {"enabled": 1}},
+                        (
+                            {"cmd": 0, "sc": {"enabled": 0}}
+                            if state
+                            else {"cmd": 0, "sc": {"enabled": 1}}
+                        ),
                         mower["protocol"],
                     )
             elif not device.capabilities.check(DeviceCapability.PARTY_MODE):
