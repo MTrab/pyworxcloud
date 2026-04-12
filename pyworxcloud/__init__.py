@@ -1124,7 +1124,7 @@ class WorxCloud(dict):
         """
         mower = self.get_mower(serial_number)
         if mower["online"]:
-            rain_delay = self._coerce_int(rain_delay, "rain_delay", minimum=0)
+            rain_delay = self._coerce_int(rain_delay, "rain_delay", minimum=0, maximum=1440)
             if mower["protocol"] == 0:
                 await self.mqtt.apublish(
                     serial_number,
