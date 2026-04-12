@@ -37,7 +37,7 @@ def HEADERS(access_token: str | None = None) -> dict:
     }
 
     if isinstance(access_token, type(None)):
-        head.update({"Content-Type": "application/json"})
+        head.update({"Content-Type": "application/x-www-form-urlencoded"})
     else:
         head.update({"Authorization": f"Bearer {access_token}"})
 
@@ -104,7 +104,7 @@ async def APOST(
     owns_session = session is None
     client = session or await create_async_session()
     try:
-        async with client.post(URL, json=REQUEST_BODY, headers=HEADER) as resp:
+        async with client.post(URL, data=REQUEST_BODY, headers=HEADER) as resp:
             if resp.status >= 400:
                 _raise_http_status(resp.status, Exception(f"HTTP {resp.status}"))
             return await resp.json()
