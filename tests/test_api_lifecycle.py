@@ -2506,7 +2506,7 @@ def test_set_torque_publishes_torque_payload() -> None:
         {
             "serial": "UUID-1",
             "topic": "topic/in",
-            "message": {"tq": -13},
+            "message": {"cfg": {"tq": -13}},
             "protocol": 1,
         }
     ]
