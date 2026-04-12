@@ -1125,11 +1125,21 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             rain_delay = self._coerce_int(rain_delay, "rain_delay", minimum=0)
-            await self.mqtt.apublish(
-                serial_number if mower["protocol"] == 0 else mower["uuid"],
-                mower["mqtt_topics"]["command_in"],
-                {"rd": rain_delay},
-            )
+            if mower["protocol"] == 0:
+                await self.mqtt.apublish(
+                    serial_number,
+                    mower["mqtt_topics"]["command_in"],
+                    {"rd": rain_delay},
+                    mower["protocol"],
+                )
+            else:
+                # Protocol 1 requires rd to be wrapped in cfg
+                await self.mqtt.apublish(
+                    mower["uuid"],
+                    mower["mqtt_topics"]["command_in"],
+                    {"cfg": {"rd": rain_delay}},
+                    mower["protocol"],
+                )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
