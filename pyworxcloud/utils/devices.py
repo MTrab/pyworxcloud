@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from ..clouds import CloudType
 from ..const import UNWANTED_ATTRIBS
 from ..exceptions import APIException, InvalidDataDecodeException
 from ..helpers import convert_to_time
@@ -319,7 +320,16 @@ class DeviceHandler(LDict):
         if isinstance(rain, dict):
             triggered = str(rain.get("s")) == "1"
             self.rainsensor.triggered = triggered
-            self.rainsensor.remaining = int(rain.get("cnt", 0))
+            # Kress returns rain delay in seconds, others in minutes
+            raw_remaining = int(rain.get("cnt", 0))
+            if (
+                not isinstance(self._api, type(None))
+                and hasattr(self._api, "cloud")
+                and self._api.cloud == CloudType.KRESS
+            ):
+                self.rainsensor.remaining = raw_remaining // 60
+            else:
+                self.rainsensor.remaining = raw_remaining
             self.raindelay_active = triggered
 
     def _map_cfg(self, cfg_payload: dict[str, Any]) -> None:
