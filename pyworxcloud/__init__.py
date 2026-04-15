@@ -63,6 +63,7 @@ _LOGGER = logging.getLogger(__name__)
 API_REFRESH_TIME_MIN = 5
 API_REFRESH_TIME_MAX = 10
 DEFAULT_COMMAND_TIMEOUT = 30.0
+VISION_BORDER_DISTANCE_MM_VALUES = (50, 100, 150, 200)
 
 
 class WorxCloud(dict):
@@ -1854,19 +1855,49 @@ class WorxCloud(dict):
                         mower["protocol"],
                     )
 
-    async def ots(self, serial_number: str, boundary: bool, runtime: str) -> None:
+    async def ots(
+        self,
+        serial_number: str,
+        boundary: bool,
+        runtime: str,
+        *,
+        cut_over_border: bool | None = None,
+        border_distance: int | None = None,
+    ) -> None:
         """Start a One-Time-Schedule task
 
         Args:
             serial_number (str): Serial number of the device
             boundary (bool): If True the device will start the task cutting the edge.
             runtime (str | int): Minutes to run the task before returning to dock.
+            cut_over_border (bool | None): Optional Vision border-cut override.
+            border_distance (int | None): Optional Vision border distance in mm.
 
         Raises:
             NoOneTimeScheduleError: OTS is not supported by the device.
             OfflineError: Raised when the device is offline.
         """
         boundary = self._require_bool(boundary, "boundary")
+        if cut_over_border is not None:
+            cut_over_border = self._require_bool(cut_over_border, "cut_over_border")
+        if border_distance is not None:
+            border_distance = self._coerce_int(
+                border_distance, "border_distance", minimum=0
+            )
+            if border_distance not in VISION_BORDER_DISTANCE_MM_VALUES:
+                raise ValueError("border_distance must be one of 50, 100, 150, or 200")
+        if cut_over_border is None and border_distance is not None:
+            raise ValueError(
+                "border_distance requires cut_over_border to be set to false"
+            )
+        if cut_over_border is not False and border_distance is not None:
+            raise ValueError(
+                "border_distance can only be used when cut_over_border is false"
+            )
+        if (
+            cut_over_border is not None or border_distance is not None
+        ) and not boundary:
+            raise ValueError("Vision border-cut settings require boundary to be true")
         mower = self.get_mower(serial_number)
         if mower["online"]:
             device = DeviceHandler(self._api, mower, self._tz)
@@ -1875,6 +1906,10 @@ class WorxCloud(dict):
 
                 device = DeviceHandler(self._api, mower, self._tz)
                 if mower["protocol"] == 0:
+                    if cut_over_border is not None or border_distance is not None:
+                        raise ValueError(
+                            "Vision border-cut settings are only supported for protocol 1 devices"
+                        )
                     await self.mqtt.apublish(
                         serial_number,
                         mower["mqtt_topics"]["command_in"],
@@ -1882,6 +1917,11 @@ class WorxCloud(dict):
                         mower["protocol"],
                     )
                 else:
+                    cut_config: dict[str, Any] = {"b": int(boundary), "z": []}
+                    if cut_over_border is not None:
+                        cut_config["ob"] = int(cut_over_border)
+                    if border_distance is not None:
+                        cut_config["bd"] = border_distance
                     await self.mqtt.apublish(
                         mower["uuid"],
                         mower["mqtt_topics"]["command_in"],
@@ -1889,7 +1929,7 @@ class WorxCloud(dict):
                             "cmd": 10,
                             "sc": {
                                 "once": {
-                                    "cfg": {"cut": {"b": int(boundary), "z": []}},
+                                    "cfg": {"cut": cut_config},
                                     "time": (runtime),
                                 }
                             },
