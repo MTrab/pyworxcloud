@@ -33,7 +33,7 @@
 *   Keep documentation up-to-date with current code
 *   ./code-ref are read-only for AI agents
 *   Reference code samples are found in ./code-ref, do not copy code blind - only use as reference
-*   ./code-ref/data-samples contains JSON dumps of actual data from real mowers
+*   ./code-ref/samples contains JSON dumps of actual data from real mowers
 *   Always push changes to repository, when making changes in a branch
 *   Before committing, the agent MUST run the agreed `ruff` commands for this repository, including `ruff format` and `ruff check`, and fix any reported issues
 
