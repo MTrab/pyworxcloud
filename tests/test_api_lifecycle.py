@@ -2541,14 +2541,10 @@ def test_set_border_cut_settings_publishes_protocol1_mz_payload() -> None:
             "p": [],
         },
     }
-    assert cloud.get_border_cut_settings("SERIAL-1") == {
-        "cut_over_border": False,
-        "border_distance": 150,
-    }
 
 
-def test_set_border_cut_settings_preserves_existing_mz_shape() -> None:
-    """Border-cut updates should preserve the existing mz slot and passages layout."""
+def test_set_border_cut_settings_uses_observed_raw_shape() -> None:
+    """Border-cut updates should use the observed raw payload shape."""
     cloud = WorxCloud("user@example.com", "secret", "worx")
     mqtt = RecordingMQTT()
     cloud.mqtt = mqtt
@@ -2569,14 +2565,8 @@ def test_set_border_cut_settings_preserves_existing_mz_shape() -> None:
             "last_status": {
                 "payload": {
                     "cfg": {
-                        "id": 7,
-                        "cut": {"b": 0, "bd": 100, "ob": 1, "z": []},
-                        "mz": {
-                            "s": [
-                                {"id": 7, "c": 1, "cfg": {"cut": {"ob": 1, "bd": 100}}}
-                            ],
-                            "p": [{"z1": 1, "z2": 2}],
-                        },
+                        "id": 0,
+                        "cut": {"b": 0, "z": []},
                         "sc": {
                             "enabled": 1,
                             "paused": 0,
@@ -2591,17 +2581,13 @@ def test_set_border_cut_settings_preserves_existing_mz_shape() -> None:
     ]
     cloud._rebuild_mower_indices()
 
-    asyncio.run(cloud.set_border_cut_settings("SERIAL-1", border_distance=200))
+    asyncio.run(cloud.set_border_cut_settings("SERIAL-1", border_distance=100))
 
     assert mqtt.calls[0]["message"] == {
         "mz": {
-            "s": [{"id": 7, "c": True, "cfg": {"cut": {"ob": 1, "bd": 200}}}],
-            "p": [{"z1": 1, "z2": 2}],
+            "s": [{"id": 1, "c": True, "cfg": {"cut": {"bd": 100}}}],
+            "p": [],
         }
-    }
-    assert cloud.get_border_cut_settings("SERIAL-1") == {
-        "cut_over_border": True,
-        "border_distance": 200,
     }
 
 

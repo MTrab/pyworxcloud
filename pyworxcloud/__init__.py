@@ -952,107 +952,23 @@ class WorxCloud(dict):
 
     def _build_border_cut_settings_payload(
         self,
-        mower: dict[str, Any],
         *,
         cut_over_border: bool | None = None,
         border_distance: int | None = None,
     ) -> dict[str, Any]:
-        """Build a protocol 1 mz payload for persistent border-cut settings."""
-        cfg_payload = self._get_current_cfg_payload(mower)
-        current_mz = cfg_payload.get("mz")
-        mz_payload = (
-            self._clone_dict(current_mz) if isinstance(current_mz, dict) else {}
-        )
-        slots = mz_payload.get("s")
-        slot_list = slots if isinstance(slots, list) else []
-        target_index: int | None = None
-
-        for index, slot in enumerate(slot_list):
-            if not isinstance(slot, dict):
-                continue
-            if bool(slot.get("c")):
-                target_index = index
-                break
-
-        if target_index is None:
-            for index, slot in enumerate(slot_list):
-                if isinstance(slot, dict):
-                    target_index = index
-                    break
-
-        if target_index is None:
-            slot_id = cfg_payload.get("id", 1)
-            target_slot: dict[str, Any] = {"id": int(slot_id), "c": True, "cfg": {}}
-            slot_list = [target_slot]
-            target_index = 0
-        else:
-            existing_slot = slot_list[target_index]
-            target_slot = (
-                self._clone_dict(existing_slot)
-                if isinstance(existing_slot, dict)
-                else {}
-            )
-
-        slot_cfg = target_slot.get("cfg")
-        slot_cfg = self._clone_dict(slot_cfg) if isinstance(slot_cfg, dict) else {}
-        slot_cut = slot_cfg.get("cut")
-        slot_cut = self._clone_dict(slot_cut) if isinstance(slot_cut, dict) else {}
-
+        """Build the observed protocol 1 mz payload for persistent border-cut settings."""
+        cut_payload: dict[str, int] = {}
         if cut_over_border is not None:
-            slot_cut["ob"] = int(cut_over_border)
+            cut_payload["ob"] = int(cut_over_border)
         if border_distance is not None:
-            slot_cut["bd"] = border_distance
+            cut_payload["bd"] = int(border_distance)
 
-        slot_cfg["cut"] = slot_cut
-        target_slot["cfg"] = slot_cfg
-        target_slot["id"] = int(target_slot.get("id", cfg_payload.get("id", 1)))
-        target_slot["c"] = bool(target_slot.get("c", True))
-        slot_list[target_index] = target_slot
-        mz_payload["s"] = slot_list
-        passages = mz_payload.get("p")
-        mz_payload["p"] = passages if isinstance(passages, list) else []
-        return mz_payload
-
-    def get_border_cut_settings(
-        self, serial_number: str
-    ) -> dict[str, bool | int | None]:
-        """Return cached protocol 1 border-cut settings."""
-        mower = self.get_mower(serial_number)
-        cfg_payload = self._get_current_cfg_payload(mower)
-
-        cut_payload: dict[str, Any] | None = None
-        mz_payload = cfg_payload.get("mz")
-        if isinstance(mz_payload, dict):
-            slots = mz_payload.get("s")
-            if isinstance(slots, list):
-                for slot in slots:
-                    if not isinstance(slot, dict):
-                        continue
-                    slot_cfg = slot.get("cfg")
-                    if not isinstance(slot_cfg, dict):
-                        continue
-                    slot_cut = slot_cfg.get("cut")
-                    if isinstance(slot_cut, dict):
-                        cut_payload = slot_cut
-                        if bool(slot.get("c")):
-                            break
-
-        if cut_payload is None:
-            raw_cut = cfg_payload.get("cut")
-            if isinstance(raw_cut, dict):
-                cut_payload = raw_cut
-
-        cut_over_border: bool | None = None
-        border_distance: int | None = None
-        if isinstance(cut_payload, dict):
-            if "ob" in cut_payload:
-                cut_over_border = bool(int(cut_payload["ob"]))
-            if "bd" in cut_payload:
-                border_distance = int(cut_payload["bd"])
+        if not cut_payload:
+            raise ValueError("Unable to determine border-cut settings payload")
 
         return {
-            "cut_over_border": cut_over_border,
-            "border_distance": border_distance,
+            "s": [{"id": 1, "c": True, "cfg": {"cut": cut_payload}}],
+            "p": [],
         }
 
     def _build_schedule_model(self, mower: dict[str, Any]) -> ScheduleModel:
@@ -2061,7 +1977,6 @@ class WorxCloud(dict):
             )
 
         mz_payload = self._build_border_cut_settings_payload(
-            mower,
             cut_over_border=cut_over_border,
             border_distance=border_distance,
         )
