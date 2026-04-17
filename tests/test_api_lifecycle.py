@@ -2484,8 +2484,8 @@ def test_schedule_crud_publishes_normalized_payload_and_refreshes() -> None:
     assert refreshes == [False, False, False, False]
 
 
-def test_ots_protocol1_supports_vision_border_cut_overrides() -> None:
-    """Protocol 1 OTS should include optional Vision border-cut overrides."""
+def test_set_border_cut_settings_publishes_protocol1_mz_payload() -> None:
+    """Border-cut settings should publish a dedicated protocol 1 mz payload."""
     cloud = WorxCloud("user@example.com", "secret", "worx")
     mqtt = RecordingMQTT()
     cloud.mqtt = mqtt
@@ -2524,10 +2524,8 @@ def test_ots_protocol1_supports_vision_border_cut_overrides() -> None:
     cloud._rebuild_mower_indices()
 
     asyncio.run(
-        cloud.ots(
+        cloud.set_border_cut_settings(
             "SERIAL-1",
-            True,
-            45,
             cut_over_border=False,
             border_distance=150,
         )
@@ -2538,18 +2536,77 @@ def test_ots_protocol1_supports_vision_border_cut_overrides() -> None:
     assert mqtt.calls[0]["topic"] == "topic/p1"
     assert mqtt.calls[0]["protocol"] == 1
     assert mqtt.calls[0]["message"] == {
-        "cmd": 10,
-        "sc": {
-            "once": {
-                "cfg": {"cut": {"b": 1, "ob": 0, "bd": 150, "z": []}},
-                "time": 45,
-            }
+        "mz": {
+            "s": [{"id": 1, "c": True, "cfg": {"cut": {"ob": 0, "bd": 150}}}],
+            "p": [],
         },
+    }
+    assert cloud.get_border_cut_settings("SERIAL-1") == {
+        "cut_over_border": False,
+        "border_distance": 150,
     }
 
 
-def test_ots_rejects_invalid_vision_border_cut_inputs() -> None:
-    """OTS should validate Vision-only border-cut override combinations."""
+def test_set_border_cut_settings_preserves_existing_mz_shape() -> None:
+    """Border-cut updates should preserve the existing mz slot and passages layout."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    mqtt = RecordingMQTT()
+    cloud.mqtt = mqtt
+    cloud._mowers = [
+        {
+            "name": "Vision",
+            "serial_number": "SERIAL-1",
+            "uuid": "UUID-1",
+            "mac_address": "MAC-1",
+            "model": {"friendly_name": "Vision", "code": "WR206E"},
+            "time_zone": "UTC",
+            "warranty_expires_at": None,
+            "warranty_registered": False,
+            "online": True,
+            "protocol": 1,
+            "mqtt_topics": {"command_in": "topic/p1", "command_out": "topic/out/p1"},
+            "capabilities": ["one_time_scheduler"],
+            "last_status": {
+                "payload": {
+                    "cfg": {
+                        "id": 7,
+                        "cut": {"b": 0, "bd": 100, "ob": 1, "z": []},
+                        "mz": {
+                            "s": [
+                                {"id": 7, "c": 1, "cfg": {"cut": {"ob": 1, "bd": 100}}}
+                            ],
+                            "p": [{"z1": 1, "z2": 2}],
+                        },
+                        "sc": {
+                            "enabled": 1,
+                            "paused": 0,
+                            "once": {"time": 30, "cfg": {"cut": {"b": 0, "z": []}}},
+                            "slots": [],
+                        },
+                    },
+                    "dat": {"uuid": "UUID-1", "ls": 1, "le": 0, "rain": {"s": 0}},
+                }
+            },
+        }
+    ]
+    cloud._rebuild_mower_indices()
+
+    asyncio.run(cloud.set_border_cut_settings("SERIAL-1", border_distance=200))
+
+    assert mqtt.calls[0]["message"] == {
+        "mz": {
+            "s": [{"id": 7, "c": True, "cfg": {"cut": {"ob": 1, "bd": 200}}}],
+            "p": [{"z1": 1, "z2": 2}],
+        }
+    }
+    assert cloud.get_border_cut_settings("SERIAL-1") == {
+        "cut_over_border": True,
+        "border_distance": 200,
+    }
+
+
+def test_set_border_cut_settings_rejects_invalid_inputs() -> None:
+    """Border-cut settings should validate supported protocol and value ranges."""
     cloud = WorxCloud("user@example.com", "secret", "worx")
     cloud.mqtt = DummyMQTT()
     cloud._mowers = [
@@ -2611,46 +2668,26 @@ def test_ots_rejects_invalid_vision_border_cut_inputs() -> None:
     cloud._rebuild_mower_indices()
 
     with pytest.raises(
-        ValueError, match="Vision border-cut settings require boundary to be true"
-    ):
-        asyncio.run(
-            cloud.ots(
-                "SERIAL-1",
-                False,
-                45,
-                cut_over_border=False,
-                border_distance=150,
-            )
-        )
-
-    with pytest.raises(
         ValueError,
-        match="border_distance can only be used when cut_over_border is false",
+        match="At least one of cut_over_border or border_distance must be provided",
     ):
-        asyncio.run(
-            cloud.ots("SERIAL-1", True, 45, cut_over_border=True, border_distance=150)
-        )
+        asyncio.run(cloud.set_border_cut_settings("SERIAL-1"))
 
     with pytest.raises(
         ValueError, match="border_distance must be one of 50, 100, 150, or 200"
     ):
         asyncio.run(
-            cloud.ots(
+            cloud.set_border_cut_settings(
                 "SERIAL-1",
-                True,
-                45,
-                cut_over_border=False,
                 border_distance=125,
             )
         )
 
     with pytest.raises(
         ValueError,
-        match="Vision border-cut settings are only supported for protocol 1 devices",
+        match="Border-cut settings are only supported for protocol 1 devices",
     ):
-        asyncio.run(
-            cloud.ots("SERIAL-0", True, 45, cut_over_border=False, border_distance=150)
-        )
+        asyncio.run(cloud.set_border_cut_settings("SERIAL-0", cut_over_border=False))
 
 
 def test_set_torque_publishes_torque_payload() -> None:
