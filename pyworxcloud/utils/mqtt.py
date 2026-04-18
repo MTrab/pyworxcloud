@@ -43,6 +43,65 @@ QOS_FLAG = awscrt.mqtt.QoS.AT_LEAST_ONCE
 DEFAULT_RESPONSE_TIMEOUT = 30.0
 DEFAULT_DISCONNECT_TIMEOUT = 0.5
 DEFAULT_SHUTDOWN_TIMEOUT = 0.25
+AWSCRT_CONNECT_ARG_MISMATCH = "function takes exactly 18 arguments (17 given)"
+
+
+def _is_awscrt_connect_arg_mismatch(err: TypeError) -> bool:
+    """Return whether AWS CRT hit the known 0.32.x connect arg mismatch."""
+    return AWSCRT_CONNECT_ARG_MISMATCH in str(err)
+
+
+def _legacy_connect_without_metrics(client: Any) -> Future:
+    """Call the pre-0.32 AWS CRT connect signature for mixed installations."""
+    import _awscrt  # pylint: disable=import-outside-toplevel
+    import awscrt.exceptions  # pylint: disable=import-outside-toplevel
+
+    future = Future()
+
+    def on_connect(error_code, return_code, session_present):
+        if return_code:
+            future.set_exception(Exception(awscrt.mqtt.ConnectReturnCode(return_code)))
+        elif error_code:
+            future.set_exception(awscrt.exceptions.from_code(error_code))
+        else:
+            future.set_result(dict(session_present=session_present))
+
+    _awscrt.mqtt_client_connection_connect(
+        client._binding,
+        client.client_id,
+        client.host_name,
+        client.port,
+        client.socket_options,
+        client.client.tls_ctx,
+        client.reconnect_min_timeout_secs,
+        client.reconnect_max_timeout_secs,
+        client.keep_alive_secs,
+        client.ping_timeout_ms,
+        client.protocol_operation_timeout_ms,
+        client.will,
+        client.username,
+        client.password,
+        client.clean_session,
+        on_connect,
+        client.proxy_options,
+    )
+
+    return future
+
+
+def _connect_with_awscrt_compat(client: Any, logger: Logger) -> Future:
+    """Connect while tolerating the awscrt 0.32.x mixed-installation bug."""
+    try:
+        return client.connect()
+    except TypeError as err:
+        if not _is_awscrt_connect_arg_mismatch(err):
+            raise
+
+        logger.warning(
+            "AWS CRT connect hit the known 17/18-argument mismatch; "
+            "retrying with legacy compatibility path"
+        )
+        return _legacy_connect_without_metrics(client)
 
 
 class MQTTMsgType(LDict):
@@ -438,7 +497,7 @@ class MQTT(LDict):
         self._get_ready_event().clear()
         try:
             # Create a connection future
-            self._connection_future = client.connect()
+            self._connection_future = _connect_with_awscrt_compat(client, self._log)
 
             # Wait for connection to complete
             self._connection_future.result()
