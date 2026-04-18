@@ -8,8 +8,9 @@ from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
 import awscrt.mqtt
+import pytest
 
-from pyworxcloud.utils.mqtt import MQTT
+from pyworxcloud.utils.mqtt import MQTT, _connect_with_awscrt_compat
 
 
 class _ImmediateFuture:
@@ -39,6 +40,20 @@ class _ClientStub:
         if self.should_raise:
             raise RuntimeError("disconnect failed")
         return self.future
+
+
+class _ConnectMismatchClientStub:
+    """Client stub that reproduces the awscrt 17/18-arg connect mismatch."""
+
+    def connect(self) -> None:
+        raise TypeError("function takes exactly 18 arguments (17 given)")
+
+
+class _ConnectTypeErrorClientStub:
+    """Client stub that raises an unrelated TypeError."""
+
+    def connect(self) -> None:
+        raise TypeError("some other type error")
 
 
 class _ShutdownEventStub:
@@ -169,6 +184,39 @@ def test_shutdown_swallows_disconnect_future_timeout() -> None:
 
     assert client.disconnect_calls == 1
     assert mqtt._shutdown_event is True
+
+
+def test_connect_with_awscrt_compat_retries_known_arg_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Known mixed awscrt installs should use the legacy compatibility path."""
+    fallback_future = _ImmediateFuture()
+    fallback_calls: list[Any] = []
+
+    def _legacy(client: Any) -> _ImmediateFuture:
+        fallback_calls.append(client)
+        return fallback_future
+
+    monkeypatch.setattr(
+        "pyworxcloud.utils.mqtt._legacy_connect_without_metrics", _legacy
+    )
+
+    result = _connect_with_awscrt_compat(
+        _ConnectMismatchClientStub(),
+        logging.getLogger("test"),
+    )
+
+    assert result is fallback_future
+    assert len(fallback_calls) == 1
+
+
+def test_connect_with_awscrt_compat_preserves_unrelated_type_errors() -> None:
+    """Only the known awscrt mismatch should trigger the compatibility path."""
+    with pytest.raises(TypeError, match="some other type error"):
+        _connect_with_awscrt_compat(
+            _ConnectTypeErrorClientStub(),
+            logging.getLogger("test"),
+        )
 
 
 def test_connection_resumed_resubscribes_even_when_session_persists() -> None:
