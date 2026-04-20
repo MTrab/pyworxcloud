@@ -2,7 +2,7 @@
 set -eu
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC_DIR="${ROOT_DIR}/code-ref/data-samples"
+SRC_DIR="${ROOT_DIR}/code-ref/samples"
 DST_DIR="${ROOT_DIR}/tests/fixtures/data-samples"
 
 if [[ -d "${SRC_DIR}" ]]; then
