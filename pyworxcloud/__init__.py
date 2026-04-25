@@ -1941,7 +1941,7 @@ class WorxCloud(dict):
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
 
-    async def set_border_cut_settings(
+    async def _set_border_cut_settings(
         self,
         serial_number: str,
         *,
@@ -2005,6 +2005,24 @@ class WorxCloud(dict):
                         device_handler.raw_data = json.dumps(payload)
 
         await self._schedule_api_refresh()
+
+    async def set_cut_over_border(
+        self, serial_number: str, cut_over_border: bool
+    ) -> None:
+        """Persist whether border cutting may cross the lawn border."""
+        await self._set_border_cut_settings(
+            serial_number,
+            cut_over_border=cut_over_border,
+        )
+
+    async def set_border_distance(
+        self, serial_number: str, border_distance: int
+    ) -> None:
+        """Persist the border-cut distance in millimeters."""
+        await self._set_border_cut_settings(
+            serial_number,
+            border_distance=border_distance,
+        )
 
     async def send(self, serial_number: str, data: str) -> None:
         """Send raw JSON data to the device.
