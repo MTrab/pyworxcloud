@@ -389,6 +389,15 @@ class DeviceHandler(LDict):
             self.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
             self.capabilities.add(DeviceCapability.EDGE_CUT)
 
+        if not self.schedules["one_time_schedule"]:
+            dat_sc = (
+                self.raw_dat.get("sc", {}) if isinstance(self.raw_dat, dict) else {}
+            )
+            if isinstance(dat_sc, dict) and "once" in dat_sc:
+                self.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                self.capabilities.add(DeviceCapability.EDGE_CUT)
+                self.schedules["one_time_schedule"] = True
+
     def _determine_updated_at(
         self,
         cfg_payload: dict[str, Any] | None,

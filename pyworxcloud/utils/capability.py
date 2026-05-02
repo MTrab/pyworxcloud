@@ -81,6 +81,12 @@ class Capability:
         except TypeError:
             pass
 
+        if not self.check(DeviceCapability.ONE_TIME_SCHEDULE):
+            dat_sc = dat.get("sc", {}) if isinstance(dat, dict) else {}
+            if isinstance(dat_sc, dict) and "once" in dat_sc:
+                self.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                self.add(DeviceCapability.EDGE_CUT)
+
         try:
             if "modules" in dat:
                 # Offlimits module
