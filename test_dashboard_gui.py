@@ -303,6 +303,11 @@ class CloudWorker:
         asyncio.set_event_loop(self._loop)
         self._loop.run_forever()
 
+    def stop(self) -> None:
+        self._loop.call_soon_threadsafe(self._loop.stop)
+        if threading.current_thread() is not self._thread:
+            self._thread.join(timeout=2.0)
+
     def _emit(self, msg_type: str, **payload: Any) -> None:
         self._messages.put(WorkerMessage(msg_type=msg_type, payload=payload))
 
@@ -376,7 +381,6 @@ class CloudWorker:
 
     async def shutdown(self) -> None:
         await self.disconnect()
-        self._loop.call_soon_threadsafe(self._loop.stop)
 
     async def select_mower(self, name: str) -> None:
         if self._cloud is None:
@@ -1144,6 +1148,7 @@ class DashboardApp:
         if self._shutdown_popup is not None:
             with contextlib.suppress(Exception):
                 self._shutdown_popup.destroy()
+        self.worker.stop()
         self.root.destroy()
 
     def run(self) -> None:

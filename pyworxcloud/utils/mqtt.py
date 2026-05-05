@@ -32,6 +32,7 @@ MQTT_CONNECT_ACCEPTED = 0
 DEFAULT_RESPONSE_TIMEOUT = 30.0
 DEFAULT_DISCONNECT_TIMEOUT = 0.5
 DEFAULT_SHUTDOWN_TIMEOUT = 0.25
+DEFAULT_LOOP_STOP_TIMEOUT = 0.5
 MQTT_PORT = 443
 MQTT_KEEPALIVE = 30
 MQTT_WEBSOCKET_PATH = "/mqtt"
@@ -624,11 +625,31 @@ class MQTT(LDict):
         loop_stop = getattr(client, "loop_stop", None)
         if loop_stop is None:
             return
-        try:
-            loop_stop()
-        except Exception:  # pragma: no cover - defensive teardown path
+        finished = threading.Event()
+        errors: list[Exception] = []
+
+        def _stop_loop() -> None:
+            try:
+                loop_stop()
+            except Exception as exc:  # pragma: no cover - defensive teardown path
+                errors.append(exc)
+            finally:
+                finished.set()
+
+        thread = threading.Thread(
+            target=_stop_loop,
+            name="pyworxcloud-mqtt-loop-stop",
+            daemon=True,
+        )
+        thread.start()
+        if not finished.wait(DEFAULT_LOOP_STOP_TIMEOUT):
             self._log.getChild("MQTT_Disconnect").debug(
-                "MQTT loop_stop raised during teardown", exc_info=True
+                "MQTT loop_stop timed out after %.3fs", DEFAULT_LOOP_STOP_TIMEOUT
+            )
+            return
+        if errors:
+            self._log.getChild("MQTT_Disconnect").debug(
+                "MQTT loop_stop raised during teardown: %s", errors[0]
             )
 
     def _release_pending_response_waiter(self) -> None:

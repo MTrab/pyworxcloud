@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
@@ -112,6 +113,30 @@ def test_disconnect_releases_pending_command_waiter() -> None:
     assert mqtt._pending_response_message_id is None
     assert mqtt._pending_response_accepts_any_message_id is False
     assert mqtt._pending_command_signature is None
+
+
+def test_disconnect_does_not_hang_when_loop_stop_blocks() -> None:
+    """Disconnect should not wait forever for paho loop_stop."""
+    loop_stop_started = threading.Event()
+    release_loop_stop = threading.Event()
+
+    class BlockingLoopStopClient(_ClientStub):
+        def loop_stop(self) -> None:
+            loop_stop_started.set()
+            release_loop_stop.wait()
+
+    mqtt = _build_mqtt_lifecycle_fixture(client=BlockingLoopStopClient())
+
+    started = time.perf_counter()
+    try:
+        mqtt.disconnect()
+    finally:
+        release_loop_stop.set()
+
+    assert loop_stop_started.is_set() is True
+    assert time.perf_counter() - started < 1.0
+    assert mqtt._connection_future is None
+    assert mqtt._is_connected is False
 
 
 def test_shutdown_is_idempotent_and_detaches_resources() -> None:
