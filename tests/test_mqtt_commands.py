@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from pyworxcloud.exceptions import TimeoutException
-from pyworxcloud.utils.mqtt import MQTT
+from pyworxcloud.utils.mqtt import MQTT, _wait_for_operation
 
 
 class _ImmediateFuture:
@@ -37,6 +37,17 @@ class _DummyClient:
         event.set()
         self.publish_events.append(event)
         return _ImmediateFuture(), 1
+
+
+class _PahoPublishInfo:
+    """Paho-like publish info stub."""
+
+    def __init__(self, wait_result: bool | None, rc: int = 0) -> None:
+        self.wait_result = wait_result
+        self.rc = rc
+
+    def wait_for_publish(self, timeout: float | None = None) -> bool | None:
+        return self.wait_result
 
 
 def _build_mqtt(
@@ -84,6 +95,17 @@ def test_publish_times_out_when_no_response(
     assert "identifier_type=sn" in caplog.text
     assert "protocol=0" in caplog.text
     assert "topic=topic/in" in caplog.text
+
+
+def test_wait_for_operation_accepts_paho_publish_none_success() -> None:
+    """Paho publish wait may return None on success."""
+    _wait_for_operation(_PahoPublishInfo(wait_result=None))
+
+
+def test_wait_for_operation_rejects_paho_publish_false_timeout() -> None:
+    """Paho publish wait should only timeout on explicit False."""
+    with pytest.raises(TimeoutError, match="timed out after 0.1"):
+        _wait_for_operation(_PahoPublishInfo(wait_result=False), timeout=0.1)
 
 
 def test_publish_uses_default_response_timeout(monkeypatch: pytest.MonkeyPatch) -> None:

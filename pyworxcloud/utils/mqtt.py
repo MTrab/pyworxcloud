@@ -74,7 +74,8 @@ def _wait_for_operation(result: Any, timeout: float | None = None) -> None:
         return
 
     if hasattr(result, "wait_for_publish"):
-        if not result.wait_for_publish(timeout=timeout):
+        publish_result = result.wait_for_publish(timeout=timeout)
+        if publish_result is False:
             raise FutureTimeoutError(f"timed out after {timeout}")
         if _operation_failed(getattr(result, "rc", MQTT_CONNECT_ACCEPTED)):
             raise RuntimeError(f"MQTT publish failed with result {result.rc}")
