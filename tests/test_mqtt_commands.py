@@ -221,6 +221,95 @@ def test_publish_waits_for_matching_response(monkeypatch: pytest.MonkeyPatch) ->
     assert finished.is_set() is True
 
 
+def test_force_refresh_accepts_target_payload_with_different_message_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Force refresh should complete on the selected mower payload even with another id."""
+    mqtt, dummy = _build_mqtt(monkeypatch)
+    finished = threading.Event()
+    errors: list[Exception] = []
+
+    def _run_publish() -> None:
+        try:
+            mqtt.publish(
+                serial_number="SN-1",
+                topic="topic/in",
+                message={"cmd": 0},
+                protocol=0,
+                timeout=1.0,
+            )
+            finished.set()
+        except Exception as exc:  # pragma: no cover - defensive
+            errors.append(exc)
+
+    thread = threading.Thread(target=_run_publish)
+    thread.start()
+
+    deadline = time.time() + 1.0
+    while len(dummy.published) < 1 and time.time() < deadline:
+        time.sleep(0.01)
+    assert dummy.published
+
+    payload = json.loads(dummy.published[0]["payload"])
+    mqtt._on_message_received(
+        "topic/out",
+        json.dumps({"cfg": {"sn": "SN-1", "id": payload["id"] + 1}}).encode("utf-8"),
+    )
+
+    thread.join(timeout=1.0)
+    assert thread.is_alive() is False
+    assert errors == []
+    assert finished.is_set() is True
+
+
+def test_non_refresh_command_still_requires_matching_message_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Non-refresh commands should not complete on a mismatched response id."""
+    mqtt, dummy = _build_mqtt(monkeypatch)
+    finished = threading.Event()
+    errors: list[Exception] = []
+
+    def _run_publish() -> None:
+        try:
+            mqtt.publish(
+                serial_number="SN-1",
+                topic="topic/in",
+                message={"cmd": 1},
+                protocol=0,
+                timeout=1.0,
+            )
+            finished.set()
+        except Exception as exc:  # pragma: no cover - defensive
+            errors.append(exc)
+
+    thread = threading.Thread(target=_run_publish)
+    thread.start()
+
+    deadline = time.time() + 1.0
+    while len(dummy.published) < 1 and time.time() < deadline:
+        time.sleep(0.01)
+    assert dummy.published
+
+    payload = json.loads(dummy.published[0]["payload"])
+    mqtt._on_message_received(
+        "topic/out",
+        json.dumps({"cfg": {"sn": "SN-1", "id": payload["id"] + 1}}).encode("utf-8"),
+    )
+    time.sleep(0.05)
+    assert finished.is_set() is False
+
+    mqtt._on_message_received(
+        "topic/out",
+        json.dumps({"cfg": {"sn": "SN-1", "id": payload["id"]}}).encode("utf-8"),
+    )
+
+    thread.join(timeout=1.0)
+    assert thread.is_alive() is False
+    assert errors == []
+    assert finished.is_set() is True
+
+
 def test_publish_serializes_concurrent_commands(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

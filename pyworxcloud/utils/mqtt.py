@@ -181,6 +181,7 @@ class MQTT(LDict):
         self._response_event = threading.Event()
         self._pending_response_target: str | None = None
         self._pending_response_message_id: int | None = None
+        self._pending_response_accepts_any_message_id = False
         self._pending_command_signature: tuple[str, str, int, str] | None = None
         self._last_command_payload: dict[str, Any] | None = None
         self._lifecycle_lock = threading.RLock()
@@ -450,7 +451,8 @@ class MQTT(LDict):
         expanded_identifiers = self._expand_identifiers(identifiers)
         with self._response_lock:
             id_matches = (
-                not message_ids
+                self._pending_response_accepts_any_message_id
+                or not message_ids
                 or self._pending_response_message_id is None
                 or self._pending_response_message_id in message_ids
             )
@@ -629,9 +631,19 @@ class MQTT(LDict):
                 "MQTT loop_stop raised during teardown", exc_info=True
             )
 
+    def _release_pending_response_waiter(self) -> None:
+        """Wake any command currently waiting for a mower response."""
+        with self._response_lock:
+            self._pending_response_target = None
+            self._pending_response_message_id = None
+            self._pending_response_accepts_any_message_id = False
+            self._pending_command_signature = None
+            self._response_event.set()
+
     def disconnect(self, keep_topic: bool = False) -> None:
         """Disconnect from the MQTT server."""
         logger = self._log.getChild("MQTT_Disconnect")
+        self._release_pending_response_waiter()
         with self._lifecycle_lock:
             if self._shutdown_event:
                 self._is_connected = False
@@ -683,6 +695,7 @@ class MQTT(LDict):
     def shutdown(self) -> None:
         """Release MQTT client resources."""
         logger = self._log.getChild("MQTT_Shutdown")
+        self._release_pending_response_waiter()
         with self._lifecycle_lock:
             if self._shutdown_event:
                 return
@@ -881,6 +894,9 @@ class MQTT(LDict):
             with self._response_lock:
                 self._pending_response_target = serial_number
                 self._pending_response_message_id = command_message_id
+                self._pending_response_accepts_any_message_id = (
+                    message.get("cmd") == Command.FORCE_REFRESH
+                )
                 self._pending_command_signature = command_signature
                 self._response_event.clear()
 
@@ -908,6 +924,7 @@ class MQTT(LDict):
                 with self._response_lock:
                     self._pending_response_target = None
                     self._pending_response_message_id = None
+                    self._pending_response_accepts_any_message_id = False
                     self._pending_command_signature = None
                     self._response_event.clear()
 

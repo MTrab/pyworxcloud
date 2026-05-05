@@ -49,7 +49,14 @@ def _build_mqtt_lifecycle_fixture(
     mqtt._is_connected = connected
     mqtt._connection_future = object()
     mqtt._shutdown_timeout = 5.0
+    mqtt._disconnect_timeout = 5.0
     mqtt._topic = ["topic/out"]
+    mqtt._response_lock = threading.Lock()
+    mqtt._response_event = threading.Event()
+    mqtt._pending_response_target = None
+    mqtt._pending_response_message_id = None
+    mqtt._pending_response_accepts_any_message_id = False
+    mqtt._pending_command_signature = None
     mqtt.client = client
     return mqtt
 
@@ -88,6 +95,23 @@ def test_disconnect_swallows_disconnect_future_timeout() -> None:
     assert client.disconnect_calls == 1
     assert mqtt._connection_future is None
     assert mqtt._is_connected is False
+
+
+def test_disconnect_releases_pending_command_waiter() -> None:
+    """Disconnect should wake command waits so shutdown is not delayed by timeout."""
+    mqtt = _build_mqtt_lifecycle_fixture(client=_ClientStub())
+    mqtt._pending_response_target = "SN-1"
+    mqtt._pending_response_message_id = 1234
+    mqtt._pending_response_accepts_any_message_id = True
+    mqtt._pending_command_signature = ("SN-1", "topic/in", 0, "{}")
+
+    mqtt.disconnect()
+
+    assert mqtt._response_event.is_set() is True
+    assert mqtt._pending_response_target is None
+    assert mqtt._pending_response_message_id is None
+    assert mqtt._pending_response_accepts_any_message_id is False
+    assert mqtt._pending_command_signature is None
 
 
 def test_shutdown_is_idempotent_and_detaches_resources() -> None:
