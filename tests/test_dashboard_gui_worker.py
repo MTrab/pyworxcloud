@@ -83,8 +83,10 @@ def test_refresh_falls_back_to_api_when_mqtt_command_times_out() -> None:
         worker._messages = messages
         worker._cloud = cloud
         worker._selected_name = "Mower"
+        worker._loop = asyncio.get_running_loop()
         worker._update_event = asyncio.Event()
         worker._update_event_name = None
+        worker._update_event_serial = None
 
         await worker.refresh("Mower")
 
@@ -104,5 +106,59 @@ def test_refresh_falls_back_to_api_when_mqtt_command_times_out() -> None:
         message.msg_type == "refresh_done"
         and message.payload.get("source") == "api-fallback"
         and message.payload.get("snapshot", {}).get("status") == "api-refreshed"
+        for message in emitted
+    )
+
+
+def test_refresh_matches_mqtt_update_by_serial_after_command_timeout() -> None:
+    """Manual refresh should accept a live update even when callback name differs."""
+
+    async def _run() -> tuple[queue.Queue[WorkerMessage], int]:
+        messages: queue.Queue[WorkerMessage] = queue.Queue()
+        device = _device("Mower", "SN-1")
+        fetch_calls = 0
+
+        class FakeCloud:
+            def __init__(self, worker: CloudWorker) -> None:
+                self.devices = {"Mower": device}
+                self._worker = worker
+
+            def get_mower(self, serial_number: str) -> dict:
+                assert serial_number == "SN-1"
+                return {
+                    "protocol": 0,
+                    "mqtt_topics": {"command_in": "topic/in"},
+                }
+
+            async def update(
+                self, serial_number: str, timeout: float | None = None
+            ) -> None:
+                assert (serial_number, timeout) == ("SN-1", 3.0)
+                self._worker._mark_update_received("Mower alias", "SN-1")
+                raise TimeoutException("refresh timed out")
+
+            async def _fetch(self) -> None:
+                nonlocal fetch_calls
+                fetch_calls += 1
+
+        worker = CloudWorker.__new__(CloudWorker)
+        worker._messages = messages
+        worker._selected_name = "Mower"
+        worker._loop = asyncio.get_running_loop()
+        worker._update_event = asyncio.Event()
+        worker._update_event_name = None
+        worker._update_event_serial = None
+        worker._cloud = FakeCloud(worker)
+
+        await worker.refresh("Mower")
+
+        return messages, fetch_calls
+
+    messages, fetch_calls = asyncio.run(_run())
+    emitted = list(messages.queue)
+
+    assert fetch_calls == 0
+    assert any(
+        message.msg_type == "refresh_done" and message.payload.get("source") == "mqtt"
         for message in emitted
     )
