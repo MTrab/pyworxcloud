@@ -314,9 +314,9 @@ def test_fetch_prefers_newer_cfg_timestamp_over_older_existing_timestamp(
     asyncio.run(cloud._fetch())
 
     assert cloud.devices["Jim"].updated == datetime.fromisoformat(
-        "2026-03-13T00:24:23+01:00"
+        "2026-03-13T01:24:23+01:00"
     )
-    assert cloud.devices["Jim"].updated_origin == "cfg_tm"
+    assert cloud.devices["Jim"].updated_origin == "cfg_tm_utc"
 
 
 def test_token_updated_is_noop_without_mqtt() -> None:

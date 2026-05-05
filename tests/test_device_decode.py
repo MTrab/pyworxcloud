@@ -322,7 +322,49 @@ def test_devicehandler_falls_back_to_cfg_date_time_when_dat_tm_is_missing(
     monkeypatch.setattr(devices_module, "datetime", FrozenDateTime)
     device = DeviceHandler(api=object(), mower=mower, tz="Europe/Copenhagen")
 
-    assert device.updated == datetime.fromisoformat("2026-03-11T12:00:00+01:00")
+    assert device.updated == datetime.fromisoformat("2026-03-11T13:00:00+01:00")
+
+
+def test_devicehandler_treats_cfg_date_time_as_utc_before_display_timezone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """API cfg timestamps should not be interpreted in the host-local timezone."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-CFG-UTC",
+            "rd": 0,
+            "sc": {"d": [], "dd": False},
+            "tm": "09:03:31",
+            "dt": "05/05/2026",
+        },
+        "dat": {
+            "uuid": "UUID-CFG-UTC",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "CFG UTC Fixture")
+    mower["time_zone"] = "Europe/Copenhagen"
+
+    frozen_now = datetime.fromisoformat("2026-05-05T09:04:00+00:00")
+    real_datetime = devices_module.datetime
+
+    class FrozenDateTime(real_datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr(devices_module, "datetime", FrozenDateTime)
+    device = DeviceHandler(api=object(), mower=mower, tz=None)
+
+    assert device.updated == datetime.fromisoformat("2026-05-05T11:03:31+02:00")
+    assert device.updated_origin == "cfg_tm_utc"
 
 
 def test_devicehandler_rejects_implausible_future_cfg_timestamp(
@@ -375,7 +417,7 @@ def test_devicehandler_keeps_monotonic_updated_when_cfg_timestamp_goes_backwards
             "sn": "SERIAL-MONOTONIC",
             "rd": 0,
             "sc": {"d": [], "dd": False},
-            "tm": "17:24:22",
+            "tm": "15:24:22",
             "dt": "12/03/2026",
         },
         "dat": {
@@ -400,14 +442,14 @@ def test_devicehandler_keeps_monotonic_updated_when_cfg_timestamp_goes_backwards
 
     monkeypatch.setattr(devices_module, "datetime", FrozenDateTime)
     device = DeviceHandler(api=object(), mower=mower, tz="Europe/Copenhagen")
-    device.updated = FrozenDateTime.fromisoformat("2026-03-12T17:24:22+01:00")
+    device.updated = FrozenDateTime.fromisoformat("2026-03-12T16:24:22+01:00")
 
     regressing = json.loads(json.dumps(payload))
-    regressing["cfg"]["tm"] = "17:23:22"
+    regressing["cfg"]["tm"] = "15:23:22"
     regressing["cfg"]["id"] = 0
     device.raw_data = json.dumps(regressing)
 
-    assert device.updated == FrozenDateTime.fromisoformat("2026-03-12T17:24:22+01:00")
+    assert device.updated == FrozenDateTime.fromisoformat("2026-03-12T16:24:22+01:00")
 
 
 def test_devicehandler_uses_device_timezone_when_instance_timezone_is_missing() -> None:
