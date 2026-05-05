@@ -401,7 +401,13 @@ class DeviceHandler(LDict):
             if isinstance(tm_value, str) and tm_value.endswith("Z"):
                 tm_value = f"{tm_value[:-1]}+00:00"
             try:
-                return datetime.fromisoformat(tm_value), "dat_tm"
+                timestamp = datetime.fromisoformat(tm_value)
+                return (
+                    timestamp.astimezone(
+                        ZoneInfo(self._resolve_effective_timezone(cfg_payload))
+                    ),
+                    "dat_tm",
+                )
             except ValueError:
                 pass
 

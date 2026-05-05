@@ -227,7 +227,7 @@ def test_devicehandler_updates_battery_cycle_current_from_live_nr() -> None:
 
 
 def test_devicehandler_prefers_dat_tm_over_cfg_date_time_for_updated() -> None:
-    """UTC dat.tm should win over cfg date/time when both are present."""
+    """UTC dat.tm should win and be represented in the effective timezone."""
     payload = {
         "cfg": {
             "id": 1,
@@ -253,6 +253,35 @@ def test_devicehandler_prefers_dat_tm_over_cfg_date_time_for_updated() -> None:
     device = DeviceHandler(api=object(), mower=mower, tz="UTC")
 
     assert device.updated == datetime.fromisoformat("2026-03-12T13:30:00+00:00")
+
+
+def test_devicehandler_converts_dat_tm_to_configured_timezone() -> None:
+    """Realtime UTC timestamps should not switch display timezone after MQTT updates."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-UPDATED-TZ",
+            "rd": 0,
+            "sc": {"d": [], "dd": False},
+            "tm": "21:30:00",
+            "dt": "12/03/2026",
+            "tz": "Australia/Perth",
+        },
+        "dat": {
+            "uuid": "UUID-UPDATED-TZ",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "tm": "2026-03-12T13:30:00.000Z",
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "Updated TZ Fixture")
+
+    device = DeviceHandler(api=object(), mower=mower, tz="Europe/Copenhagen")
+
+    assert device.updated == datetime.fromisoformat("2026-03-12T14:30:00+01:00")
 
 
 def test_devicehandler_falls_back_to_cfg_date_time_when_dat_tm_is_missing(
