@@ -354,7 +354,8 @@ class WorxCloud(dict):
 
             self._log.debug("Setting up MQTT handler")
             # setup MQTT handler
-            self.mqtt = MQTT(
+            self.mqtt = await asyncio.to_thread(
+                MQTT,
                 self._api,
                 self._cloud.BRAND_PREFIX,
                 self._endpoint,

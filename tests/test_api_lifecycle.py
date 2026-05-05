@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 import warnings
 from datetime import datetime
 from typing import Any
@@ -73,6 +74,7 @@ class CapturingMQTT:
     """MQTT constructor stub capturing provided timeout."""
 
     last_response_timeout: float | None = None
+    constructor_thread_id: int | None = None
 
     def __init__(
         self,
@@ -89,6 +91,7 @@ class CapturingMQTT:
         self.identifier_resolver = identifier_resolver
         self.deduplicate_inflight_commands = deduplicate_inflight_commands
         self.__class__.last_response_timeout = response_timeout
+        self.__class__.constructor_thread_id = threading.get_ident()
 
     async def aconnect(self) -> None:
         return None
@@ -391,6 +394,35 @@ def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
 
     assert asyncio.run(cloud.connect()) is True
     assert CapturingMQTT.last_response_timeout == 12.5
+
+
+def test_connect_constructs_mqtt_off_event_loop_thread(monkeypatch) -> None:
+    """MQTT setup performs SSL work, so it should not run on the event loop thread."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    event_loop_thread_id: int | None = None
+
+    async def _fake_fetch() -> None:
+        nonlocal event_loop_thread_id
+        event_loop_thread_id = threading.get_ident()
+        cloud._mowers = [
+            {
+                "name": "My Mower",
+                "mqtt_endpoint": "mqtt.example.invalid",
+                "user_id": 99,
+                "mqtt_topics": {"command_out": "topic/out"},
+            }
+        ]
+        cloud.devices = {"My Mower": DummyDevice()}
+
+    CapturingMQTT.constructor_thread_id = None
+
+    monkeypatch.setattr(cloud, "_fetch", _fake_fetch)
+    monkeypatch.setattr("pyworxcloud.MQTT", CapturingMQTT)
+    monkeypatch.setattr("pyworxcloud.convert_to_time", lambda *_args, **_kwargs: None)
+
+    assert asyncio.run(cloud.connect()) is True
+    assert CapturingMQTT.constructor_thread_id is not None
+    assert CapturingMQTT.constructor_thread_id != event_loop_thread_id
 
 
 def test_update_passes_optional_timeout_to_mqtt_ping() -> None:
