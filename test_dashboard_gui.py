@@ -18,6 +18,7 @@ from typing import Any
 
 from pyworxcloud import WorxCloud
 from pyworxcloud.events import LandroidEvent
+from pyworxcloud.exceptions import NoConnectionError, TimeoutException
 from pyworxcloud.utils import DeviceHandler
 
 try:
@@ -27,6 +28,7 @@ except ImportError:  # pragma: no cover - non-Windows runtime
 
 
 REGISTRY_KEY = r"Software\pyworxcloud\Dashboard"
+DASHBOARD_REFRESH_TIMEOUT = 3.0
 
 
 def _load_dotenv(path: str = ".env") -> None:
@@ -420,15 +422,31 @@ class CloudWorker:
         self._update_event.clear()
         self._update_event_name = None
         self._emit("log", text="Sending forced refresh command...")
-        # Keep the exact same refresh entrypoint as CLI dashboard.
-        await self._cloud.update(device.serial_number)
-        self._emit("log", text="Forced refresh command sent. Waiting for update...")
-        got_live_update = False
+        command_completed = False
         try:
-            await asyncio.wait_for(self._update_event.wait(), timeout=3.0)
-            got_live_update = self._update_event_name == selected
-        except TimeoutError:
-            got_live_update = False
+            await self._cloud.update(
+                device.serial_number,
+                timeout=DASHBOARD_REFRESH_TIMEOUT,
+            )
+            command_completed = True
+            self._emit("log", text="Forced refresh command sent. Waiting for update...")
+        except (NoConnectionError, TimeoutException) as err:
+            self._emit(
+                "log",
+                text=(
+                    "Forced refresh command did not complete via MQTT "
+                    f"({type(err).__name__}); running API fallback fetch."
+                ),
+            )
+        got_live_update = False
+        if command_completed:
+            try:
+                await asyncio.wait_for(
+                    self._update_event.wait(), timeout=DASHBOARD_REFRESH_TIMEOUT
+                )
+                got_live_update = self._update_event_name == selected
+            except TimeoutError:
+                got_live_update = False
 
         if not got_live_update:
             # Fallback to API fetch if mower does not publish a changed MQTT payload.

@@ -393,6 +393,36 @@ def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
     assert CapturingMQTT.last_response_timeout == 12.5
 
 
+def test_update_passes_optional_timeout_to_mqtt_ping() -> None:
+    """Per-call update timeout should be forwarded to MQTT ping."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers_by_serial = {
+        "SN-1": {
+            "serial_number": "SN-1",
+            "uuid": "UUID-1",
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/in"},
+        }
+    }
+    calls: list[tuple[str, str, int, float | None]] = []
+
+    class MQTTStub:
+        async def aping(
+            self,
+            serial_number: str,
+            topic: str,
+            protocol: int,
+            timeout: float | None = None,
+        ) -> None:
+            calls.append((serial_number, topic, protocol, timeout))
+
+    cloud.mqtt = MQTTStub()
+
+    asyncio.run(cloud.update("SN-1", timeout=3.0))
+
+    assert calls == [("SN-1", "topic/in", 0, 3.0)]
+
+
 def test_async_context_manager_runs_lifecycle(monkeypatch) -> None:
     """async with should call authenticate/connect on enter and disconnect on exit."""
     cloud = WorxCloud("user@example.com", "secret", "worx")
