@@ -452,13 +452,13 @@ class CloudWorker:
                     self._update_event.wait(), timeout=DASHBOARD_REFRESH_TIMEOUT
                 )
                 got_live_update = self._update_matches_selected(selected, identifier)
-            except TimeoutError:
+            except (TimeoutError, asyncio.TimeoutError):
                 got_live_update = False
         elif not self._update_event.is_set():
             try:
                 await asyncio.wait_for(self._update_event.wait(), timeout=0.25)
                 got_live_update = self._update_matches_selected(selected, identifier)
-            except TimeoutError:
+            except (TimeoutError, asyncio.TimeoutError):
                 got_live_update = False
 
         if not got_live_update:

@@ -6,6 +6,7 @@ import json
 import logging
 import threading
 import time
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
 import pytest
@@ -104,7 +105,7 @@ def test_wait_for_operation_accepts_paho_publish_none_success() -> None:
 
 def test_wait_for_operation_rejects_paho_publish_false_timeout() -> None:
     """Paho publish wait should only timeout on explicit False."""
-    with pytest.raises(TimeoutError, match="timed out after 0.1"):
+    with pytest.raises(FutureTimeoutError, match="timed out after 0.1"):
         _wait_for_operation(_PahoPublishInfo(wait_result=False), timeout=0.1)
 
 
