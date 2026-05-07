@@ -6,12 +6,13 @@ import json
 import logging
 import threading
 import time
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
 import pytest
 
 from pyworxcloud.exceptions import TimeoutException
-from pyworxcloud.utils.mqtt import MQTT
+from pyworxcloud.utils.mqtt import MQTT, _wait_for_operation
 
 
 class _ImmediateFuture:
@@ -37,6 +38,17 @@ class _DummyClient:
         event.set()
         self.publish_events.append(event)
         return _ImmediateFuture(), 1
+
+
+class _PahoPublishInfo:
+    """Paho-like publish info stub."""
+
+    def __init__(self, wait_result: bool | None, rc: int = 0) -> None:
+        self.wait_result = wait_result
+        self.rc = rc
+
+    def wait_for_publish(self, timeout: float | None = None) -> bool | None:
+        return self.wait_result
 
 
 def _build_mqtt(
@@ -84,6 +96,17 @@ def test_publish_times_out_when_no_response(
     assert "identifier_type=sn" in caplog.text
     assert "protocol=0" in caplog.text
     assert "topic=topic/in" in caplog.text
+
+
+def test_wait_for_operation_accepts_paho_publish_none_success() -> None:
+    """Paho publish wait may return None on success."""
+    _wait_for_operation(_PahoPublishInfo(wait_result=None))
+
+
+def test_wait_for_operation_rejects_paho_publish_false_timeout() -> None:
+    """Paho publish wait should only timeout on explicit False."""
+    with pytest.raises(FutureTimeoutError, match="timed out after 0.1"):
+        _wait_for_operation(_PahoPublishInfo(wait_result=False), timeout=0.1)
 
 
 def test_publish_uses_default_response_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -213,6 +236,95 @@ def test_publish_waits_for_matching_response(monkeypatch: pytest.MonkeyPatch) ->
     mqtt._on_message_received(
         "topic/out",
         json.dumps({"cfg": {"sn": "SN-1", "id": command_id}}).encode("utf-8"),
+    )
+
+    thread.join(timeout=1.0)
+    assert thread.is_alive() is False
+    assert errors == []
+    assert finished.is_set() is True
+
+
+def test_force_refresh_accepts_target_payload_with_different_message_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Force refresh should complete on the selected mower payload even with another id."""
+    mqtt, dummy = _build_mqtt(monkeypatch)
+    finished = threading.Event()
+    errors: list[Exception] = []
+
+    def _run_publish() -> None:
+        try:
+            mqtt.publish(
+                serial_number="SN-1",
+                topic="topic/in",
+                message={"cmd": 0},
+                protocol=0,
+                timeout=1.0,
+            )
+            finished.set()
+        except Exception as exc:  # pragma: no cover - defensive
+            errors.append(exc)
+
+    thread = threading.Thread(target=_run_publish)
+    thread.start()
+
+    deadline = time.time() + 1.0
+    while len(dummy.published) < 1 and time.time() < deadline:
+        time.sleep(0.01)
+    assert dummy.published
+
+    payload = json.loads(dummy.published[0]["payload"])
+    mqtt._on_message_received(
+        "topic/out",
+        json.dumps({"cfg": {"sn": "SN-1", "id": payload["id"] + 1}}).encode("utf-8"),
+    )
+
+    thread.join(timeout=1.0)
+    assert thread.is_alive() is False
+    assert errors == []
+    assert finished.is_set() is True
+
+
+def test_non_refresh_command_still_requires_matching_message_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Non-refresh commands should not complete on a mismatched response id."""
+    mqtt, dummy = _build_mqtt(monkeypatch)
+    finished = threading.Event()
+    errors: list[Exception] = []
+
+    def _run_publish() -> None:
+        try:
+            mqtt.publish(
+                serial_number="SN-1",
+                topic="topic/in",
+                message={"cmd": 1},
+                protocol=0,
+                timeout=1.0,
+            )
+            finished.set()
+        except Exception as exc:  # pragma: no cover - defensive
+            errors.append(exc)
+
+    thread = threading.Thread(target=_run_publish)
+    thread.start()
+
+    deadline = time.time() + 1.0
+    while len(dummy.published) < 1 and time.time() < deadline:
+        time.sleep(0.01)
+    assert dummy.published
+
+    payload = json.loads(dummy.published[0]["payload"])
+    mqtt._on_message_received(
+        "topic/out",
+        json.dumps({"cfg": {"sn": "SN-1", "id": payload["id"] + 1}}).encode("utf-8"),
+    )
+    time.sleep(0.05)
+    assert finished.is_set() is False
+
+    mqtt._on_message_received(
+        "topic/out",
+        json.dumps({"cfg": {"sn": "SN-1", "id": payload["id"]}}).encode("utf-8"),
     )
 
     thread.join(timeout=1.0)

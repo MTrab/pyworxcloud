@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 import warnings
 from datetime import datetime
 from typing import Any
@@ -93,6 +94,7 @@ class CapturingMQTT:
     """MQTT constructor stub capturing provided timeout."""
 
     last_response_timeout: float | None = None
+    constructor_thread_id: int | None = None
 
     def __init__(
         self,
@@ -109,6 +111,7 @@ class CapturingMQTT:
         self.identifier_resolver = identifier_resolver
         self.deduplicate_inflight_commands = deduplicate_inflight_commands
         self.__class__.last_response_timeout = response_timeout
+        self.__class__.constructor_thread_id = threading.get_ident()
 
     async def aconnect(self) -> None:
         return None
@@ -331,9 +334,9 @@ def test_fetch_prefers_newer_cfg_timestamp_over_older_existing_timestamp(
     asyncio.run(cloud._fetch())
 
     assert cloud.devices["Jim"].updated == datetime.fromisoformat(
-        "2026-03-13T00:24:23+01:00"
+        "2026-03-13T01:24:23+01:00"
     )
-    assert cloud.devices["Jim"].updated_origin == "cfg_tm"
+    assert cloud.devices["Jim"].updated_origin == "cfg_tm_utc"
 
 
 def test_token_updated_is_noop_without_mqtt() -> None:
@@ -411,6 +414,65 @@ def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
 
     assert asyncio.run(cloud.connect()) is True
     assert CapturingMQTT.last_response_timeout == 12.5
+
+
+def test_connect_constructs_mqtt_off_event_loop_thread(monkeypatch) -> None:
+    """MQTT setup performs SSL work, so it should not run on the event loop thread."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    event_loop_thread_id: int | None = None
+
+    async def _fake_fetch() -> None:
+        nonlocal event_loop_thread_id
+        event_loop_thread_id = threading.get_ident()
+        cloud._mowers = [
+            {
+                "name": "My Mower",
+                "mqtt_endpoint": "mqtt.example.invalid",
+                "user_id": 99,
+                "mqtt_topics": {"command_out": "topic/out"},
+            }
+        ]
+        cloud.devices = {"My Mower": DummyDevice()}
+
+    CapturingMQTT.constructor_thread_id = None
+
+    monkeypatch.setattr(cloud, "_fetch", _fake_fetch)
+    monkeypatch.setattr("pyworxcloud.MQTT", CapturingMQTT)
+    monkeypatch.setattr("pyworxcloud.convert_to_time", lambda *_args, **_kwargs: None)
+
+    assert asyncio.run(cloud.connect()) is True
+    assert CapturingMQTT.constructor_thread_id is not None
+    assert CapturingMQTT.constructor_thread_id != event_loop_thread_id
+
+
+def test_update_passes_optional_timeout_to_mqtt_ping() -> None:
+    """Per-call update timeout should be forwarded to MQTT ping."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers_by_serial = {
+        "SN-1": {
+            "serial_number": "SN-1",
+            "uuid": "UUID-1",
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/in"},
+        }
+    }
+    calls: list[tuple[str, str, int, float | None]] = []
+
+    class MQTTStub:
+        async def aping(
+            self,
+            serial_number: str,
+            topic: str,
+            protocol: int,
+            timeout: float | None = None,
+        ) -> None:
+            calls.append((serial_number, topic, protocol, timeout))
+
+    cloud.mqtt = MQTTStub()
+
+    asyncio.run(cloud.update("SN-1", timeout=3.0))
+
+    assert calls == [("SN-1", "topic/in", 0, 3.0)]
 
 
 def test_async_context_manager_runs_lifecycle(monkeypatch) -> None:

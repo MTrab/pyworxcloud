@@ -390,6 +390,15 @@ class DeviceHandler(LDict):
             self.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
             self.capabilities.add(DeviceCapability.EDGE_CUT)
 
+        if not self.schedules["one_time_schedule"]:
+            dat_sc = (
+                self.raw_dat.get("sc", {}) if isinstance(self.raw_dat, dict) else {}
+            )
+            if isinstance(dat_sc, dict) and "once" in dat_sc:
+                self.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                self.capabilities.add(DeviceCapability.EDGE_CUT)
+                self.schedules["one_time_schedule"] = True
+
     def _determine_updated_at(
         self,
         cfg_payload: dict[str, Any] | None,
@@ -402,7 +411,13 @@ class DeviceHandler(LDict):
             if isinstance(tm_value, str) and tm_value.endswith("Z"):
                 tm_value = f"{tm_value[:-1]}+00:00"
             try:
-                return datetime.fromisoformat(tm_value), "dat_tm"
+                timestamp = datetime.fromisoformat(tm_value)
+                return (
+                    timestamp.astimezone(
+                        ZoneInfo(self._resolve_effective_timezone(cfg_payload))
+                    ),
+                    "dat_tm",
+                )
             except ValueError:
                 pass
 
@@ -410,11 +425,14 @@ class DeviceHandler(LDict):
             dt_split = cfg_payload["dt"].split("/")
             time_value = cfg_payload.get("tm", "00:00:00")
             try:
+                timestamp = datetime.fromisoformat(
+                    f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]} {time_value}"
+                ).replace(tzinfo=timezone.utc)
                 return (
-                    datetime.fromisoformat(
-                        f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]} {time_value}"
-                    ).replace(tzinfo=self._resolve_updated_timezone(cfg_payload)),
-                    "cfg_tm",
+                    timestamp.astimezone(
+                        ZoneInfo(self._resolve_effective_timezone(cfg_payload))
+                    ),
+                    "cfg_tm_utc",
                 )
             except ValueError:
                 pass
@@ -468,26 +486,6 @@ class DeviceHandler(LDict):
             if timezone_name is not None:
                 return timezone_name
         return "UTC"
-
-    def _resolve_updated_timezone(self, cfg_payload: dict[str, Any] | None) -> Any:
-        """Resolve timezone for legacy cfg date/time payloads."""
-        if (timezone_name := self._normalize_timezone_name(self._tz)) is not None:
-            return ZoneInfo(timezone_name)
-
-        local_timezone = datetime.now().astimezone().tzinfo
-        if local_timezone is not None:
-            return local_timezone
-
-        for candidate in (
-            cfg_payload.get("tz") if isinstance(cfg_payload, dict) else None,
-            self.time_zone,
-            "UTC",
-        ):
-            timezone_name = self._normalize_timezone_name(candidate)
-            if timezone_name is not None:
-                return ZoneInfo(timezone_name)
-
-        return timezone.utc
 
     def update_attribute(self, device: str, attr: str, key: str, value: Any) -> None:
         """Used as callback to update value."""

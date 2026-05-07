@@ -11,7 +11,10 @@
     "editor.formatOnSave": true,
     "editor.formatOnType": true,
     "files.trimTrailingWhitespace": true,
-    "[python]": {"editor.defaultFormatter": "ms-python.black-formatter"},
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
     "idf.pythonInstallPath": "/usr/bin/python3",
-    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.defaultEnvManager": "ms-python.python:poetry",
+    "python-envs.defaultPackageManager": "ms-python.python:poetry",
 }

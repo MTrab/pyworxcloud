@@ -355,7 +355,8 @@ class WorxCloud(dict):
 
             self._log.debug("Setting up MQTT handler")
             # setup MQTT handler
-            self.mqtt = MQTT(
+            self.mqtt = await asyncio.to_thread(
+                MQTT,
                 self._api,
                 self._cloud.BRAND_PREFIX,
                 self._endpoint,
@@ -1047,7 +1048,7 @@ class WorxCloud(dict):
         )
         await self.set_schedule(serial_number, schedule)
 
-    async def update(self, serial_number: str) -> None:
+    async def update(self, serial_number: str, timeout: float | None = None) -> None:
         """Request a state refresh."""
         mower = self.get_mower(serial_number)
         _LOGGER.debug("Trying to refresh '%s'", serial_number)
@@ -1057,6 +1058,7 @@ class WorxCloud(dict):
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 mower["protocol"],
+                timeout=timeout,
             )
         except NoConnectionError:
             raise NoConnectionError from None
