@@ -932,6 +932,68 @@ def test_devicehandler_fills_missing_auto_schedule_defaults() -> None:
     )
 
 
+def test_vision_mower_detects_ots_from_dat_sc_once() -> None:
+    """Vision mowers (protocol 1) expose 'once' in dat.sc, not cfg.sc."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-VISION-OTS",
+            "rd": 0,
+            "tz": "UTC",
+            "sc": {"enabled": 1, "paused": 0, "slots": []},
+        },
+        "dat": {
+            "uuid": "UUID-VISION-OTS",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "sc": {"once": 0, "slot": 0},
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 1, "Vision OTS Fixture")
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE) is True
+    assert device.capabilities.check(DeviceCapability.EDGE_CUT) is True
+    assert device.schedules["one_time_schedule"] is True
+
+
+def test_classic_mower_ots_still_detected_from_cfg_sc() -> None:
+    """Protocol 0 mowers with 'ots' in cfg.sc should still work unchanged."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-CLASSIC-OTS",
+            "rd": 0,
+            "sc": {
+                "d": [],
+                "dd": False,
+                "ots": {"bc": 0, "wtm": 30},
+            },
+            "tm": "12:00:00",
+            "dt": "11/03/2026",
+            "tz": "UTC",
+        },
+        "dat": {
+            "uuid": "UUID-CLASSIC-OTS",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 0, "Classic OTS Fixture")
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE) is True
+    assert device.capabilities.check(DeviceCapability.EDGE_CUT) is True
+
+
 MQTT_FIXTURES = tuple(fixture_paths("mqtt.json"))
 
 
