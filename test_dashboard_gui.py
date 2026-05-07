@@ -18,6 +18,7 @@ from typing import Any
 
 from pyworxcloud import WorxCloud
 from pyworxcloud.events import LandroidEvent
+from pyworxcloud.exceptions import NoConnectionError, TimeoutException
 from pyworxcloud.utils import DeviceHandler
 
 try:
@@ -27,6 +28,7 @@ except ImportError:  # pragma: no cover - non-Windows runtime
 
 
 REGISTRY_KEY = r"Software\pyworxcloud\Dashboard"
+DASHBOARD_REFRESH_TIMEOUT = 3.0
 
 
 def _load_dotenv(path: str = ".env") -> None:
@@ -289,12 +291,14 @@ class CloudWorker:
         self._log_level = _configure_logging()
         self._update_event = asyncio.Event()
         self._update_event_name: str | None = None
+        self._update_event_serial: str | None = None
 
-    def _mark_update_received(self, name: str) -> None:
+    def _mark_update_received(self, name: str, serial: str | None = None) -> None:
         """Mark update event from any thread in a loop-safe way."""
 
         def _set() -> None:
             self._update_event_name = name
+            self._update_event_serial = serial
             self._update_event.set()
 
         self._loop.call_soon_threadsafe(_set)
@@ -302,6 +306,11 @@ class CloudWorker:
     def _run_loop(self) -> None:
         asyncio.set_event_loop(self._loop)
         self._loop.run_forever()
+
+    def stop(self) -> None:
+        self._loop.call_soon_threadsafe(self._loop.stop)
+        if threading.current_thread() is not self._thread:
+            self._thread.join(timeout=2.0)
 
     def _emit(self, msg_type: str, **payload: Any) -> None:
         self._messages.put(WorkerMessage(msg_type=msg_type, payload=payload))
@@ -323,7 +332,9 @@ class CloudWorker:
         _configure_logging()
 
         def _on_data(name: str, device: DeviceHandler) -> None:
-            self._mark_update_received(name)
+            self._mark_update_received(
+                name, str(getattr(device, "serial_number", "")) or None
+            )
             self._emit(
                 "device_update",
                 source="mqtt",
@@ -332,7 +343,9 @@ class CloudWorker:
             )
 
         def _on_api(name: str, device: DeviceHandler) -> None:
-            self._mark_update_received(name)
+            self._mark_update_received(
+                name, str(getattr(device, "serial_number", "")) or None
+            )
             self._emit(
                 "device_update",
                 source="api",
@@ -376,7 +389,6 @@ class CloudWorker:
 
     async def shutdown(self) -> None:
         await self.disconnect()
-        self._loop.call_soon_threadsafe(self._loop.stop)
 
     async def select_mower(self, name: str) -> None:
         if self._cloud is None:
@@ -415,16 +427,39 @@ class CloudWorker:
 
         self._update_event.clear()
         self._update_event_name = None
+        self._update_event_serial = None
         self._emit("log", text="Sending forced refresh command...")
-        # Keep the exact same refresh entrypoint as CLI dashboard.
-        await self._cloud.update(device.serial_number)
-        self._emit("log", text="Forced refresh command sent. Waiting for update...")
-        got_live_update = False
+        command_dispatched = False
         try:
-            await asyncio.wait_for(self._update_event.wait(), timeout=3.0)
-            got_live_update = self._update_event_name == selected
-        except TimeoutError:
-            got_live_update = False
+            await self._cloud.update(
+                device.serial_number,
+                timeout=DASHBOARD_REFRESH_TIMEOUT,
+            )
+            command_dispatched = True
+            self._emit("log", text="Forced refresh command sent. Waiting for update...")
+        except (NoConnectionError, TimeoutException) as err:
+            self._emit(
+                "log",
+                text=(
+                    "Forced refresh command did not complete via MQTT "
+                    f"({type(err).__name__}); running API fallback fetch."
+                ),
+            )
+        got_live_update = False
+        if command_dispatched or self._update_event.is_set():
+            try:
+                await asyncio.wait_for(
+                    self._update_event.wait(), timeout=DASHBOARD_REFRESH_TIMEOUT
+                )
+                got_live_update = self._update_matches_selected(selected, identifier)
+            except (TimeoutError, asyncio.TimeoutError):
+                got_live_update = False
+        elif not self._update_event.is_set():
+            try:
+                await asyncio.wait_for(self._update_event.wait(), timeout=0.25)
+                got_live_update = self._update_matches_selected(selected, identifier)
+            except (TimeoutError, asyncio.TimeoutError):
+                got_live_update = False
 
         if not got_live_update:
             # Fallback to API fetch if mower does not publish a changed MQTT payload.
@@ -447,6 +482,18 @@ class CloudWorker:
             at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             source="mqtt" if got_live_update else "api-fallback",
             target=identifier,
+        )
+
+    def _update_matches_selected(self, selected: str, serial: str) -> bool:
+        """Return whether the latest update event belongs to the selected mower."""
+        if self._update_event_serial == serial:
+            return True
+        if self._update_event_name == selected:
+            return True
+        if self._update_event_name is None:
+            return False
+        return self._normalize_key(self._update_event_name) == self._normalize_key(
+            selected
         )
 
     async def _with_selected_serial(self) -> str | None:
@@ -1144,6 +1191,7 @@ class DashboardApp:
         if self._shutdown_popup is not None:
             with contextlib.suppress(Exception):
                 self._shutdown_popup.destroy()
+        self.worker.stop()
         self.root.destroy()
 
     def run(self) -> None:

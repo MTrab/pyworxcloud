@@ -1,18 +1,8 @@
 """MQTT information class.
 
-This module provides an MQTT client for connecting to AWS IoT MQTT using the AWS IoT Device SDK for Python v2.
-It handles connection, subscription, and message publishing to AWS IoT MQTT endpoints.
-
-Dependencies:
-- awscrt: AWS Common Runtime library
-- awsiot: AWS IoT Device SDK for Python v2
-
-The MQTT class provides the following functionality:
-- Connection to AWS IoT MQTT with custom authentication using JWT tokens
-- Subscription to topics
-- Publishing messages to topics
-- Handling reconnection and token updates
-- Formatting messages for different protocols
+This module provides an MQTT client for connecting to the Landroid Cloud MQTT
+endpoint over WebSockets using paho-mqtt. It handles connection, subscription,
+publishing, token refreshes, response matching, and command deduplication.
 """
 
 from __future__ import annotations
@@ -21,87 +11,78 @@ import asyncio
 import itertools
 import json
 import random
+import ssl
 import threading
 import time
 import urllib.parse
-from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import datetime, timezone
 from logging import Logger
 from typing import Any, Callable, Optional
 from uuid import uuid4
 
-import awscrt.io
-import awscrt.mqtt
-from awsiot import mqtt_connection_builder
+import paho.mqtt.client as paho_mqtt
 
 from ..events import EventHandler, LandroidEvent
 from ..exceptions import NoConnectionError, TimeoutException
 from .landroid_class import LDict
 
-QOS_FLAG = awscrt.mqtt.QoS.AT_LEAST_ONCE
+QOS_FLAG = 1
+MQTT_CONNECT_ACCEPTED = 0
 DEFAULT_RESPONSE_TIMEOUT = 30.0
 DEFAULT_DISCONNECT_TIMEOUT = 0.5
 DEFAULT_SHUTDOWN_TIMEOUT = 0.25
-AWSCRT_CONNECT_ARG_MISMATCH = "function takes exactly 18 arguments (17 given)"
+DEFAULT_LOOP_STOP_TIMEOUT = 0.5
+MQTT_PORT = 443
+MQTT_KEEPALIVE = 30
+MQTT_WEBSOCKET_PATH = "/mqtt"
 
 
-def _is_awscrt_connect_arg_mismatch(err: TypeError) -> bool:
-    """Return whether AWS CRT hit the known 0.32.x connect arg mismatch."""
-    return AWSCRT_CONNECT_ARG_MISMATCH in str(err)
-
-
-def _legacy_connect_without_metrics(client: Any) -> Future:
-    """Call the pre-0.32 AWS CRT connect signature for mixed installations."""
-    import _awscrt  # pylint: disable=import-outside-toplevel
-    import awscrt.exceptions  # pylint: disable=import-outside-toplevel
-
-    future = Future()
-
-    def on_connect(error_code, return_code, session_present):
-        if return_code:
-            future.set_exception(Exception(awscrt.mqtt.ConnectReturnCode(return_code)))
-        elif error_code:
-            future.set_exception(awscrt.exceptions.from_code(error_code))
-        else:
-            future.set_result(dict(session_present=session_present))
-
-    _awscrt.mqtt_client_connection_connect(
-        client._binding,
-        client.client_id,
-        client.host_name,
-        client.port,
-        client.socket_options,
-        client.client.tls_ctx,
-        client.reconnect_min_timeout_secs,
-        client.reconnect_max_timeout_secs,
-        client.keep_alive_secs,
-        client.ping_timeout_ms,
-        client.protocol_operation_timeout_ms,
-        client.will,
-        client.username,
-        client.password,
-        client.clean_session,
-        on_connect,
-        client.proxy_options,
-    )
-
-    return future
-
-
-def _connect_with_awscrt_compat(client: Any, logger: Logger) -> Future:
-    """Connect while tolerating the awscrt 0.32.x mixed-installation bug."""
+def _reason_code_value(reason_code: Any) -> int:
+    """Return an integer result code for paho reason code variants."""
     try:
-        return client.connect()
-    except TypeError as err:
-        if not _is_awscrt_connect_arg_mismatch(err):
-            raise
+        return int(reason_code)
+    except (TypeError, ValueError):
+        value = getattr(reason_code, "value", reason_code)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return MQTT_CONNECT_ACCEPTED if str(reason_code) == "Success" else -1
 
-        logger.warning(
-            "AWS CRT connect hit the known 17/18-argument mismatch; "
-            "retrying with legacy compatibility path"
-        )
-        return _legacy_connect_without_metrics(client)
+
+def _operation_failed(result: Any) -> bool:
+    """Return whether a paho operation result indicates failure."""
+    if result is None:
+        return False
+    if isinstance(result, tuple):
+        result = result[0]
+    if hasattr(result, "rc"):
+        result = result.rc
+    return _reason_code_value(result) != MQTT_CONNECT_ACCEPTED
+
+
+def _wait_for_operation(result: Any, timeout: float | None = None) -> None:
+    """Wait for AWS-style futures, paho publish infos, or paho return codes."""
+    if isinstance(result, tuple):
+        result = result[0]
+
+    if hasattr(result, "result"):
+        try:
+            result.result(timeout=timeout)
+        except TypeError:
+            result.result()
+        return
+
+    if hasattr(result, "wait_for_publish"):
+        publish_result = result.wait_for_publish(timeout=timeout)
+        if publish_result is False:
+            raise FutureTimeoutError(f"timed out after {timeout}")
+        if _operation_failed(getattr(result, "rc", MQTT_CONNECT_ACCEPTED)):
+            raise RuntimeError(f"MQTT publish failed with result {result.rc}")
+        return
+
+    if _operation_failed(result):
+        raise RuntimeError(f"MQTT operation failed with result {result}")
 
 
 class MQTTMsgType(LDict):
@@ -180,7 +161,7 @@ class MQTT(LDict):
         deduplicate_inflight_commands: bool = False,
         response_timeout: float = DEFAULT_RESPONSE_TIMEOUT,
     ) -> dict:
-        """Initialize AWSIoT MQTT handler."""
+        """Initialize the paho-mqtt handler."""
 
         super().__init__()
         self._events = EventHandler()
@@ -196,17 +177,20 @@ class MQTT(LDict):
         self._is_connected: bool = False
         self._brandprefix = brandprefix
         self._user_id = user_id
-        self._connection_future: Optional[Future] = None
+        self._connection_future: Optional[Any] = None
         self._command_lock = threading.Lock()
         self._response_lock = threading.Lock()
         self._response_event = threading.Event()
         self._pending_response_target: str | None = None
         self._pending_response_message_id: int | None = None
+        self._pending_response_accepts_any_message_id = False
         self._pending_command_signature: tuple[str, str, int, str] | None = None
         self._last_command_payload: dict[str, Any] | None = None
         self._lifecycle_lock = threading.RLock()
         self._token_update_lock = threading.Lock()
         self._ready_event = threading.Event()
+        self._connect_event = threading.Event()
+        self._connect_error: Exception | None = None
         self._message_id_lock = threading.Lock()
         self._message_id_seq = itertools.count(random.randint(1024, 65535))
         self._client_generation = 0
@@ -222,54 +206,59 @@ class MQTT(LDict):
         self._disconnect_timeout = DEFAULT_DISCONNECT_TIMEOUT
         self._shutdown_timeout = DEFAULT_SHUTDOWN_TIMEOUT
 
-        # Create event loop group and connection
-        self._event_loop_group = awscrt.io.EventLoopGroup(1)
-        self._host_resolver = awscrt.io.DefaultHostResolver(self._event_loop_group)
-        self._client_bootstrap = awscrt.io.ClientBootstrap(
-            self._event_loop_group, self._host_resolver
-        )
-
-        # Create the MQTT connection
         self.client = self._create_mqtt_connection()
 
-    def _create_mqtt_connection(self):
-        """Create an MQTT connection using awsiot.mqtt_connection_builder."""
+    def _create_paho_client(self) -> paho_mqtt.Client:
+        """Create a paho client across supported paho-mqtt versions."""
+        callback_api_version = getattr(paho_mqtt, "CallbackAPIVersion", None)
+        if callback_api_version is not None:
+            return paho_mqtt.Client(
+                callback_api_version.VERSION2,
+                client_id=self._client_id,
+                clean_session=False,
+                transport="websockets",
+            )
+        return paho_mqtt.Client(
+            client_id=self._client_id,
+            clean_session=False,
+            transport="websockets",
+        )
+
+    def _create_mqtt_connection(self) -> paho_mqtt.Client:
+        """Create an MQTT connection using paho-mqtt over secure WebSockets."""
         generation = self._client_generation + 1
         self._client_generation = generation
         self._active_generation = generation
 
-        # Format the JWT token for authentication
         accesstokenparts = (
             self._api.access_token.replace("_", "/").replace("-", "+").split(".")
         )
-        username = f"bot?jwt={urllib.parse.quote(accesstokenparts[0])}.{urllib.parse.quote(accesstokenparts[1])}&x-amz-customauthorizer-name=''&x-amz-customauthorizer-signature={urllib.parse.quote(accesstokenparts[2])}"
-
-        # Create the MQTT connection
-        mqtt_connection = mqtt_connection_builder.websockets_with_custom_authorizer(
-            endpoint=self._endpoint,
-            client_id=self._client_id,
-            auth_username=username,
-            auth_password=None,
-            client_bootstrap=self._client_bootstrap,
-            on_connection_interrupted=lambda connection, error, **kwargs: (
-                self._on_connection_interrupted(
-                    connection, error, generation=generation, **kwargs
-                )
-            ),
-            on_connection_resumed=lambda connection, return_code, session_present, **kwargs: (
-                self._on_connection_resumed(
-                    connection,
-                    return_code,
-                    session_present,
-                    generation=generation,
-                    **kwargs,
-                )
-            ),
-            clean_session=False,
-            keep_alive_secs=30,
+        username = (
+            "bot?jwt="
+            f"{urllib.parse.quote(accesstokenparts[0])}."
+            f"{urllib.parse.quote(accesstokenparts[1])}"
+            "&x-amz-customauthorizer-name=''"
+            "&x-amz-customauthorizer-signature="
+            f"{urllib.parse.quote(accesstokenparts[2])}"
         )
 
-        return mqtt_connection
+        client = self._create_paho_client()
+        client.username_pw_set(username=username, password=None)
+        client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
+        client.ws_set_options(path=MQTT_WEBSOCKET_PATH)
+        client.reconnect_delay_set(min_delay=1, max_delay=32)
+        client.on_connect = lambda client, userdata, flags, reason_code, *args: (
+            self._on_paho_connect(
+                client, userdata, flags, reason_code, generation=generation
+            )
+        )
+        client.on_disconnect = lambda client, userdata, *args: self._on_paho_disconnect(
+            client, userdata, *args, generation=generation
+        )
+        client.on_message = lambda client, userdata, message: self._on_message_received(
+            message.topic, message.payload, generation=generation
+        )
+        return client
 
     def _is_stale_generation(self, generation: int | None) -> bool:
         """Return whether a callback generation no longer matches the active client."""
@@ -288,6 +277,14 @@ class MQTT(LDict):
                 ready_event.set()
         return ready_event
 
+    def _get_connect_event(self) -> threading.Event:
+        """Return the connect event, creating it for bare test fixtures if needed."""
+        connect_event = getattr(self, "_connect_event", None)
+        if connect_event is None:
+            connect_event = threading.Event()
+            self._connect_event = connect_event
+        return connect_event
+
     def _resubscribe_topic(self, topic: str, generation: int | None = None) -> None:
         """Resubscribe while tolerating older monkeypatched subscribe signatures."""
         try:
@@ -298,7 +295,7 @@ class MQTT(LDict):
             self.subscribe(topic, False)
 
     def _schedule_reconnect_after_resume(self) -> None:
-        """Kick off a full client rebuild after an AWS-level resume callback."""
+        """Kick off a full client rebuild after a broker-level reconnect."""
         worker = threading.Thread(
             target=self._reconnect_after_resume,
             name="pyworxcloud-mqtt-resume-reconnect",
@@ -307,7 +304,7 @@ class MQTT(LDict):
         worker.start()
 
     def _reconnect_after_resume(self) -> None:
-        """Rebuild the MQTT client after a resume callback we do not trust."""
+        """Rebuild the MQTT client after a reconnect callback we do not trust."""
         try:
             self.update_token()
         except Exception:  # pragma: no cover - defensive logging path
@@ -316,7 +313,67 @@ class MQTT(LDict):
                 exc_info=True,
             )
 
-    def _on_connection_interrupted(self, connection, error, **kwargs):
+    def _on_paho_connect(
+        self,
+        connection: Any,
+        _userdata: Any,
+        flags: Any,
+        reason_code: Any,
+        **kwargs: Any,
+    ) -> None:
+        """Handle paho on_connect callbacks."""
+        generation = kwargs.get("generation")
+        if self._is_stale_generation(generation):
+            self._log.getChild("Conn_State").debug(
+                "Ignoring stale connection callback for generation %s", generation
+            )
+            return
+
+        if _reason_code_value(reason_code) == MQTT_CONNECT_ACCEPTED:
+            self._is_connected = True
+            self._connect_error = None
+        else:
+            self._is_connected = False
+            self._connect_error = NoConnectionError(
+                f"MQTT connection rejected with result {reason_code}"
+            )
+        self._get_connect_event().set()
+
+        session_present = False
+        if isinstance(flags, dict):
+            session_present = bool(flags.get("session present", False))
+        else:
+            session_present = bool(getattr(flags, "session_present", False))
+        self._log.getChild("Conn_State").debug(
+            "Connection callback. reason_code: %s, session_present: %s",
+            reason_code,
+            session_present,
+        )
+        del connection
+
+    def _on_paho_disconnect(
+        self, connection: Any, _userdata: Any, *args: Any, **kwargs: Any
+    ) -> None:
+        """Handle paho on_disconnect callbacks."""
+        generation = kwargs.get("generation")
+        if self._is_stale_generation(generation):
+            self._log.getChild("Conn_State").debug(
+                "Ignoring stale disconnect callback for generation %s", generation
+            )
+            return
+
+        reason_code = args[-2] if len(args) >= 2 else args[-1] if args else 0
+        if _reason_code_value(reason_code) != MQTT_CONNECT_ACCEPTED:
+            self._on_connection_interrupted(
+                connection, reason_code, generation=generation
+            )
+        else:
+            self._is_connected = False
+            self._get_ready_event().clear()
+
+    def _on_connection_interrupted(
+        self, connection: Any, error: Any, **kwargs: Any
+    ) -> None:
         """Callback when a connection is accidentally lost."""
         del connection
         logger = self._log.getChild("Conn_State")
@@ -331,12 +388,12 @@ class MQTT(LDict):
         self._is_connected = False
         self._get_ready_event().clear()
         self._awaiting_post_resume_message = False
-        logger.debug(f"Connection interrupted. error: {error}")
+        logger.debug("Connection interrupted. error: %s", error)
         self._events.call(LandroidEvent.MQTT_CONNECTION, state=False)
 
     def _on_connection_resumed(
-        self, connection, return_code, session_present, **kwargs
-    ):
+        self, connection: Any, return_code: Any, session_present: bool, **kwargs: Any
+    ) -> None:
         """Callback when an interrupted connection is re-established."""
         del connection
         logger = self._log.getChild("Conn_State")
@@ -348,16 +405,17 @@ class MQTT(LDict):
             )
             return
 
-        self._is_connected = True
         logger.debug(
-            f"Connection resumed. return_code: {return_code}, session_present: {session_present}"
+            "Connection resumed. return_code: %s, session_present: %s",
+            return_code,
+            session_present,
         )
 
         self._is_connected = False
         self._get_ready_event().clear()
         self._awaiting_post_resume_message = False
 
-        if return_code == awscrt.mqtt.ConnectReturnCode.ACCEPTED:
+        if _reason_code_value(return_code) == MQTT_CONNECT_ACCEPTED:
             if session_present:
                 logger.debug(
                     "Session resumed, but forcing a full MQTT reconnect before trusting it"
@@ -376,10 +434,9 @@ class MQTT(LDict):
     def connected(self) -> bool:
         """Returns the MQTT connection state."""
         return self._is_connected
-        # return self.client.is_connected()
 
     def _on_message_received(
-        self, topic: str, payload: bytes, generation: int | None = None, **kwargs
+        self, topic: str, payload: bytes, generation: int | None = None, **kwargs: Any
     ) -> None:
         """Callback when a message is received."""
         del kwargs
@@ -396,7 +453,8 @@ class MQTT(LDict):
         expanded_identifiers = self._expand_identifiers(identifiers)
         with self._response_lock:
             id_matches = (
-                not message_ids
+                self._pending_response_accepts_any_message_id
+                or not message_ids
                 or self._pending_response_message_id is None
                 or self._pending_response_message_id in message_ids
             )
@@ -468,17 +526,10 @@ class MQTT(LDict):
         callback_generation = (
             self._active_generation if generation is None else generation
         )
-        subscribe_future, _ = client.subscribe(
-            topic=topic,
-            qos=QOS_FLAG,
-            callback=lambda topic, payload, **kwargs: self._on_message_received(
-                topic, payload, generation=callback_generation, **kwargs
-            ),
-        )
-
-        # Wait for a subscription to be confirmed
-        subscribe_future.result()
-        self._log.debug(f"Subscribed to topic: {topic}")
+        result = client.subscribe(topic=topic, qos=QOS_FLAG)
+        _wait_for_operation(result)
+        self._active_generation = callback_generation
+        self._log.debug("Subscribed to topic: %s", topic)
 
     async def asubscribe(
         self, topic: str, append: bool = True, generation: int | None = None
@@ -495,12 +546,23 @@ class MQTT(LDict):
             raise NoConnectionError("MQTT client is not available")
 
         self._get_ready_event().clear()
+        connect_event = self._get_connect_event()
+        connect_event.clear()
+        self._connect_error = None
         try:
-            # Create a connection future
-            self._connection_future = _connect_with_awscrt_compat(client, self._log)
+            self._connection_future = None
+            result = client.connect(
+                self._endpoint,
+                port=MQTT_PORT,
+                keepalive=MQTT_KEEPALIVE,
+            )
+            _wait_for_operation(result)
+            client.loop_start()
 
-            # Wait for connection to complete
-            self._connection_future.result()
+            if not connect_event.wait(self._response_timeout):
+                raise TimeoutException("Timed out waiting for MQTT connection")
+            if self._connect_error is not None:
+                raise self._connect_error
 
             with self._lifecycle_lock:
                 if generation != self._active_generation or client is not self.client:
@@ -510,17 +572,14 @@ class MQTT(LDict):
                     )
                     return
 
-                # Update connection state
                 self._is_connected = True
                 self._reconnected = False
                 self._awaiting_post_resume_message = False
 
-            # Subscribe to saved topics
             for topic in self._topic:
-                self._log.debug(f"Subscribing to '{topic}'")
+                self._log.debug("Subscribing to '%s'", topic)
                 self._resubscribe_topic(topic, generation)
 
-            # Notify about connection
             self._get_ready_event().set()
             self._events.call(LandroidEvent.MQTT_CONNECTION, state=True)
 
@@ -528,7 +587,8 @@ class MQTT(LDict):
             self._is_connected = False
             self._connection_future = None
             self._get_ready_event().clear()
-            self._log.error(f"Failed to connect to MQTT: {exc}")
+            self._safe_loop_stop(client)
+            self._log.error("Failed to connect to MQTT: %s", exc)
             raise NoConnectionError() from exc
 
     async def aconnect(self) -> None:
@@ -547,14 +607,10 @@ class MQTT(LDict):
                 self._log.debug("Updating token")
                 self._get_ready_event().clear()
 
-                # Disconnect if connected
                 if self.connected:
                     self.disconnect(keep_topic=True)
 
-                # Create a new connection with updated token
                 self.client = self._create_mqtt_connection()
-
-                # Reconnect
                 self.connect()
 
                 self._log.debug("Token updated")
@@ -565,9 +621,51 @@ class MQTT(LDict):
         """Async token update wrapper."""
         await asyncio.to_thread(self.update_token)
 
-    def disconnect(self, keep_topic: bool = False):  # pylint: disable=unused-argument
-        """Disconnect from AWSIoT MQTT server."""
+    def _safe_loop_stop(self, client: Any) -> None:
+        """Stop the paho network loop when the client supports it."""
+        loop_stop = getattr(client, "loop_stop", None)
+        if loop_stop is None:
+            return
+        finished = threading.Event()
+        errors: list[Exception] = []
+
+        def _stop_loop() -> None:
+            try:
+                loop_stop()
+            except Exception as exc:  # pragma: no cover - defensive teardown path
+                errors.append(exc)
+            finally:
+                finished.set()
+
+        thread = threading.Thread(
+            target=_stop_loop,
+            name="pyworxcloud-mqtt-loop-stop",
+            daemon=True,
+        )
+        thread.start()
+        if not finished.wait(DEFAULT_LOOP_STOP_TIMEOUT):
+            self._log.getChild("MQTT_Disconnect").debug(
+                "MQTT loop_stop timed out after %.3fs", DEFAULT_LOOP_STOP_TIMEOUT
+            )
+            return
+        if errors:
+            self._log.getChild("MQTT_Disconnect").debug(
+                "MQTT loop_stop raised during teardown: %s", errors[0]
+            )
+
+    def _release_pending_response_waiter(self) -> None:
+        """Wake any command currently waiting for a mower response."""
+        with self._response_lock:
+            self._pending_response_target = None
+            self._pending_response_message_id = None
+            self._pending_response_accepts_any_message_id = False
+            self._pending_command_signature = None
+            self._response_event.set()
+
+    def disconnect(self, keep_topic: bool = False) -> None:
+        """Disconnect from the MQTT server."""
         logger = self._log.getChild("MQTT_Disconnect")
+        self._release_pending_response_waiter()
         with self._lifecycle_lock:
             if self._shutdown_event:
                 self._is_connected = False
@@ -575,7 +673,6 @@ class MQTT(LDict):
                 self._get_ready_event().clear()
                 return
 
-            # Clear topic list
             if not keep_topic:
                 self._topic = []
 
@@ -588,13 +685,14 @@ class MQTT(LDict):
             try:
                 if self._is_connected:
                     started = time.perf_counter()
-                    disconnect_future = client.disconnect()
-                    disconnect_future.result(
+                    result = client.disconnect()
+                    _wait_for_operation(
+                        result,
                         timeout=getattr(
                             self,
                             "_disconnect_timeout",
                             DEFAULT_DISCONNECT_TIMEOUT,
-                        )
+                        ),
                     )
                     logger.debug(
                         "MQTT disconnected in %.3fs", time.perf_counter() - started
@@ -607,7 +705,7 @@ class MQTT(LDict):
             except Exception as err:  # pragma: no cover - defensive
                 logger.debug("MQTT disconnect raised during teardown: %s", err)
             finally:
-                # Ensure internal state remains consistent after teardown attempts.
+                self._safe_loop_stop(client)
                 self._is_connected = False
                 self._connection_future = None
                 self._get_ready_event().clear()
@@ -617,34 +715,30 @@ class MQTT(LDict):
         await asyncio.to_thread(self.disconnect, keep_topic)
 
     def shutdown(self) -> None:
-        """Release background AWS CRT resources."""
+        """Release MQTT client resources."""
         logger = self._log.getChild("MQTT_Shutdown")
+        self._release_pending_response_waiter()
         with self._lifecycle_lock:
             if self._shutdown_event:
                 return
             self._shutdown_event = True
             was_connected = self._is_connected
-
-            host_resolver = self._host_resolver
-            client_bootstrap = self._client_bootstrap
-            event_loop_group = self._event_loop_group
             client = self.client
 
             self.client = None
-            self._host_resolver = None
-            self._client_bootstrap = None
-            self._event_loop_group = None
             self._is_connected = False
             self._connection_future = None
             self._get_ready_event().clear()
 
-        # Disconnect after detaching internals, so concurrent calls see teardown state.
         if client is not None and was_connected:
             try:
                 started = time.perf_counter()
-                disconnect_future = client.disconnect()
-                disconnect_future.result(
-                    timeout=getattr(self, "_shutdown_timeout", DEFAULT_SHUTDOWN_TIMEOUT)
+                result = client.disconnect()
+                _wait_for_operation(
+                    result,
+                    timeout=getattr(
+                        self, "_shutdown_timeout", DEFAULT_SHUTDOWN_TIMEOUT
+                    ),
                 )
                 logger.debug(
                     "Shutdown disconnect completed in %.3fs",
@@ -661,28 +755,8 @@ class MQTT(LDict):
                     time.perf_counter() - started,
                     exc_info=True,
                 )
-        shutdown_timeout = getattr(self, "_shutdown_timeout", DEFAULT_SHUTDOWN_TIMEOUT)
-        for name, resource in (
-            ("host_resolver", host_resolver),
-            ("client_bootstrap", client_bootstrap),
-            ("event_loop_group", event_loop_group),
-        ):
-            if resource is None:
-                continue
-
-            shutdown_event = getattr(resource, "shutdown_event", None)
-            if shutdown_event is None:
-                logger.debug("Detached %s without shutdown_event", name)
-                continue
-
-            started = time.perf_counter()
-            completed = shutdown_event.wait(shutdown_timeout)
-            logger.debug(
-                "Waited for %s shutdown_event; completed=%s in %.3fs",
-                name,
-                completed,
-                time.perf_counter() - started,
-            )
+            finally:
+                self._safe_loop_stop(client)
 
     async def ashutdown(self) -> None:
         """Async shutdown wrapper."""
@@ -818,7 +892,6 @@ class MQTT(LDict):
         if client is None:
             raise NoConnectionError("MQTT client is not available")
 
-        # Format the message
         formatted_message = self.format_message(serial_number, message, protocol)
         command_message_id = json.loads(formatted_message)["id"]
         identifier_type = "sn" if protocol == 0 else "uuid" if protocol == 1 else "id"
@@ -839,19 +912,21 @@ class MQTT(LDict):
             formatted_message,
         )
 
-        # Only allow one in-flight command until response/timeout.
         with self._command_lock:
             with self._response_lock:
                 self._pending_response_target = serial_number
                 self._pending_response_message_id = command_message_id
+                self._pending_response_accepts_any_message_id = (
+                    message.get("cmd") == Command.FORCE_REFRESH
+                )
                 self._pending_command_signature = command_signature
                 self._response_event.clear()
 
             try:
-                publish_future, _ = client.publish(
+                result = client.publish(
                     topic=topic, payload=formatted_message, qos=QOS_FLAG
                 )
-                publish_future.result()
+                _wait_for_operation(result)
 
                 if not self._response_event.wait(effective_timeout):
                     payload = self._last_command_payload or {}
@@ -871,6 +946,7 @@ class MQTT(LDict):
                 with self._response_lock:
                     self._pending_response_target = None
                     self._pending_response_message_id = None
+                    self._pending_response_accepts_any_message_id = False
                     self._pending_command_signature = None
                     self._response_event.clear()
 
@@ -901,8 +977,6 @@ class MQTT(LDict):
 
         client = self.client
         if client is not None and not hasattr(client, "connect"):
-            # Lightweight test doubles can inject a publish-only client and mark the
-            # transport as connected without implementing full reconnect support.
             if self.connected:
                 self._get_ready_event().set()
                 return

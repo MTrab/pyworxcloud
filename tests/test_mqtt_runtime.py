@@ -6,12 +6,11 @@ import logging
 import threading
 import time
 
-import awscrt.mqtt
 import pytest
 
 from pyworxcloud.events import EventHandler
 from pyworxcloud.exceptions import TimeoutException
-from pyworxcloud.utils.mqtt import MQTT
+from pyworxcloud.utils.mqtt import MQTT, MQTT_CONNECT_ACCEPTED
 
 
 def _build_mqtt() -> MQTT:
@@ -45,7 +44,7 @@ def test_connection_resumed_ignores_stale_generation() -> None:
 
     mqtt._on_connection_resumed(
         object(),
-        awscrt.mqtt.ConnectReturnCode.ACCEPTED,
+        MQTT_CONNECT_ACCEPTED,
         True,
         generation=1,
     )
@@ -63,7 +62,7 @@ def test_connection_resumed_marks_active_generation_ready() -> None:
 
     mqtt._on_connection_resumed(
         object(),
-        awscrt.mqtt.ConnectReturnCode.ACCEPTED,
+        MQTT_CONNECT_ACCEPTED,
         True,
         generation=2,
     )
