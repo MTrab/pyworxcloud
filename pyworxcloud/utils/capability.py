@@ -107,6 +107,15 @@ class Capability:
         except TypeError:
             pass
 
+        try:
+            api_capabilities = device_data.get("capabilities")
+            if isinstance(api_capabilities, list):
+                if "border_cut" in api_capabilities:
+                    self.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                    self.add(DeviceCapability.EDGE_CUT)
+        except AttributeError:
+            pass
+
     def add(self, capability: DeviceCapability) -> None:
         """Add capability to the list."""
         if capability & self.__int__ == 0:

@@ -52,6 +52,26 @@ class DummyMQTT:
         return None
 
 
+class RecordingMQTT(DummyMQTT):
+    """MQTT stub that records publish payloads."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls: list[dict[str, Any]] = []
+
+    async def apublish(
+        self, serial: str, topic: str, message: Any, protocol: int | None = None
+    ) -> None:
+        self.calls.append(
+            {
+                "serial": serial,
+                "topic": topic,
+                "message": message,
+                "protocol": protocol,
+            }
+        )
+
+
 class DummyDevice:
     """Simple device stub."""
 
@@ -870,7 +890,7 @@ def test_toggle_schedule_uses_protocol_specific_payloads() -> None:
             "mac_address": "MAC-1",
             "online": True,
             "protocol": 1,
-            "mqtt_topics": {"command_in": "topic/p1"},
+            "mqtt_topics": {"command_in": "topic/p1", "command_out": "topic/out/p1"},
             "last_status": {"payload": {"cfg": {"sc": {"enabled": 0, "slots": []}}}},
         },
     ]
@@ -920,7 +940,7 @@ def test_toggle_auto_schedule_puts_top_level_flag_and_refreshes(monkeypatch) -> 
             "mac_address": "MAC-1",
             "online": True,
             "protocol": 1,
-            "mqtt_topics": {"command_in": "topic/p1"},
+            "mqtt_topics": {"command_in": "topic/p1", "command_out": "topic/out/p1"},
             "auto_schedule": False,
             "auto_schedule_settings": {"boost": 2},
             "last_status": {"payload": {"cfg": {"sc": {"enabled": 1, "slots": []}}}},
@@ -987,7 +1007,7 @@ def test_set_firmware_auto_upgrade_puts_top_level_flag_and_refreshes(
             "mac_address": "MAC-0",
             "online": True,
             "protocol": 0,
-            "mqtt_topics": {"command_in": "topic/p0"},
+            "mqtt_topics": {"command_in": "topic/p0", "command_out": "topic/out/p0"},
             "firmware_auto_upgrade": False,
             "last_status": {"payload": {"cfg": {"sc": {"m": 1, "d": []}}}},
         }
@@ -2434,7 +2454,7 @@ def test_schedule_crud_publishes_normalized_payload_and_refreshes() -> None:
             "mac_address": "MAC-1",
             "online": True,
             "protocol": 1,
-            "mqtt_topics": {"command_in": "topic/p1"},
+            "mqtt_topics": {"command_in": "topic/p1", "command_out": "topic/out/p1"},
             "last_status": {
                 "payload": {
                     "cfg": {
@@ -2524,6 +2544,135 @@ def test_schedule_crud_publishes_normalized_payload_and_refreshes() -> None:
     assert calls[2]["message"]["sc"]["freq"] == 0
     assert calls[3]["message"]["sc"]["enabled"] == 1
     assert refreshes == [False, False, False, False]
+
+
+def test_dedicated_border_cut_setting_helpers_publish_single_setting() -> None:
+    """Dedicated border-cut helpers should publish one setting at a time."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    mqtt = RecordingMQTT()
+    cloud.mqtt = mqtt
+    cloud._mowers = [
+        {
+            "name": "Vision",
+            "serial_number": "SERIAL-1",
+            "uuid": "UUID-1",
+            "mac_address": "MAC-1",
+            "model": {"friendly_name": "Vision", "code": "WR206E"},
+            "time_zone": "UTC",
+            "warranty_expires_at": None,
+            "warranty_registered": False,
+            "online": True,
+            "protocol": 1,
+            "mqtt_topics": {"command_in": "topic/p1", "command_out": "topic/out/p1"},
+            "capabilities": ["one_time_scheduler"],
+            "last_status": {
+                "payload": {
+                    "cfg": {
+                        "id": 0,
+                        "cut": {"b": 0, "z": []},
+                        "sc": {
+                            "enabled": 1,
+                            "paused": 0,
+                            "once": {"time": 30, "cfg": {"cut": {"b": 0, "z": []}}},
+                            "slots": [],
+                        },
+                    },
+                    "dat": {"uuid": "UUID-1", "ls": 1, "le": 0, "rain": {"s": 0}},
+                }
+            },
+        }
+    ]
+    cloud._rebuild_mower_indices()
+
+    asyncio.run(cloud.set_cut_over_border("SERIAL-1", False))
+    asyncio.run(cloud.set_border_distance("SERIAL-1", 150))
+
+    assert mqtt.calls[0]["message"] == {
+        "mz": {
+            "s": [{"id": 1, "c": True, "cfg": {"cut": {"ob": 0}}}],
+            "p": [],
+        }
+    }
+    assert mqtt.calls[1]["message"] == {
+        "mz": {
+            "s": [{"id": 1, "c": True, "cfg": {"cut": {"bd": 150}}}],
+            "p": [],
+        }
+    }
+
+
+def test_dedicated_border_cut_setting_helpers_reject_invalid_inputs() -> None:
+    """Dedicated border-cut helpers should validate protocol and value ranges."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud.mqtt = DummyMQTT()
+    cloud._mowers = [
+        {
+            "name": "Vision",
+            "serial_number": "SERIAL-1",
+            "uuid": "UUID-1",
+            "mac_address": "MAC-1",
+            "model": {"friendly_name": "Vision", "code": "WR206E"},
+            "time_zone": "UTC",
+            "warranty_expires_at": None,
+            "warranty_registered": False,
+            "online": True,
+            "protocol": 1,
+            "mqtt_topics": {"command_in": "topic/p1", "command_out": "topic/out/p1"},
+            "capabilities": ["one_time_scheduler"],
+            "last_status": {
+                "payload": {
+                    "cfg": {
+                        "id": 1,
+                        "rd": 0,
+                        "cut": {"b": 0, "bd": 0, "ob": 0, "z": []},
+                        "sc": {
+                            "enabled": 1,
+                            "paused": 0,
+                            "slots": [],
+                            "once": {"time": 30, "cfg": {"cut": {"b": 0, "z": []}}},
+                        },
+                    },
+                    "dat": {"uuid": "UUID-1", "ls": 1, "le": 0, "rain": {"s": 0}},
+                }
+            },
+        },
+        {
+            "name": "Proto0",
+            "serial_number": "SERIAL-0",
+            "uuid": "UUID-0",
+            "mac_address": "MAC-0",
+            "model": {"friendly_name": "Landroid", "code": "WG000"},
+            "time_zone": "UTC",
+            "warranty_expires_at": None,
+            "warranty_registered": False,
+            "online": True,
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/p0", "command_out": "topic/out/p0"},
+            "capabilities": ["one_time_scheduler"],
+            "last_status": {
+                "payload": {
+                    "cfg": {
+                        "id": 1,
+                        "rd": 0,
+                        "sc": {"m": 1, "d": [], "ots": {"bc": 0, "wtm": 30}},
+                    },
+                    "dat": {"uuid": "UUID-0", "ls": 1, "le": 0, "rain": {"s": 0}},
+                }
+            },
+        },
+    ]
+    cloud._rebuild_mower_indices()
+
+    with pytest.raises(
+        ValueError, match="border_distance must be one of 50, 100, 150, or 200"
+    ):
+        asyncio.run(cloud.set_border_distance("SERIAL-1", 125))
+
+    with pytest.raises(
+        ValueError,
+        match="Border-cut settings are only supported for protocol 1 devices",
+    ):
+        asyncio.run(cloud.set_cut_over_border("SERIAL-0", False))
 
 
 def test_set_torque_publishes_torque_payload() -> None:

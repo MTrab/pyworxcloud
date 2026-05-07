@@ -98,6 +98,38 @@ def test_devicehandler_maps_module_capabilities() -> None:
     assert device.capabilities.check(DeviceCapability.ACS) is True
 
 
+def test_devicehandler_maps_border_cut_api_capability() -> None:
+    """Vision border_cut API capability should expose edge-cut related features."""
+    payload = {
+        "cfg": {
+            "id": 1,
+            "sn": "SERIAL-VISION",
+            "rd": 0,
+            "cut": {"b": 0, "ob": 0, "bd": 150, "z": []},
+            "sc": {"enabled": 1, "paused": 0, "slots": []},
+            "tm": "12:00:00",
+            "dt": "11/03/2026",
+            "tz": "UTC",
+        },
+        "dat": {
+            "uuid": "UUID-VISION",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "rain": {"s": 0, "cnt": 0},
+        },
+    }
+    mower = _build_mower(payload, 1, "Vision Capability Fixture")
+    mower["capabilities"] = ["border_cut", "vision"]
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.api_capabilities == ["border_cut", "vision"]
+    assert device.capabilities.check(DeviceCapability.ONE_TIME_SCHEDULE) is True
+    assert device.capabilities.check(DeviceCapability.EDGE_CUT) is True
+
+
 def test_devicehandler_maps_lawn_from_top_level_api_fields() -> None:
     """Top-level API lawn fields should populate device.lawn."""
     payload = {
