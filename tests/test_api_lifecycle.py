@@ -2589,13 +2589,13 @@ def test_dedicated_border_cut_setting_helpers_publish_single_setting() -> None:
 
     assert mqtt.calls[0]["message"] == {
         "mz": {
-            "s": [{"id": 1, "c": True, "cfg": {"cut": {"ob": 0}}}],
+            "s": [{"id": 1, "c": 1, "cfg": {"cut": {"ob": 0}}}],
             "p": [],
         }
     }
     assert mqtt.calls[1]["message"] == {
         "mz": {
-            "s": [{"id": 1, "c": True, "cfg": {"cut": {"bd": 150}}}],
+            "s": [{"id": 1, "c": 1, "cfg": {"cut": {"bd": 150}}}],
             "p": [],
         }
     }
