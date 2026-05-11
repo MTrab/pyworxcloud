@@ -968,7 +968,7 @@ class WorxCloud(dict):
             raise ValueError("Unable to determine border-cut settings payload")
 
         return {
-            "s": [{"id": 1, "c": True, "cfg": {"cut": cut_payload}}],
+            "s": [{"id": 1, "c": 1, "cfg": {"cut": cut_payload}}],
             "p": [],
         }
 
