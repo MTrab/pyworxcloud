@@ -2546,6 +2546,67 @@ def test_schedule_crud_publishes_normalized_payload_and_refreshes() -> None:
     assert refreshes == [False, False, False, False]
 
 
+def test_border_cut_settings_helper_publishes_combined_settings() -> None:
+    """Border-cut settings helper should publish both settings in one command."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    mqtt = RecordingMQTT()
+    cloud.mqtt = mqtt
+    cloud._mowers = [
+        {
+            "name": "Vision",
+            "serial_number": "SERIAL-1",
+            "uuid": "UUID-1",
+            "mac_address": "MAC-1",
+            "model": {"friendly_name": "Vision", "code": "WR206E"},
+            "time_zone": "UTC",
+            "warranty_expires_at": None,
+            "warranty_registered": False,
+            "online": True,
+            "protocol": 1,
+            "mqtt_topics": {"command_in": "topic/p1", "command_out": "topic/out/p1"},
+            "capabilities": ["one_time_scheduler"],
+            "last_status": {
+                "payload": {
+                    "cfg": {
+                        "id": 0,
+                        "cut": {"b": 0, "bd": 50, "ob": 1, "z": []},
+                        "sc": {
+                            "enabled": 1,
+                            "paused": 0,
+                            "once": {"time": 30, "cfg": {"cut": {"b": 0, "z": []}}},
+                            "slots": [],
+                        },
+                    },
+                    "dat": {"uuid": "UUID-1", "ls": 1, "le": 0, "rain": {"s": 0}},
+                }
+            },
+        }
+    ]
+    cloud._rebuild_mower_indices()
+
+    asyncio.run(
+        cloud.set_border_cut_settings(
+            "SERIAL-1",
+            cut_over_border=False,
+            border_distance=150,
+        )
+    )
+
+    assert mqtt.calls == [
+        {
+            "serial": "UUID-1",
+            "topic": "topic/p1",
+            "message": {
+                "mz": {
+                    "s": [{"id": 1, "c": 1, "cfg": {"cut": {"ob": 0, "bd": 150}}}],
+                    "p": [],
+                }
+            },
+            "protocol": 1,
+        }
+    ]
+
+
 def test_dedicated_border_cut_setting_helpers_publish_single_setting() -> None:
     """Dedicated border-cut helpers should publish one setting at a time."""
     cloud = WorxCloud("user@example.com", "secret", "worx")

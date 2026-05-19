@@ -2008,6 +2008,20 @@ class WorxCloud(dict):
 
         await self._schedule_api_refresh()
 
+    async def set_border_cut_settings(
+        self,
+        serial_number: str,
+        *,
+        cut_over_border: bool,
+        border_distance: int,
+    ) -> None:
+        """Persist both protocol 1 border-cut settings in one command."""
+        await self._set_border_cut_settings(
+            serial_number,
+            cut_over_border=cut_over_border,
+            border_distance=border_distance,
+        )
+
     async def set_cut_over_border(
         self, serial_number: str, cut_over_border: bool
     ) -> None:
