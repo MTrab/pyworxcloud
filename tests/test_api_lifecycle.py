@@ -15,11 +15,16 @@ from pyworxcloud.api import LandroidCloudAPI
 from pyworxcloud.clouds import CloudType
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.exceptions import (
+    AuthorizationError,
     NoFirmwareAvailableError,
     NoFirmwareOtaError,
     NotFoundError,
 )
-from pyworxcloud.helpers.logger import PACKAGE_LOGGER_NAME, get_logger
+from pyworxcloud.helpers.logger import (
+    PACKAGE_LOGGER_NAME,
+    get_logger,
+    redact_email_address,
+)
 from pyworxcloud.utils.schedule_codec import ScheduleEntry, ScheduleModel
 
 
@@ -370,6 +375,58 @@ def test_get_logger_does_not_accumulate_handlers() -> None:
         package_logger.setLevel(original_level)
         for handler in original_handlers:
             package_logger.addHandler(handler)
+
+
+@pytest.mark.parametrize(
+    ("email", "expected"),
+    [
+        ("alice@example.com", "a[REDACTED]e@e[REDACTED]e.com"),
+        ("a@example.com", "a[REDACTED]@e[REDACTED]e.com"),
+        ("not-an-email", "[REDACTED]"),
+    ],
+)
+def test_redact_email_address_masks_log_values(email: str, expected: str) -> None:
+    """Email addresses should be masked before being written to logs."""
+    assert redact_email_address(email) == expected
+
+
+def test_authenticate_logs_redacted_email(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Authentication logs should not expose the full account email."""
+    cloud = WorxCloud("alice@example.com", "secret", "worx")
+
+    async def _get_token() -> None:
+        return None
+
+    monkeypatch.setattr(cloud._api, "get_token", _get_token)
+    monkeypatch.setattr(cloud._api, "authenticate", lambda: True)
+
+    with caplog.at_level("DEBUG", logger="pyworxcloud"):
+        asyncio.run(cloud.authenticate())
+
+    assert "alice@example.com" not in caplog.text
+    assert "a[REDACTED]e@e[REDACTED]e.com" in caplog.text
+
+
+def test_authenticate_failure_logs_redacted_email(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Failed authentication logs should not expose the full account email."""
+    cloud = WorxCloud("alice@example.com", "secret", "worx")
+
+    async def _get_token() -> None:
+        return None
+
+    monkeypatch.setattr(cloud._api, "get_token", _get_token)
+    monkeypatch.setattr(cloud._api, "authenticate", lambda: False)
+
+    with caplog.at_level("DEBUG", logger="pyworxcloud"):
+        with pytest.raises(AuthorizationError):
+            asyncio.run(cloud.authenticate())
+
+    assert "alice@example.com" not in caplog.text
+    assert "a[REDACTED]e@e[REDACTED]e.com" in caplog.text
 
 
 def test_on_api_update_dispatches_api_event_callback() -> None:

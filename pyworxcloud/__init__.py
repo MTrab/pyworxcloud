@@ -41,7 +41,7 @@ from .exceptions import (
     ZoneNoProbability,
     ZoneNotDefined,
 )
-from .helpers import convert_to_time, get_logger
+from .helpers import convert_to_time, get_logger, redact_email_address
 from .utils import MQTT, DeviceCapability, DeviceHandler, ScheduleEntry, ScheduleModel
 from .utils.lawn import Lawn
 from .utils.mqtt import Command
@@ -247,7 +247,8 @@ class WorxCloud(dict):
 
     async def authenticate(self) -> bool:
         """Authenticate against the API."""
-        self._log.debug("Authenticating %s", self._username)
+        redacted_username = redact_email_address(self._username)
+        self._log.debug("Authenticating %s", redacted_username)
 
         try:
             await self._api.get_token()
@@ -257,11 +258,11 @@ class WorxCloud(dict):
         auth = self._api.authenticate()
         if auth is False:
             self._auth_result = False
-            self._log.debug("Authentication for %s failed!", self._username)
+            self._log.debug("Authentication for %s failed!", redacted_username)
             raise AuthorizationError("Unauthorized")
 
         self._auth_result = True
-        self._log.debug("Authentication for %s successful", self._username)
+        self._log.debug("Authentication for %s successful", redacted_username)
 
         return True
 
