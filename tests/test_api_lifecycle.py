@@ -2596,12 +2596,7 @@ def test_border_cut_settings_helper_publishes_combined_settings() -> None:
         {
             "serial": "UUID-1",
             "topic": "topic/p1",
-            "message": {
-                "mz": {
-                    "s": [{"id": 1, "c": 1, "cfg": {"cut": {"ob": 0, "bd": 150}}}],
-                    "p": [],
-                }
-            },
+            "message": {"cut": {"ob": 0, "bd": 150}},
             "protocol": 1,
         }
     ]
@@ -2648,18 +2643,8 @@ def test_dedicated_border_cut_setting_helpers_publish_single_setting() -> None:
     asyncio.run(cloud.set_cut_over_border("SERIAL-1", False))
     asyncio.run(cloud.set_border_distance("SERIAL-1", 150))
 
-    assert mqtt.calls[0]["message"] == {
-        "mz": {
-            "s": [{"id": 1, "c": 1, "cfg": {"cut": {"ob": 0}}}],
-            "p": [],
-        }
-    }
-    assert mqtt.calls[1]["message"] == {
-        "mz": {
-            "s": [{"id": 1, "c": 1, "cfg": {"cut": {"bd": 150}}}],
-            "p": [],
-        }
-    }
+    assert mqtt.calls[0]["message"] == {"cut": {"ob": 0}}
+    assert mqtt.calls[1]["message"] == {"cut": {"bd": 150}}
 
 
 def test_dedicated_border_cut_setting_helpers_reject_invalid_inputs() -> None:

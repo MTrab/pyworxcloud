@@ -957,7 +957,7 @@ class WorxCloud(dict):
         cut_over_border: bool | None = None,
         border_distance: int | None = None,
     ) -> dict[str, Any]:
-        """Build the observed protocol 1 mz payload for persistent border-cut settings."""
+        """Build the observed protocol 1 cut payload for border-cut settings."""
         cut_payload: dict[str, int] = {}
         if cut_over_border is not None:
             cut_payload["ob"] = int(cut_over_border)
@@ -967,10 +967,7 @@ class WorxCloud(dict):
         if not cut_payload:
             raise ValueError("Unable to determine border-cut settings payload")
 
-        return {
-            "s": [{"id": 1, "c": 1, "cfg": {"cut": cut_payload}}],
-            "p": [],
-        }
+        return cut_payload
 
     def _build_schedule_model(self, mower: dict[str, Any]) -> ScheduleModel:
         """Build a normalized schedule model from the mower cache."""
@@ -1978,14 +1975,14 @@ class WorxCloud(dict):
                 "This device does not support border-cut settings"
             )
 
-        mz_payload = self._build_border_cut_settings_payload(
+        cut_payload = self._build_border_cut_settings_payload(
             cut_over_border=cut_over_border,
             border_distance=border_distance,
         )
         await self.mqtt.apublish(
             mower["uuid"],
             mower["mqtt_topics"]["command_in"],
-            {"mz": mz_payload},
+            {"cut": cut_payload},
             mower["protocol"],
         )
 
@@ -1995,13 +1992,14 @@ class WorxCloud(dict):
             if isinstance(payload, dict):
                 cfg = payload.setdefault("cfg", {})
                 if isinstance(cfg, dict):
-                    cfg["mz"] = self._clone_dict(mz_payload)
                     top_level_cut = cfg.get("cut")
                     if isinstance(top_level_cut, dict):
                         if cut_over_border is not None:
                             top_level_cut["ob"] = int(cut_over_border)
                         if border_distance is not None:
                             top_level_cut["bd"] = border_distance
+                    else:
+                        cfg["cut"] = self._clone_dict(cut_payload)
                     device_handler = self.devices.get(mower["name"])
                     if device_handler is not None:
                         device_handler.raw_data = json.dumps(payload)
