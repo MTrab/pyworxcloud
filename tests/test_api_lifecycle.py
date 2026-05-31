@@ -16,6 +16,7 @@ from pyworxcloud.clouds import CloudType
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.exceptions import (
     AuthorizationError,
+    NoConnectionError,
     NoFirmwareAvailableError,
     NoFirmwareOtaError,
     NotFoundError,
@@ -42,6 +43,7 @@ class DummyMQTT:
     """Simple MQTT stub."""
 
     def __init__(self) -> None:
+        self.connected = True
         self.disconnect_called = False
         self.shutdown_called = False
 
@@ -464,6 +466,29 @@ def test_mqtt_connected_reports_current_client_state() -> None:
     assert cloud.mqtt_connected is False
 
 
+def test_mqtt_commands_raise_connection_error_when_mqtt_is_unavailable() -> None:
+    """MQTT command paths should fail cleanly in API-only fallback mode."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers_by_serial = {
+        "SN-1": {
+            "serial_number": "SN-1",
+            "uuid": "UUID-1",
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/in"},
+        }
+    }
+
+    with pytest.raises(NoConnectionError, match="MQTT connection is not ready"):
+        asyncio.run(cloud.update("SN-1"))
+
+    class DisconnectedMQTT:
+        connected = False
+
+    cloud.mqtt = DisconnectedMQTT()
+    with pytest.raises(NoConnectionError, match="MQTT connection is not ready"):
+        asyncio.run(cloud.update("SN-1"))
+
+
 def test_constructor_rejects_non_positive_command_timeout() -> None:
     """WorxCloud should validate command timeout."""
     with pytest.raises(ValueError):
@@ -549,6 +574,8 @@ def test_update_passes_optional_timeout_to_mqtt_ping() -> None:
     calls: list[tuple[str, str, int, float | None]] = []
 
     class MQTTStub:
+        connected = True
+
         async def aping(
             self,
             serial_number: str,

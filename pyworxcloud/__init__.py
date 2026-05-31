@@ -480,6 +480,25 @@ class WorxCloud(dict):
             return False
         return bool(getattr(mqtt_client, "connected", False))
 
+    def _require_mqtt_connected(self) -> Any:
+        """Return the MQTT client or raise a connection error."""
+        mqtt_client = self.mqtt
+        if mqtt_client is None or not self.mqtt_connected:
+            raise NoConnectionError("MQTT connection is not ready")
+        return mqtt_client
+
+    async def _mqtt_apublish(self, *args: Any, **kwargs: Any) -> None:
+        """Publish over MQTT when the client is currently connected."""
+        await self._require_mqtt_connected().apublish(*args, **kwargs)
+
+    async def _mqtt_aping(self, *args: Any, **kwargs: Any) -> None:
+        """Ping over MQTT when the client is currently connected."""
+        await self._require_mqtt_connected().aping(*args, **kwargs)
+
+    async def _mqtt_acommand(self, *args: Any, **kwargs: Any) -> None:
+        """Send a command over MQTT when the client is currently connected."""
+        await self._require_mqtt_connected().acommand(*args, **kwargs)
+
     def _on_update(self, payload):  # , topic, payload, dup, qos, retain, **kwargs):
         """Triggered when a MQTT message was received."""
         logger = self._log.getChild("MQTT_data_in")
@@ -1062,7 +1081,7 @@ class WorxCloud(dict):
             raise OfflineError("The device is currently offline, no action was sent.")
 
         identifier = mower["serial_number"] if mower["protocol"] == 0 else mower["uuid"]
-        await self.mqtt.apublish(
+        await self._mqtt_apublish(
             identifier,
             mower["mqtt_topics"]["command_in"],
             {"sc": sc_payload},
@@ -1125,14 +1144,14 @@ class WorxCloud(dict):
         _LOGGER.debug("Trying to refresh '%s'", serial_number)
 
         try:
-            await self.mqtt.aping(
+            await self._mqtt_aping(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 mower["protocol"],
                 timeout=timeout,
             )
-        except NoConnectionError:
-            raise NoConnectionError from None
+        except NoConnectionError as err:
+            raise NoConnectionError(str(err)) from None
 
     async def start(self, serial_number: str) -> None:
         """Start mowing task
@@ -1146,7 +1165,7 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             _LOGGER.debug("Sending start command to '%s'", serial_number)
-            await self.mqtt.acommand(
+            await self._mqtt_acommand(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 Command.START,
@@ -1169,7 +1188,7 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
 
         if mower["online"]:
-            await self.mqtt.acommand(
+            await self._mqtt_acommand(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 Command.HOME,
@@ -1189,7 +1208,7 @@ class WorxCloud(dict):
         """
         mower = self.get_mower(serial_number)
         if mower["online"]:
-            await self.mqtt.acommand(
+            await self._mqtt_acommand(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 Command.SAFEHOME,
@@ -1209,7 +1228,7 @@ class WorxCloud(dict):
         """
         mower = self.get_mower(serial_number)
         if mower["online"]:
-            await self.mqtt.acommand(
+            await self._mqtt_acommand(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 Command.PAUSE,
@@ -1234,7 +1253,7 @@ class WorxCloud(dict):
                 rain_delay, "rain_delay", minimum=0, maximum=1440
             )
             if mower["protocol"] == 0:
-                await self.mqtt.apublish(
+                await self._mqtt_apublish(
                     serial_number,
                     mower["mqtt_topics"]["command_in"],
                     {"rd": rain_delay},
@@ -1242,7 +1261,7 @@ class WorxCloud(dict):
                 )
             else:
                 # Protocol 1 requires rd to be wrapped in cfg
-                await self.mqtt.apublish(
+                await self._mqtt_apublish(
                     mower["uuid"],
                     mower["mqtt_topics"]["command_in"],
                     {"cfg": {"rd": rain_delay}},
@@ -1264,7 +1283,7 @@ class WorxCloud(dict):
         state = self._require_bool(state, "state")
         mower = self.get_mower(serial_number)
         if mower["online"]:
-            await self.mqtt.acommand(
+            await self._mqtt_acommand(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 Command.LOCK if state else Command.UNLOCK,
@@ -1291,7 +1310,7 @@ class WorxCloud(dict):
             device = DeviceHandler(self._api, mower, self._tz)
             if device.capabilities.check(DeviceCapability.PARTY_MODE):
                 if mower["protocol"] == 0:
-                    await self.mqtt.apublish(
+                    await self._mqtt_apublish(
                         serial_number if mower["protocol"] == 0 else mower["uuid"],
                         mower["mqtt_topics"]["command_in"],
                         (
@@ -1302,7 +1321,7 @@ class WorxCloud(dict):
                         mower["protocol"],
                     )
                 else:
-                    await self.mqtt.apublish(
+                    await self._mqtt_apublish(
                         serial_number if mower["protocol"] == 0 else mower["uuid"],
                         mower["mqtt_topics"]["command_in"],
                         (
@@ -1346,7 +1365,7 @@ class WorxCloud(dict):
             _LOGGER.debug("Setting offlimits")
             device = DeviceHandler(self._api, mower, self._tz)
             if device.capabilities.check(DeviceCapability.OFF_LIMITS):
-                await self.mqtt.apublish(
+                await self._mqtt_apublish(
                     serial_number if device.protocol == 0 else device.uuid,
                     mower["mqtt_topics"]["command_in"],
                     (
@@ -1393,7 +1412,7 @@ class WorxCloud(dict):
             _LOGGER.debug("Setting offlimits")
             device = DeviceHandler(self._api, mower, self._tz)
             if device.capabilities.check(DeviceCapability.OFF_LIMITS):
-                await self.mqtt.apublish(
+                await self._mqtt_apublish(
                     serial_number if device.protocol == 0 else device.uuid,
                     mower["mqtt_topics"]["command_in"],
                     (
@@ -1461,7 +1480,7 @@ class WorxCloud(dict):
                 new_zones.append(current_zones[(offset + i) % no_indices])
 
             device = DeviceHandler(self._api, mower, self._tz)
-            await self.mqtt.apublish(
+            await self._mqtt_apublish(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 {"mzv": new_zones},
@@ -1482,7 +1501,7 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             _LOGGER.debug("Sending ZONETRAINING command to %s", mower["name"])
-            await self.mqtt.acommand(
+            await self._mqtt_acommand(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 Command.ZONETRAINING,
@@ -1503,7 +1522,7 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             _LOGGER.debug("Sending RESTART command to %s", mower["name"])
-            await self.mqtt.acommand(
+            await self._mqtt_acommand(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 Command.RESTART,
@@ -1918,7 +1937,7 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             if mower["protocol"] == 0:
-                await self.mqtt.apublish(
+                await self._mqtt_apublish(
                     serial_number,
                     mower["mqtt_topics"]["command_in"],
                     {"tq": torque},
@@ -1926,7 +1945,7 @@ class WorxCloud(dict):
                 )
             else:
                 # Protocol 1 requires tq to be wrapped in cfg
-                await self.mqtt.apublish(
+                await self._mqtt_apublish(
                     mower["uuid"],
                     mower["mqtt_topics"]["command_in"],
                     {"cfg": {"tq": torque}},
@@ -1946,14 +1965,14 @@ class WorxCloud(dict):
             device = DeviceHandler(self._api, mower, self._tz)
             if device.capabilities.check(DeviceCapability.EDGE_CUT):
                 if mower["protocol"] == 0:
-                    await self.mqtt.apublish(
+                    await self._mqtt_apublish(
                         serial_number,
                         mower["mqtt_topics"]["command_in"],
                         {"sc": {"ots": {"bc": 1, "wtm": 0}}},
                         mower["protocol"],
                     )
                 else:
-                    await self.mqtt.apublish(
+                    await self._mqtt_apublish(
                         mower["uuid"],
                         mower["mqtt_topics"]["command_in"],
                         {"cmd": 101},
@@ -1986,14 +2005,14 @@ class WorxCloud(dict):
 
                 device = DeviceHandler(self._api, mower, self._tz)
                 if mower["protocol"] == 0:
-                    await self.mqtt.apublish(
+                    await self._mqtt_apublish(
                         serial_number,
                         mower["mqtt_topics"]["command_in"],
                         {"sc": {"ots": {"bc": int(boundary), "wtm": runtime}}},
                         mower["protocol"],
                     )
                 else:
-                    await self.mqtt.apublish(
+                    await self._mqtt_apublish(
                         mower["uuid"],
                         mower["mqtt_topics"]["command_in"],
                         {
@@ -2053,7 +2072,7 @@ class WorxCloud(dict):
             cut_over_border=cut_over_border,
             border_distance=border_distance,
         )
-        await self.mqtt.apublish(
+        await self._mqtt_apublish(
             mower["uuid"],
             mower["mqtt_topics"]["command_in"],
             {"cut": cut_payload},
@@ -2125,7 +2144,7 @@ class WorxCloud(dict):
         mower = self.get_mower(serial_number)
         if mower["online"]:
             _LOGGER.debug("Sending %s to %s", data, mower["name"])
-            await self.mqtt.apublish(
+            await self._mqtt_apublish(
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 json.loads(data),
@@ -2212,7 +2231,7 @@ class WorxCloud(dict):
         if mower["online"]:
             device = DeviceHandler(self._api, mower, self._tz)
             if device.capabilities.check(DeviceCapability.CUTTING_HEIGHT):
-                await self.mqtt.apublish(
+                await self._mqtt_apublish(
                     serial_number if mower["protocol"] == 0 else mower["uuid"],
                     mower["mqtt_topics"]["command_in"],
                     {"cmd": 0, "modules": {"EA": {"h": height}}},
@@ -2241,7 +2260,7 @@ class WorxCloud(dict):
         if mower["online"]:
             device = DeviceHandler(self._api, mower, self._tz)
             if device.capabilities.check(DeviceCapability.ACS):
-                await self.mqtt.apublish(
+                await self._mqtt_apublish(
                     serial_number if mower["protocol"] == 0 else mower["uuid"],
                     mower["mqtt_topics"]["command_in"],
                     {"cmd": 0, "modules": {"US": {"enabled": 1 if state else 0}}},
