@@ -63,6 +63,7 @@ _LOGGER = logging.getLogger(__name__)
 API_REFRESH_TIME_MIN = 5
 API_REFRESH_TIME_MAX = 10
 DEFAULT_COMMAND_TIMEOUT = 30.0
+MQTT_RECONNECT_RETRY_SECONDS = 5 * 60
 VISION_BORDER_DISTANCE_MM_VALUES = (50, 100, 150, 200)
 
 
@@ -194,6 +195,7 @@ class WorxCloud(dict):
         self._decoding: bool = False
 
         self._api_refresh_task: asyncio.Task | None = None
+        self._mqtt_retry_task: asyncio.Task | None = None
         self._disconnecting = asyncio.Event()
         self._loop: asyncio.AbstractEventLoop | None = None
         self._sync_loop: asyncio.AbstractEventLoop | None = None
@@ -297,38 +299,52 @@ class WorxCloud(dict):
         if self._api_refresh_task is not None:
             self._api_refresh_task.cancel()
             self._api_refresh_task = None
+        if self._mqtt_retry_task is not None:
+            self._mqtt_retry_task.cancel()
+            try:
+                await self._mqtt_retry_task
+            except asyncio.CancelledError:
+                pass
+            self._mqtt_retry_task = None
 
         # Disconnect MQTT connection
         try:
-            if self.mqtt is not None:
-                disconnect_failed = False
-                try:
-                    started = time.perf_counter()
-                    await self.mqtt.adisconnect()
-                    logger.debug(
-                        "MQTT adisconnect completed in %.3fs",
-                        time.perf_counter() - started,
-                    )
-                except Exception as err:
-                    disconnect_failed = True
-                    logger.debug("Could not disconnect MQTT cleanly: %s", err)
-
-                try:
-                    started = time.perf_counter()
-                    await self.mqtt.ashutdown()
-                    logger.debug(
-                        "MQTT ashutdown completed in %.3fs",
-                        time.perf_counter() - started,
-                    )
-                except Exception as err:
-                    logger.debug("Could not shutdown MQTT cleanly: %s", err)
-                    if not disconnect_failed:
-                        raise
+            await self._disconnect_mqtt(logger)
         finally:
-            self.mqtt = None
             started = time.perf_counter()
             await self._api.close()
             logger.debug("API close completed in %.3fs", time.perf_counter() - started)
+
+    async def _disconnect_mqtt(self, logger: logging.Logger) -> None:
+        """Disconnect and release the MQTT client without closing the API session."""
+        if self.mqtt is None:
+            return
+
+        disconnect_failed = False
+        try:
+            started = time.perf_counter()
+            await self.mqtt.adisconnect()
+            logger.debug(
+                "MQTT adisconnect completed in %.3fs",
+                time.perf_counter() - started,
+            )
+        except Exception as err:
+            disconnect_failed = True
+            logger.debug("Could not disconnect MQTT cleanly: %s", err)
+
+        try:
+            started = time.perf_counter()
+            await self.mqtt.ashutdown()
+            logger.debug(
+                "MQTT ashutdown completed in %.3fs",
+                time.perf_counter() - started,
+            )
+        except Exception as err:
+            logger.debug("Could not shutdown MQTT cleanly: %s", err)
+            if not disconnect_failed:
+                raise
+        finally:
+            self.mqtt = None
 
     async def connect(
         self,
@@ -354,25 +370,15 @@ class WorxCloud(dict):
             self._endpoint = self._mowers[0]["mqtt_endpoint"]
             self._user_id = self._mowers[0]["user_id"]
 
-            self._log.debug("Setting up MQTT handler")
-            # setup MQTT handler
-            self.mqtt = await asyncio.to_thread(
-                MQTT,
-                self._api,
-                self._cloud.BRAND_PREFIX,
-                self._endpoint,
-                self._user_id,
-                self._log,
-                self._on_update,
-                identifier_resolver=self._resolve_mower_identifiers,
-                deduplicate_inflight_commands=self._deduplicate_inflight_commands,
-                response_timeout=self._command_timeout,
-            )
-
-            await self.mqtt.aconnect()
-
-            for mower in self._mowers:
-                await self.mqtt.asubscribe(mower["mqtt_topics"]["command_out"], True)
+            try:
+                await self._connect_mqtt_once(log_connect_errors=False)
+            except Exception:
+                logger.debug(
+                    "MQTT connect failed; continuing with API refresh fallback",
+                    exc_info=True,
+                )
+                await self._disconnect_mqtt(logger)
+                self._schedule_mqtt_retry()
 
             # Convert time strings to objects.
             for name, device in self.devices.items():
@@ -395,6 +401,63 @@ class WorxCloud(dict):
                     "Cleanup after failed connect raised",
                     exc_info=True,
                 )
+            raise
+
+    async def _connect_mqtt_once(self, log_connect_errors: bool = True) -> None:
+        """Create, connect, and subscribe the MQTT client once."""
+        self._log.debug("Setting up MQTT handler")
+        self.mqtt = await asyncio.to_thread(
+            MQTT,
+            self._api,
+            self._cloud.BRAND_PREFIX,
+            self._endpoint,
+            self._user_id,
+            self._log,
+            self._on_update,
+            identifier_resolver=self._resolve_mower_identifiers,
+            deduplicate_inflight_commands=self._deduplicate_inflight_commands,
+            response_timeout=self._command_timeout,
+        )
+        self.mqtt._log_connect_errors = log_connect_errors
+
+        await self.mqtt.aconnect()
+
+        for mower in self._mowers:
+            await self.mqtt.asubscribe(mower["mqtt_topics"]["command_out"], True)
+
+    def _schedule_mqtt_retry(self) -> None:
+        """Schedule background MQTT reconnect attempts without touching API polling."""
+        if self._disconnecting.is_set():
+            return
+        if self._mqtt_retry_task is not None and not self._mqtt_retry_task.done():
+            return
+        self._mqtt_retry_task = asyncio.create_task(self._mqtt_retry_loop())
+
+    async def _mqtt_retry_loop(self) -> None:
+        """Retry MQTT in the background until it reconnects or the cloud disconnects."""
+        logger = self._log.getChild("MQTT_Retry")
+        try:
+            while not self._disconnecting.is_set():
+                await asyncio.sleep(MQTT_RECONNECT_RETRY_SECONDS)
+                if self._disconnecting.is_set():
+                    return
+                if self.mqtt is not None and self.mqtt.connected:
+                    return
+
+                try:
+                    await self._disconnect_mqtt(logger)
+                    await self._connect_mqtt_once(log_connect_errors=False)
+                except Exception:
+                    logger.debug(
+                        "Background MQTT reconnect failed; will retry",
+                        exc_info=True,
+                    )
+                    await self._disconnect_mqtt(logger)
+                    continue
+
+                logger.debug("Background MQTT reconnect completed")
+                return
+        except asyncio.CancelledError:
             raise
 
     async def _token_updated(self) -> None:

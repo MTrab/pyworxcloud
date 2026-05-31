@@ -588,7 +588,12 @@ class MQTT(LDict):
             self._connection_future = None
             self._get_ready_event().clear()
             self._safe_loop_stop(client)
-            self._log.error("Failed to connect to MQTT: %s", exc)
+            log_method = (
+                self._log.error
+                if getattr(self, "_log_connect_errors", True)
+                else self._log.debug
+            )
+            log_method("Failed to connect to MQTT: %s", exc)
             raise NoConnectionError() from exc
 
     async def aconnect(self) -> None:
