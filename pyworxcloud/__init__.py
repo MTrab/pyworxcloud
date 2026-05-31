@@ -465,8 +465,10 @@ class WorxCloud(dict):
 
     async def _token_updated(self) -> None:
         """Called when token is updated."""
-        if self.mqtt is not None:
+        if self.mqtt_connected:
             await self.mqtt.aupdate_token()
+        elif self.mqtt is not None:
+            self._schedule_mqtt_retry()
 
     def _bind_device_mqtt_state(self, device: DeviceHandler) -> DeviceHandler:
         """Bind a device object to the current cloud-level MQTT state."""

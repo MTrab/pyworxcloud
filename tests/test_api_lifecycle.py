@@ -358,6 +358,39 @@ def test_token_updated_is_noop_without_mqtt() -> None:
     asyncio.run(cloud._token_updated())
 
 
+def test_token_updated_refreshes_mqtt_only_when_connected() -> None:
+    """Token refresh should not force MQTT reconnects while MQTT is down."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    retry_calls = 0
+
+    class TokenMQTT:
+        def __init__(self, connected: bool) -> None:
+            self.connected = connected
+            self.update_calls = 0
+
+        async def aupdate_token(self) -> None:
+            self.update_calls += 1
+
+    def _schedule_retry() -> None:
+        nonlocal retry_calls
+        retry_calls += 1
+
+    cloud._schedule_mqtt_retry = _schedule_retry  # type: ignore[method-assign]
+    mqtt = TokenMQTT(False)
+    cloud.mqtt = mqtt
+
+    asyncio.run(cloud._token_updated())
+
+    assert mqtt.update_calls == 0
+    assert retry_calls == 1
+
+    mqtt.connected = True
+    asyncio.run(cloud._token_updated())
+
+    assert mqtt.update_calls == 1
+    assert retry_calls == 1
+
+
 def test_get_logger_does_not_accumulate_handlers() -> None:
     """Repeated logger setup should not attach output handlers or force levels."""
     get_logger("pyworxcloud.test_handlers")
