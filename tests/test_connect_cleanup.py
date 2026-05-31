@@ -145,10 +145,8 @@ def test_mqtt_background_retry_reconnects_without_api_refetch(monkeypatch) -> No
 
     async def _exercise() -> None:
         assert await cloud.connect() is True
-        for _ in range(50):
-            await asyncio.sleep(0)
-            if cloud.mqtt is not None:
-                break
+        assert cloud._mqtt_retry_task is not None
+        await asyncio.wait_for(cloud._mqtt_retry_task, timeout=1)
         assert cloud.mqtt is TransientMQTT.instances[1]
         assert cloud.mqtt.subscriptions == ["topic/out"]
         await cloud.disconnect()

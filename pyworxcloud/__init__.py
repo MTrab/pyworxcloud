@@ -374,8 +374,7 @@ class WorxCloud(dict):
                 await self._connect_mqtt_once(log_connect_errors=False)
             except Exception:
                 logger.debug(
-                    "MQTT connect failed; continuing with API refresh fallback",
-                    exc_info=True,
+                    "MQTT connect failed; continuing with API refresh fallback"
                 )
                 await self._disconnect_mqtt(logger)
                 self._schedule_mqtt_retry()
@@ -448,10 +447,7 @@ class WorxCloud(dict):
                     await self._disconnect_mqtt(logger)
                     await self._connect_mqtt_once(log_connect_errors=False)
                 except Exception:
-                    logger.debug(
-                        "Background MQTT reconnect failed; will retry",
-                        exc_info=True,
-                    )
+                    logger.debug("Background MQTT reconnect failed; will retry")
                     await self._disconnect_mqtt(logger)
                     continue
 
