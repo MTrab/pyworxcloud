@@ -40,10 +40,12 @@ class FailingMQTT:
         _logger: Any,
         _callback: Any,
         response_timeout: float,
+        connect_timeout: float | None = None,
         identifier_resolver: Any = None,
         deduplicate_inflight_commands: bool = False,
     ) -> None:
         self.response_timeout = response_timeout
+        self.connect_timeout = connect_timeout
         self.identifier_resolver = identifier_resolver
         self.deduplicate_inflight_commands = deduplicate_inflight_commands
         self.disconnect_calls = 0

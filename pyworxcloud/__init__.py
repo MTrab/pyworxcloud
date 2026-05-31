@@ -63,6 +63,7 @@ _LOGGER = logging.getLogger(__name__)
 API_REFRESH_TIME_MIN = 5
 API_REFRESH_TIME_MAX = 10
 DEFAULT_COMMAND_TIMEOUT = 30.0
+DEFAULT_MQTT_CONNECT_TIMEOUT = 8.0
 MQTT_RECONNECT_RETRY_SECONDS = 5 * 60
 VISION_BORDER_DISTANCE_MM_VALUES = (50, 100, 150, 200)
 
@@ -89,6 +90,7 @@ class WorxCloud(dict):
         verify_ssl: bool = True,
         tz: str | None = None,  # pylint: disable=invalid-name
         command_timeout: float = DEFAULT_COMMAND_TIMEOUT,
+        mqtt_connect_timeout: float = DEFAULT_MQTT_CONNECT_TIMEOUT,
         deduplicate_inflight_commands: bool = False,
     ) -> None:
         """
@@ -181,6 +183,9 @@ class WorxCloud(dict):
         if command_timeout <= 0:
             raise ValueError("command_timeout must be greater than 0")
         self._command_timeout = float(command_timeout)
+        if mqtt_connect_timeout <= 0:
+            raise ValueError("mqtt_connect_timeout must be greater than 0")
+        self._mqtt_connect_timeout = float(mqtt_connect_timeout)
         self._deduplicate_inflight_commands = bool(deduplicate_inflight_commands)
         _LOGGER.debug("Initializing EventHandler ...")
         self._events = EventHandler()
@@ -416,6 +421,7 @@ class WorxCloud(dict):
             identifier_resolver=self._resolve_mower_identifiers,
             deduplicate_inflight_commands=self._deduplicate_inflight_commands,
             response_timeout=self._command_timeout,
+            connect_timeout=self._mqtt_connect_timeout,
         )
         self.mqtt._log_connect_errors = log_connect_errors
 

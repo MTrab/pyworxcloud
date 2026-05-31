@@ -99,6 +99,7 @@ class CapturingMQTT:
     """MQTT constructor stub capturing provided timeout."""
 
     last_response_timeout: float | None = None
+    last_connect_timeout: float | None = None
     constructor_thread_id: int | None = None
 
     def __init__(
@@ -110,12 +111,14 @@ class CapturingMQTT:
         _logger: Any,
         _callback: Any,
         response_timeout: float,
+        connect_timeout: float | None = None,
         identifier_resolver: Any = None,
         deduplicate_inflight_commands: bool = False,
     ) -> None:
         self.identifier_resolver = identifier_resolver
         self.deduplicate_inflight_commands = deduplicate_inflight_commands
         self.__class__.last_response_timeout = response_timeout
+        self.__class__.last_connect_timeout = connect_timeout
         self.__class__.constructor_thread_id = threading.get_ident()
 
     async def aconnect(self) -> None:
@@ -145,12 +148,14 @@ class TrackingMQTT:
         _logger: Any,
         _callback: Any,
         response_timeout: float,
+        connect_timeout: float | None = None,
         identifier_resolver: Any = None,
         deduplicate_inflight_commands: bool = False,
     ) -> None:
         self.identifier_resolver = identifier_resolver
         self.deduplicate_inflight_commands = deduplicate_inflight_commands
         self.response_timeout = response_timeout
+        self.connect_timeout = connect_timeout
         self.disconnect_calls = 0
         self.shutdown_calls = 0
         self.subscriptions: list[str] = []
@@ -445,13 +450,20 @@ def test_constructor_rejects_non_positive_command_timeout() -> None:
         WorxCloud("user@example.com", "secret", "worx", command_timeout=0)
 
 
-def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
-    """Configured command timeout should be forwarded to MQTT layer."""
+def test_constructor_rejects_non_positive_mqtt_connect_timeout() -> None:
+    """WorxCloud should validate MQTT connect timeout."""
+    with pytest.raises(ValueError):
+        WorxCloud("user@example.com", "secret", "worx", mqtt_connect_timeout=0)
+
+
+def test_connect_passes_configured_timeouts_to_mqtt(monkeypatch) -> None:
+    """Configured timeouts should be forwarded to MQTT layer."""
     cloud = WorxCloud(
         "user@example.com",
         "secret",
         "worx",
         command_timeout=12.5,
+        mqtt_connect_timeout=4.5,
     )
 
     async def _fake_fetch() -> None:
@@ -471,6 +483,7 @@ def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
 
     assert asyncio.run(cloud.connect()) is True
     assert CapturingMQTT.last_response_timeout == 12.5
+    assert CapturingMQTT.last_connect_timeout == 4.5
 
 
 def test_connect_constructs_mqtt_off_event_loop_thread(monkeypatch) -> None:

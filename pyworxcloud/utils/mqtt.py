@@ -160,6 +160,7 @@ class MQTT(LDict):
         identifier_resolver: Callable[[str], set[str]] | None = None,
         deduplicate_inflight_commands: bool = False,
         response_timeout: float = DEFAULT_RESPONSE_TIMEOUT,
+        connect_timeout: float | None = None,
     ) -> dict:
         """Initialize the paho-mqtt handler."""
 
@@ -199,6 +200,13 @@ class MQTT(LDict):
         if response_timeout <= 0:
             raise ValueError("response_timeout must be greater than 0")
         self._response_timeout = float(response_timeout)
+        if connect_timeout is not None and connect_timeout <= 0:
+            raise ValueError("connect_timeout must be greater than 0")
+        self._connect_timeout = (
+            self._response_timeout
+            if connect_timeout is None
+            else float(connect_timeout)
+        )
         self._client_id = (
             f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}"
         )
@@ -559,7 +567,7 @@ class MQTT(LDict):
             _wait_for_operation(result)
             client.loop_start()
 
-            if not connect_event.wait(self._response_timeout):
+            if not connect_event.wait(self._connect_timeout):
                 raise TimeoutException("Timed out waiting for MQTT connection")
             if self._connect_error is not None:
                 raise self._connect_error
