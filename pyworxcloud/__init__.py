@@ -18,6 +18,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .api import LandroidCloudAPI
 from .clouds import CloudType
+from .const import (
+    API_REFRESH_TIME_MAX,
+    API_REFRESH_TIME_MIN,
+    DEFAULT_COMMAND_TIMEOUT,
+    DEFAULT_MQTT_CONNECT_TIMEOUT,
+    MQTT_RECONNECT_RETRY_SECONDS,
+    VISION_BORDER_DISTANCE_MM_VALUES,
+)
 from .events import EventHandler, LandroidEvent
 from .exceptions import (
     AuthorizationError,
@@ -59,13 +67,6 @@ if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
 
 _LOGGER = logging.getLogger(__name__)
-
-API_REFRESH_TIME_MIN = 5
-API_REFRESH_TIME_MAX = 10
-DEFAULT_COMMAND_TIMEOUT = 30.0
-DEFAULT_MQTT_CONNECT_TIMEOUT = 8.0
-MQTT_RECONNECT_RETRY_SECONDS = 15 * 60
-VISION_BORDER_DISTANCE_MM_VALUES = (50, 100, 150, 200)
 
 
 class WorxCloud(dict):
