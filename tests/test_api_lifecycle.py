@@ -444,6 +444,26 @@ def test_on_api_update_dispatches_api_event_callback() -> None:
     assert received == [{"key": "value"}]
 
 
+def test_mqtt_connected_reports_current_client_state() -> None:
+    """MQTT connection property should mirror the current client state."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+
+    class MQTTState:
+        def __init__(self, connected: bool) -> None:
+            self.connected = connected
+
+    assert cloud.mqtt_connected is False
+
+    cloud.mqtt = MQTTState(True)
+    assert cloud.mqtt_connected is True
+
+    cloud.mqtt.connected = False
+    assert cloud.mqtt_connected is False
+
+    cloud.mqtt = None
+    assert cloud.mqtt_connected is False
+
+
 def test_constructor_rejects_non_positive_command_timeout() -> None:
     """WorxCloud should validate command timeout."""
     with pytest.raises(ValueError):

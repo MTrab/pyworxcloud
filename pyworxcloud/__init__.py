@@ -472,6 +472,14 @@ class WorxCloud(dict):
         """Return current authentication result."""
         return self._auth_result
 
+    @property
+    def mqtt_connected(self) -> bool:
+        """Return whether the MQTT client is currently connected."""
+        mqtt_client = self.mqtt
+        if mqtt_client is None:
+            return False
+        return bool(getattr(mqtt_client, "connected", False))
+
     def _on_update(self, payload):  # , topic, payload, dup, qos, retain, **kwargs):
         """Triggered when a MQTT message was received."""
         logger = self._log.getChild("MQTT_data_in")
