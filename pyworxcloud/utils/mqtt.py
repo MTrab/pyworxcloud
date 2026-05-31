@@ -372,6 +372,12 @@ class MQTT(LDict):
 
         reason_code = args[-2] if len(args) >= 2 else args[-1] if args else 0
         if _reason_code_value(reason_code) != MQTT_CONNECT_ACCEPTED:
+            connect_event = self._get_connect_event()
+            if not self._is_connected and not connect_event.is_set():
+                self._connect_error = NoConnectionError(
+                    f"MQTT connection interrupted before ready: {reason_code}"
+                )
+                connect_event.set()
             self._on_connection_interrupted(
                 connection, reason_code, generation=generation
             )

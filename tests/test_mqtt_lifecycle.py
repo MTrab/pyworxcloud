@@ -8,6 +8,7 @@ import time
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
+from pyworxcloud.events import EventHandler
 from pyworxcloud.utils.mqtt import MQTT, MQTT_CONNECT_ACCEPTED
 
 
@@ -214,3 +215,18 @@ def test_connection_resumed_resubscribes_when_session_is_not_present() -> None:
     assert mqtt._is_connected is False
     assert mqtt._awaiting_post_resume_message is False
     assert reconnect_calls == ["called"]
+
+
+def test_disconnect_before_initial_connect_unblocks_connect_wait() -> None:
+    """A broker hangup during initial connect should fail the attempt immediately."""
+    mqtt = _build_mqtt_lifecycle_fixture(connected=False, client=_ClientStub())
+    mqtt._events = EventHandler()
+    mqtt._connect_error = None
+    connect_event = mqtt._get_connect_event()
+    connect_event.clear()
+
+    mqtt._on_paho_disconnect(mqtt.client, None, 1)
+
+    assert connect_event.is_set() is True
+    assert mqtt._connect_error is not None
+    assert "before ready" in str(mqtt._connect_error)
