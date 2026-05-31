@@ -150,8 +150,6 @@ class WorxCloud(dict):
         _LOGGER.debug("Initializing connector...")
         super().__init__()
 
-        self._worx_mqtt_client_id = None
-
         if not isinstance(
             cloud,
             (
@@ -179,7 +177,6 @@ class WorxCloud(dict):
         self._raw = None
         self._tz = tz
 
-        self._save_zones = None
         self._verify_ssl = verify_ssl
         if command_timeout <= 0:
             raise ValueError("command_timeout must be greater than 0")
@@ -197,8 +194,6 @@ class WorxCloud(dict):
         self._mowers_by_serial: dict[str, dict[str, Any]] = {}
         self._mowers_by_uuid: dict[str, dict[str, Any]] = {}
         self._mowers_by_mac: dict[str, dict[str, Any]] = {}
-
-        self._decoding: bool = False
 
         self._api_refresh_task: asyncio.Task | None = None
         self._mqtt_retry_task: asyncio.Task | None = None

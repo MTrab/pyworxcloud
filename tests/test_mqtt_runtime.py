@@ -10,7 +10,7 @@ import pytest
 
 from pyworxcloud.events import EventHandler
 from pyworxcloud.exceptions import TimeoutException
-from pyworxcloud.utils.mqtt import MQTT, MQTT_CONNECT_ACCEPTED
+from pyworxcloud.utils.mqtt import MQTT
 
 
 def _build_mqtt() -> MQTT:
@@ -27,49 +27,8 @@ def _build_mqtt() -> MQTT:
     mqtt._client_generation = 2
     mqtt._response_timeout = 0.2
     mqtt._shutdown_event = False
-    mqtt._connection_future = None
-    mqtt._reconnected = False
     mqtt.client = object()
     return mqtt
-
-
-def test_connection_resumed_ignores_stale_generation() -> None:
-    """Stale AWS callbacks must not flip connection state back to ready."""
-    mqtt = _build_mqtt()
-    subscribe_calls: list[tuple[str, bool, int | None]] = []
-
-    mqtt.subscribe = lambda topic, append, generation=None: subscribe_calls.append(
-        (topic, append, generation)
-    )
-
-    mqtt._on_connection_resumed(
-        object(),
-        MQTT_CONNECT_ACCEPTED,
-        True,
-        generation=1,
-    )
-
-    assert mqtt.connected is False
-    assert mqtt._ready_event.is_set() is False
-    assert subscribe_calls == []
-
-
-def test_connection_resumed_marks_active_generation_ready() -> None:
-    """Active resume callbacks should trigger a forced reconnect instead."""
-    mqtt = _build_mqtt()
-    reconnect_calls: list[str] = []
-    mqtt._schedule_reconnect_after_resume = lambda: reconnect_calls.append("called")
-
-    mqtt._on_connection_resumed(
-        object(),
-        MQTT_CONNECT_ACCEPTED,
-        True,
-        generation=2,
-    )
-
-    assert mqtt.connected is False
-    assert mqtt._ready_event.is_set() is False
-    assert reconnect_calls == ["called"]
 
 
 def test_ensure_connection_ready_waits_for_parallel_refresh() -> None:

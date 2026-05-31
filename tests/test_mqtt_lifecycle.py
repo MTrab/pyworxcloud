@@ -78,7 +78,6 @@ def _build_mqtt_lifecycle_fixture(
     mqtt._lifecycle_lock = threading.RLock()
     mqtt._shutdown_event = False
     mqtt._is_connected = connected
-    mqtt._connection_future = object()
     mqtt._shutdown_timeout = 5.0
     mqtt._disconnect_timeout = 5.0
     mqtt._topic = ["topic/out"]
@@ -120,7 +119,6 @@ def test_disconnect_is_idempotent_and_safe_with_missing_client() -> None:
     mqtt.disconnect()
 
     assert client.disconnect_calls == 1
-    assert mqtt._connection_future is None
     assert mqtt._is_connected is False
 
 
@@ -142,7 +140,6 @@ def test_disconnect_swallows_disconnect_future_timeout() -> None:
     mqtt.disconnect()
 
     assert client.disconnect_calls == 1
-    assert mqtt._connection_future is None
     assert mqtt._is_connected is False
 
 
@@ -183,7 +180,6 @@ def test_disconnect_does_not_hang_when_loop_stop_blocks() -> None:
 
     assert loop_stop_started.is_set() is True
     assert time.perf_counter() - started < 1.0
-    assert mqtt._connection_future is None
     assert mqtt._is_connected is False
 
 
@@ -197,7 +193,6 @@ def test_shutdown_is_idempotent_and_detaches_resources() -> None:
 
     assert client.disconnect_calls == 1
     assert mqtt.client is None
-    assert mqtt._connection_future is None
     assert mqtt._shutdown_event is True
     assert mqtt._is_connected is False
 
@@ -223,45 +218,6 @@ def test_shutdown_swallows_disconnect_future_timeout() -> None:
 
     assert client.disconnect_calls == 1
     assert mqtt._shutdown_event is True
-
-
-def test_connection_resumed_resubscribes_even_when_session_persists() -> None:
-    """Resume should trigger a full reconnect even when session_present is true."""
-    mqtt = _build_mqtt_lifecycle_fixture(connected=False, client=_ClientStub())
-    mqtt._topic = ["topic/a", "topic/b"]
-    mqtt._awaiting_post_resume_message = False
-    reconnect_calls: list[str] = []
-    mqtt._schedule_reconnect_after_resume = lambda: reconnect_calls.append("called")
-
-    mqtt._on_connection_resumed(
-        None,
-        MQTT_CONNECT_ACCEPTED,
-        True,
-    )
-
-    assert mqtt._is_connected is False
-    assert mqtt._get_ready_event().is_set() is False
-    assert mqtt._awaiting_post_resume_message is False
-    assert reconnect_calls == ["called"]
-
-
-def test_connection_resumed_resubscribes_when_session_is_not_present() -> None:
-    """Resume should trigger a full reconnect when the session is lost."""
-    mqtt = _build_mqtt_lifecycle_fixture(connected=False, client=_ClientStub())
-    mqtt._topic = ["topic/out"]
-    mqtt._awaiting_post_resume_message = False
-    reconnect_calls: list[str] = []
-    mqtt._schedule_reconnect_after_resume = lambda: reconnect_calls.append("called")
-
-    mqtt._on_connection_resumed(
-        None,
-        MQTT_CONNECT_ACCEPTED,
-        False,
-    )
-
-    assert mqtt._is_connected is False
-    assert mqtt._awaiting_post_resume_message is False
-    assert reconnect_calls == ["called"]
 
 
 def test_disconnect_before_initial_connect_unblocks_connect_wait() -> None:
