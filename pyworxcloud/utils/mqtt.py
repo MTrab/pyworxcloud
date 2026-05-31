@@ -347,8 +347,16 @@ class MQTT(LDict):
         if _reason_code_value(reason_code) == MQTT_CONNECT_ACCEPTED:
             self._is_connected = True
             self._connect_error = None
+            self._awaiting_post_resume_message = False
+            self._get_ready_event().set()
+            for topic in list(self._topic):
+                self._log.debug(
+                    "Resubscribing to '%s' after MQTT connect callback", topic
+                )
+                self._resubscribe_topic(topic, generation)
         else:
             self._is_connected = False
+            self._get_ready_event().clear()
             self._connect_error = NoConnectionError(
                 f"MQTT connection rejected with result {reason_code}"
             )
@@ -596,10 +604,6 @@ class MQTT(LDict):
                 self._is_connected = True
                 self._reconnected = False
                 self._awaiting_post_resume_message = False
-
-            for topic in self._topic:
-                self._log.debug("Subscribing to '%s'", topic)
-                self._resubscribe_topic(topic, generation)
 
             self._get_ready_event().set()
             self._events.call(LandroidEvent.MQTT_CONNECTION, state=True)

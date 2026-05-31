@@ -35,6 +35,7 @@ class _ClientStub:
 
     def __init__(self, should_raise: bool = False) -> None:
         self.disconnect_calls = 0
+        self.subscriptions: list[tuple[str, int]] = []
         self.should_raise = should_raise
         self.future: Any = _ImmediateFuture()
 
@@ -42,6 +43,10 @@ class _ClientStub:
         self.disconnect_calls += 1
         if self.should_raise:
             raise RuntimeError("disconnect failed")
+        return self.future
+
+    def subscribe(self, topic: str, qos: int) -> _ImmediateFuture:
+        self.subscriptions.append((topic, qos))
         return self.future
 
 
@@ -272,3 +277,54 @@ def test_disconnect_before_initial_connect_unblocks_connect_wait() -> None:
     assert connect_event.is_set() is True
     assert mqtt._connect_error is not None
     assert "before ready" in str(mqtt._connect_error)
+
+
+def test_connect_callback_resubscribes_existing_topics() -> None:
+    """Paho reconnect callbacks should restore subscriptions without extra reconnects."""
+    client = _ClientStub()
+    mqtt = _build_mqtt_lifecycle_fixture(connected=False, client=client)
+    mqtt._events = EventHandler()
+    mqtt._ready_event = threading.Event()
+    mqtt._connect_event = threading.Event()
+    mqtt._connect_error = None
+    mqtt._topic = ["topic/a", "topic/b"]
+    mqtt._active_generation = 7
+
+    mqtt._on_paho_connect(
+        client,
+        None,
+        {"session present": False},
+        MQTT_CONNECT_ACCEPTED,
+        generation=7,
+    )
+
+    assert mqtt.connected is True
+    assert mqtt._get_ready_event().is_set() is True
+    assert mqtt._get_connect_event().is_set() is True
+    assert client.subscriptions == [("topic/a", 1), ("topic/b", 1)]
+
+
+def test_rejected_connect_callback_clears_ready_without_subscribing() -> None:
+    """Rejected connect callbacks should not leave the MQTT client ready."""
+    client = _ClientStub()
+    mqtt = _build_mqtt_lifecycle_fixture(connected=True, client=client)
+    mqtt._ready_event = threading.Event()
+    mqtt._ready_event.set()
+    mqtt._connect_event = threading.Event()
+    mqtt._connect_error = None
+    mqtt._topic = ["topic/a"]
+    mqtt._active_generation = 7
+
+    mqtt._on_paho_connect(
+        client,
+        None,
+        {"session present": False},
+        1,
+        generation=7,
+    )
+
+    assert mqtt.connected is False
+    assert mqtt._get_ready_event().is_set() is False
+    assert mqtt._get_connect_event().is_set() is True
+    assert mqtt._connect_error is not None
+    assert client.subscriptions == []
