@@ -8,6 +8,10 @@ import time
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
+from pyworxcloud.const import (
+    PAHO_MQTT_RECONNECT_MAX_DELAY_SECONDS,
+    PAHO_MQTT_RECONNECT_MIN_DELAY_SECONDS,
+)
 from pyworxcloud.events import EventHandler
 from pyworxcloud.utils.mqtt import MQTT, MQTT_CONNECT_ACCEPTED
 
@@ -41,6 +45,26 @@ class _ClientStub:
         return self.future
 
 
+class _PahoConfigStub:
+    """Client stub that records setup calls."""
+
+    def __init__(self) -> None:
+        self.reconnect_delay: tuple[int, int] | None = None
+
+    def username_pw_set(self, username: str, password: str | None = None) -> None:
+        self.username = username
+        self.password = password
+
+    def tls_set(self, **_kwargs: Any) -> None:
+        return None
+
+    def ws_set_options(self, **_kwargs: Any) -> None:
+        return None
+
+    def reconnect_delay_set(self, min_delay: int, max_delay: int) -> None:
+        self.reconnect_delay = (min_delay, max_delay)
+
+
 def _build_mqtt_lifecycle_fixture(
     *, connected: bool = True, client: Any | None = None
 ) -> MQTT:
@@ -61,6 +85,24 @@ def _build_mqtt_lifecycle_fixture(
     mqtt._pending_command_signature = None
     mqtt.client = client
     return mqtt
+
+
+def test_create_mqtt_connection_uses_conservative_paho_reconnect_backoff() -> None:
+    """Paho reconnect backoff should not hammer the broker."""
+    mqtt = MQTT.__new__(MQTT)
+    mqtt._api = type("API", (), {"access_token": "aaa.bbb.ccc"})()
+    mqtt._client_generation = 0
+    mqtt._active_generation = 0
+    mqtt._client_id = "client-id"
+    mqtt._log = logging.getLogger("test")
+    client = _PahoConfigStub()
+    mqtt._create_paho_client = lambda: client
+
+    assert mqtt._create_mqtt_connection() is client
+    assert client.reconnect_delay == (
+        PAHO_MQTT_RECONNECT_MIN_DELAY_SECONDS,
+        PAHO_MQTT_RECONNECT_MAX_DELAY_SECONDS,
+    )
 
 
 def test_disconnect_is_idempotent_and_safe_with_missing_client() -> None:

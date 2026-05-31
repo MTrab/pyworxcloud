@@ -23,6 +23,10 @@ from uuid import uuid4
 
 import paho.mqtt.client as paho_mqtt
 
+from ..const import (
+    PAHO_MQTT_RECONNECT_MAX_DELAY_SECONDS,
+    PAHO_MQTT_RECONNECT_MIN_DELAY_SECONDS,
+)
 from ..events import EventHandler, LandroidEvent
 from ..exceptions import NoConnectionError, TimeoutException
 from .landroid_class import LDict
@@ -254,7 +258,10 @@ class MQTT(LDict):
         client.username_pw_set(username=username, password=None)
         client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
         client.ws_set_options(path=MQTT_WEBSOCKET_PATH)
-        client.reconnect_delay_set(min_delay=1, max_delay=32)
+        client.reconnect_delay_set(
+            min_delay=PAHO_MQTT_RECONNECT_MIN_DELAY_SECONDS,
+            max_delay=PAHO_MQTT_RECONNECT_MAX_DELAY_SECONDS,
+        )
         client.on_connect = lambda client, userdata, flags, reason_code, *args: (
             self._on_paho_connect(
                 client, userdata, flags, reason_code, generation=generation
