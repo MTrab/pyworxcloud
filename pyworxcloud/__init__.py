@@ -467,6 +467,11 @@ class WorxCloud(dict):
         if self.mqtt is not None:
             await self.mqtt.aupdate_token()
 
+    def _bind_device_mqtt_state(self, device: DeviceHandler) -> DeviceHandler:
+        """Bind a device object to the current cloud-level MQTT state."""
+        device.set_mqtt_connected_resolver(lambda: self.mqtt_connected)
+        return device
+
     @property
     def auth_result(self) -> bool:
         """Return current authentication result."""
@@ -669,6 +674,7 @@ class WorxCloud(dict):
             try:
                 previous_device = self.devices.get(mower["name"])
                 device = DeviceHandler(self._api, mower, self._tz, False)
+                self._bind_device_mqtt_state(device)
                 if not isinstance(mower["last_status"], type(None)):
                     device.raw_data = mower["last_status"]["payload"]
 
