@@ -39,7 +39,6 @@ async def main() -> None:
     for _, device in cloud.devices.items():
         # await cloud.update(device.serial_number)
         print(f"{device.name} online: {device.online}")
-
         # await cloud.set_offlimits(device.serial_number, False)
         # await cloud.set_offlimits_shortcut(device.serial_number, True)
         # await cloud.set_cutting_height(device.serial_number, 45)

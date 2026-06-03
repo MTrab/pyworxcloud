@@ -16,6 +16,7 @@ from pyworxcloud.clouds import CloudType
 from pyworxcloud.events import LandroidEvent
 from pyworxcloud.exceptions import (
     AuthorizationError,
+    NoConnectionError,
     NoFirmwareAvailableError,
     NoFirmwareOtaError,
     NotFoundError,
@@ -42,6 +43,7 @@ class DummyMQTT:
     """Simple MQTT stub."""
 
     def __init__(self) -> None:
+        self.connected = True
         self.disconnect_called = False
         self.shutdown_called = False
 
@@ -99,6 +101,7 @@ class CapturingMQTT:
     """MQTT constructor stub capturing provided timeout."""
 
     last_response_timeout: float | None = None
+    last_connect_timeout: float | None = None
     constructor_thread_id: int | None = None
 
     def __init__(
@@ -110,12 +113,14 @@ class CapturingMQTT:
         _logger: Any,
         _callback: Any,
         response_timeout: float,
+        connect_timeout: float | None = None,
         identifier_resolver: Any = None,
         deduplicate_inflight_commands: bool = False,
     ) -> None:
         self.identifier_resolver = identifier_resolver
         self.deduplicate_inflight_commands = deduplicate_inflight_commands
         self.__class__.last_response_timeout = response_timeout
+        self.__class__.last_connect_timeout = connect_timeout
         self.__class__.constructor_thread_id = threading.get_ident()
 
     async def aconnect(self) -> None:
@@ -145,12 +150,14 @@ class TrackingMQTT:
         _logger: Any,
         _callback: Any,
         response_timeout: float,
+        connect_timeout: float | None = None,
         identifier_resolver: Any = None,
         deduplicate_inflight_commands: bool = False,
     ) -> None:
         self.identifier_resolver = identifier_resolver
         self.deduplicate_inflight_commands = deduplicate_inflight_commands
         self.response_timeout = response_timeout
+        self.connect_timeout = connect_timeout
         self.disconnect_calls = 0
         self.shutdown_calls = 0
         self.subscriptions: list[str] = []
@@ -351,6 +358,39 @@ def test_token_updated_is_noop_without_mqtt() -> None:
     asyncio.run(cloud._token_updated())
 
 
+def test_token_updated_refreshes_mqtt_only_when_connected() -> None:
+    """Token refresh should not force MQTT reconnects while MQTT is down."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    retry_calls = 0
+
+    class TokenMQTT:
+        def __init__(self, connected: bool) -> None:
+            self.connected = connected
+            self.update_calls = 0
+
+        async def aupdate_token(self) -> None:
+            self.update_calls += 1
+
+    def _schedule_retry() -> None:
+        nonlocal retry_calls
+        retry_calls += 1
+
+    cloud._schedule_mqtt_retry = _schedule_retry  # type: ignore[method-assign]
+    mqtt = TokenMQTT(False)
+    cloud.mqtt = mqtt
+
+    asyncio.run(cloud._token_updated())
+
+    assert mqtt.update_calls == 0
+    assert retry_calls == 1
+
+    mqtt.connected = True
+    asyncio.run(cloud._token_updated())
+
+    assert mqtt.update_calls == 1
+    assert retry_calls == 1
+
+
 def test_get_logger_does_not_accumulate_handlers() -> None:
     """Repeated logger setup should not attach output handlers or force levels."""
     get_logger("pyworxcloud.test_handlers")
@@ -439,19 +479,69 @@ def test_on_api_update_dispatches_api_event_callback() -> None:
     assert received == [{"key": "value"}]
 
 
+def test_mqtt_connected_reports_current_client_state() -> None:
+    """MQTT connection property should mirror the current client state."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+
+    class MQTTState:
+        def __init__(self, connected: bool) -> None:
+            self.connected = connected
+
+    assert cloud.mqtt_connected is False
+
+    cloud.mqtt = MQTTState(True)
+    assert cloud.mqtt_connected is True
+
+    cloud.mqtt.connected = False
+    assert cloud.mqtt_connected is False
+
+    cloud.mqtt = None
+    assert cloud.mqtt_connected is False
+
+
+def test_mqtt_commands_raise_connection_error_when_mqtt_is_unavailable() -> None:
+    """MQTT command paths should fail cleanly in API-only fallback mode."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers_by_serial = {
+        "SN-1": {
+            "serial_number": "SN-1",
+            "uuid": "UUID-1",
+            "protocol": 0,
+            "mqtt_topics": {"command_in": "topic/in"},
+        }
+    }
+
+    with pytest.raises(NoConnectionError, match="MQTT connection is not ready"):
+        asyncio.run(cloud.update("SN-1"))
+
+    class DisconnectedMQTT:
+        connected = False
+
+    cloud.mqtt = DisconnectedMQTT()
+    with pytest.raises(NoConnectionError, match="MQTT connection is not ready"):
+        asyncio.run(cloud.update("SN-1"))
+
+
 def test_constructor_rejects_non_positive_command_timeout() -> None:
     """WorxCloud should validate command timeout."""
     with pytest.raises(ValueError):
         WorxCloud("user@example.com", "secret", "worx", command_timeout=0)
 
 
-def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
-    """Configured command timeout should be forwarded to MQTT layer."""
+def test_constructor_rejects_non_positive_mqtt_connect_timeout() -> None:
+    """WorxCloud should validate MQTT connect timeout."""
+    with pytest.raises(ValueError):
+        WorxCloud("user@example.com", "secret", "worx", mqtt_connect_timeout=0)
+
+
+def test_connect_passes_configured_timeouts_to_mqtt(monkeypatch) -> None:
+    """Configured timeouts should be forwarded to MQTT layer."""
     cloud = WorxCloud(
         "user@example.com",
         "secret",
         "worx",
         command_timeout=12.5,
+        mqtt_connect_timeout=4.5,
     )
 
     async def _fake_fetch() -> None:
@@ -471,6 +561,7 @@ def test_connect_passes_configured_command_timeout_to_mqtt(monkeypatch) -> None:
 
     assert asyncio.run(cloud.connect()) is True
     assert CapturingMQTT.last_response_timeout == 12.5
+    assert CapturingMQTT.last_connect_timeout == 4.5
 
 
 def test_connect_constructs_mqtt_off_event_loop_thread(monkeypatch) -> None:
@@ -516,6 +607,8 @@ def test_update_passes_optional_timeout_to_mqtt_ping() -> None:
     calls: list[tuple[str, str, int, float | None]] = []
 
     class MQTTStub:
+        connected = True
+
         async def aping(
             self,
             serial_number: str,

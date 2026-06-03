@@ -105,10 +105,20 @@ The fixture-driven `tests/test_device_decode.py` now asserts that the raw payloa
 
 `WorxCloud` accepts a `command_timeout` argument (seconds) that controls how long MQTT command calls wait for a matching mower response before raising `TimeoutException`.
 
+Initial MQTT connection attempts use a separate `mqtt_connect_timeout` argument. This keeps API-backed startup responsive when the cloud MQTT service is unavailable, while preserving a longer timeout for mower command responses.
+
+The read-only `mqtt_connected` property reports whether the MQTT client is currently active. It is available on both the `WorxCloud` instance and the mapped device objects. It is `False` when startup falls back to API-only mode, after disconnects, and whenever the MQTT client loses its connection.
+
 ```python
 from pyworxcloud import WorxCloud
 
-cloud = WorxCloud("user@example.com", "secret", "worx", command_timeout=15.0)
+cloud = WorxCloud(
+    "user@example.com",
+    "secret",
+    "worx",
+    command_timeout=15.0,
+    mqtt_connect_timeout=8.0,
+)
 ```
 
 ## Schedule CRUD

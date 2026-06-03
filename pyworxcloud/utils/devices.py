@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ..clouds import CloudType
@@ -53,6 +53,7 @@ class DeviceHandler(LDict):
         self.mower = mower
         self._tz = tz
         self._decode = decode
+        self._mqtt_connected_resolver: Callable[[], bool] | None = None
 
         self.battery = Battery()
         self.blades = Blades()
@@ -114,6 +115,17 @@ class DeviceHandler(LDict):
     def is_decoded(self, value: bool) -> None:
         """Set decoded flag when dataset was decoded and handled."""
         self.__is_decoded = value
+
+    @property
+    def mqtt_connected(self) -> bool:
+        """Return whether MQTT is currently connected for this device."""
+        if self._mqtt_connected_resolver is None:
+            return False
+        return bool(self._mqtt_connected_resolver())
+
+    def set_mqtt_connected_resolver(self, resolver: Callable[[], bool] | None) -> None:
+        """Set a callback that resolves the current MQTT connection state."""
+        self._mqtt_connected_resolver = resolver
 
     def __mapinfo(self, api: Any, data: Any) -> None:
         """Map information from API."""

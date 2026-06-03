@@ -5,8 +5,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-import pytest
-
 from pyworxcloud import WorxCloud
 
 
@@ -42,10 +40,12 @@ class FailingMQTT:
         _logger: Any,
         _callback: Any,
         response_timeout: float,
+        connect_timeout: float | None = None,
         identifier_resolver: Any = None,
         deduplicate_inflight_commands: bool = False,
     ) -> None:
         self.response_timeout = response_timeout
+        self.connect_timeout = connect_timeout
         self.identifier_resolver = identifier_resolver
         self.deduplicate_inflight_commands = deduplicate_inflight_commands
         self.disconnect_calls = 0
@@ -65,8 +65,22 @@ class FailingMQTT:
         self.shutdown_calls += 1
 
 
-def test_connect_failure_cleans_up_mqtt_and_api_session(monkeypatch) -> None:
-    """A failed connect should not leave partial MQTT or API resources behind."""
+class TransientMQTT(FailingMQTT):
+    """MQTT stub that fails once and then reconnects."""
+
+    async def aconnect(self) -> None:
+        if len(self.__class__.instances) == 1:
+            raise RuntimeError("connect failed")
+        self.connected = True
+
+    async def asubscribe(self, topic: str, _append: bool = True) -> None:
+        subscriptions = getattr(self, "subscriptions", [])
+        subscriptions.append(topic)
+        self.subscriptions = subscriptions
+
+
+def test_mqtt_connect_failure_keeps_api_fallback_running(monkeypatch) -> None:
+    """MQTT failure should not prevent API-backed connect from succeeding."""
     cloud = WorxCloud("user@example.com", "secret", "worx")
     session = DummySession()
     FailingMQTT.instances = []
@@ -87,8 +101,16 @@ def test_connect_failure_cleans_up_mqtt_and_api_session(monkeypatch) -> None:
     monkeypatch.setattr("pyworxcloud.MQTT", FailingMQTT)
     monkeypatch.setattr("pyworxcloud.convert_to_time", lambda *_args, **_kwargs: None)
 
-    with pytest.raises(RuntimeError, match="connect failed"):
-        asyncio.run(cloud.connect())
+    async def _exercise() -> None:
+        assert await cloud.connect() is True
+        assert cloud.mqtt is None
+        assert cloud._mqtt_retry_task is not None
+        assert session.close_calls == 0
+        assert session.closed is False
+        assert cloud._disconnecting.is_set() is False
+        await cloud.disconnect()
+
+    asyncio.run(_exercise())
 
     assert len(FailingMQTT.instances) == 1
     assert FailingMQTT.instances[0].disconnect_calls == 1
@@ -97,3 +119,43 @@ def test_connect_failure_cleans_up_mqtt_and_api_session(monkeypatch) -> None:
     assert session.close_calls == 1
     assert session.closed is True
     assert cloud._disconnecting.is_set() is True
+
+
+def test_mqtt_background_retry_reconnects_without_api_refetch(monkeypatch) -> None:
+    """Background MQTT retry should use existing API data and restore MQTT."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    TransientMQTT.instances = []
+    fetch_calls = 0
+
+    async def _fake_fetch() -> None:
+        nonlocal fetch_calls
+        fetch_calls += 1
+        cloud._mowers = [
+            {
+                "name": "My Mower",
+                "mqtt_endpoint": "mqtt.example.invalid",
+                "user_id": 99,
+                "mqtt_topics": {"command_out": "topic/out"},
+            }
+        ]
+        cloud.devices = {"My Mower": DummyDevice()}
+
+    monkeypatch.setattr(cloud, "_fetch", _fake_fetch)
+    monkeypatch.setattr("pyworxcloud.MQTT", TransientMQTT)
+    monkeypatch.setattr("pyworxcloud.MQTT_RECONNECT_RETRY_SECONDS", 0)
+    monkeypatch.setattr("pyworxcloud.convert_to_time", lambda *_args, **_kwargs: None)
+
+    async def _exercise() -> None:
+        assert await cloud.connect() is True
+        assert cloud._mqtt_retry_task is not None
+        await asyncio.wait_for(cloud._mqtt_retry_task, timeout=1)
+        assert cloud.mqtt is TransientMQTT.instances[1]
+        assert cloud.mqtt.subscriptions == ["topic/out"]
+        await cloud.disconnect()
+
+    asyncio.run(_exercise())
+
+    assert fetch_calls == 1
+    assert len(TransientMQTT.instances) == 2
+    assert TransientMQTT.instances[0].disconnect_calls == 1
+    assert TransientMQTT.instances[0].shutdown_calls == 1

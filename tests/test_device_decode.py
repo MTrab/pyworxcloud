@@ -98,6 +98,22 @@ def test_devicehandler_maps_module_capabilities() -> None:
     assert device.capabilities.check(DeviceCapability.ACS) is True
 
 
+def test_devicehandler_reports_bound_mqtt_connection_state() -> None:
+    """Device MQTT state should resolve from the bound cloud callback."""
+    _, payload = HTTP_FIXTURES[0]
+    mower = _build_mower(payload, _protocol_from_payload(payload), "Fixture Mower")
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+    connected = False
+
+    assert device.mqtt_connected is False
+
+    device.set_mqtt_connected_resolver(lambda: connected)
+    assert device.mqtt_connected is False
+
+    connected = True
+    assert device.mqtt_connected is True
+
+
 def test_devicehandler_maps_border_cut_api_capability() -> None:
     """Vision border_cut API capability should expose edge-cut related features."""
     payload = {
