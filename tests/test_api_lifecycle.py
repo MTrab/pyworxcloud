@@ -2752,6 +2752,75 @@ def test_border_cut_settings_helper_publishes_combined_settings() -> None:
     ]
 
 
+def test_border_cut_settings_preserves_zones_via_mz() -> None:
+    """With a cached multizone config, border-cut updates the cut value on each
+    zone while keeping every zone (mz.s) and the zone topology (mz.p) intact."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    mqtt = RecordingMQTT()
+    cloud.mqtt = mqtt
+    cloud._mowers = [
+        {
+            "name": "Vision",
+            "serial_number": "SERIAL-1",
+            "uuid": "UUID-1",
+            "mac_address": "MAC-1",
+            "model": {"friendly_name": "Vision", "code": "WR206E"},
+            "time_zone": "UTC",
+            "warranty_expires_at": None,
+            "warranty_registered": False,
+            "online": True,
+            "protocol": 1,
+            "mqtt_topics": {"command_in": "topic/p1", "command_out": "topic/out/p1"},
+            "capabilities": ["one_time_scheduler"],
+            "last_status": {
+                "payload": {
+                    "cfg": {
+                        "id": 0,
+                        "mz": {
+                            "s": [
+                                {"id": 1, "c": 1, "cfg": {"cut": {"ob": 1, "bd": 100}}},
+                                {"id": 2, "c": 0, "cfg": {"cut": {"ob": 0, "bd": 200}}},
+                            ],
+                            "p": [
+                                {"z1": 1, "z2": 2, "t1": "BEACON-1", "t2": "BEACON-2"}
+                            ],
+                        },
+                        "sc": {
+                            "enabled": 1,
+                            "paused": 0,
+                            "once": {"time": 30, "cfg": {"cut": {"b": 0, "z": []}}},
+                            "slots": [],
+                        },
+                    },
+                    "dat": {"uuid": "UUID-1"},
+                }
+            },
+        }
+    ]
+    cloud._rebuild_mower_indices()
+
+    asyncio.run(
+        cloud.set_border_cut_settings(
+            "SERIAL-1",
+            cut_over_border=True,
+            border_distance=150,
+        )
+    )
+
+    assert len(mqtt.calls) == 1
+    message = mqtt.calls[0]["message"]
+    assert "cut" not in message
+    mz = message["mz"]
+    # All zones kept, cut value updated on each zone.
+    assert [zone["id"] for zone in mz["s"]] == [1, 2]
+    assert all(zone["cfg"]["cut"] == {"ob": 1, "bd": 150} for zone in mz["s"])
+    # Zone topology preserved unchanged (this is what an empty 'p' would clear).
+    assert mz["p"] == [{"z1": 1, "z2": 2, "t1": "BEACON-1", "t2": "BEACON-2"}]
+    # The cached config must not be mutated in place.
+    cached = cloud.get_mower("SERIAL-1")["last_status"]["payload"]["cfg"]["mz"]
+    assert cached["s"][0]["cfg"]["cut"] == {"ob": 1, "bd": 100}
+
+
 def test_dedicated_border_cut_setting_helpers_publish_single_setting() -> None:
     """Dedicated border-cut helpers should publish one setting at a time."""
     cloud = WorxCloud("user@example.com", "secret", "worx")

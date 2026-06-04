@@ -1066,6 +1066,42 @@ class WorxCloud(dict):
 
         return cut_payload
 
+    def _border_cut_command(
+        self, mower: dict[str, Any], cut_payload: dict[str, int]
+    ) -> dict[str, Any]:
+        """Return the border-cut MQTT command for a mower.
+
+        Border-cut is a per-zone setting (``cfg.mz.s[*].cfg.cut``) and the zone
+        topology is stored separately in ``cfg.mz.p``. Build the command from
+        the mower's cached multizone config so existing zones and their
+        topology are preserved and only the cut values change. Fall back to the
+        top-level ``cut`` form when no multizone config is cached.
+
+        Sending a single hard-coded zone with an empty ``p`` (the previous
+        behaviour) makes the mower drop the other zones and the beacon mapping.
+        """
+        last_status = mower.get("last_status")
+        if isinstance(last_status, dict):
+            payload = last_status.get("payload")
+            if isinstance(payload, dict):
+                cfg = payload.get("cfg")
+                if isinstance(cfg, dict):
+                    current_mz = cfg.get("mz")
+                    if (
+                        isinstance(current_mz, dict)
+                        and isinstance(current_mz.get("s"), list)
+                        and current_mz["s"]
+                    ):
+                        mz = self._clone_dict(current_mz)
+                        for zone in mz["s"]:
+                            if isinstance(zone, dict):
+                                zone_cut = zone.setdefault("cfg", {}).setdefault(
+                                    "cut", {}
+                                )
+                                zone_cut.update(cut_payload)
+                        return {"mz": mz}
+        return {"cut": cut_payload}
+
     def _build_schedule_model(self, mower: dict[str, Any]) -> ScheduleModel:
         """Build a normalized schedule model from the mower cache."""
         return schedule_model_from_payload(
@@ -2076,10 +2112,11 @@ class WorxCloud(dict):
             cut_over_border=cut_over_border,
             border_distance=border_distance,
         )
+        command = self._border_cut_command(mower, cut_payload)
         await self._mqtt_apublish(
             mower["uuid"],
             mower["mqtt_topics"]["command_in"],
-            {"cut": cut_payload},
+            command,
             mower["protocol"],
         )
 
