@@ -1915,7 +1915,7 @@ class WorxCloud(dict):
         time_extension = self._coerce_int(
             time_extension, "time_extension", minimum=-100, maximum=100
         )
-        time_extension = self._require_step(time_extension, "time_extension", 10)
+        time_extension = self._require_step(time_extension, "time_extension", 1)
         mower = self.get_mower(serial_number)
         if mower["protocol"] != 0:
             raise ValueError(
