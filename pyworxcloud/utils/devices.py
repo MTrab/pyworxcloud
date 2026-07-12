@@ -322,12 +322,28 @@ class DeviceHandler(LDict):
         if "dmp" in dat_payload:
             self.orientation = Orientation(dat_payload["dmp"])
 
+        gps_set = False
         modules = dat_payload.get("modules")
         if isinstance(modules, dict):
             if "4G" in modules:
                 gps = modules["4G"].get("gps")
                 if isinstance(gps, dict) and "coo" in gps:
                     self.gps = Location(gps["coo"][0], gps["coo"][1])
+                    gps_set = True
+
+        # GPS-equipped Vision/RTK mowers report their position under
+        # dat.rtk.pos = [latitude, longitude] instead of the legacy
+        # modules.4G.gps.coo schema, so fall back to that when present.
+        if not gps_set:
+            rtk = dat_payload.get("rtk")
+            if isinstance(rtk, dict):
+                pos = rtk.get("pos")
+                if (
+                    isinstance(pos, (list, tuple))
+                    and len(pos) >= 2
+                    and all(isinstance(coord, (int, float)) for coord in pos[:2])
+                ):
+                    self.gps = Location(pos[0], pos[1])
 
         rain = dat_payload.get("rain")
         if isinstance(rain, dict):
