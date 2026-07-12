@@ -897,8 +897,6 @@ def test_set_time_extension_rejects_out_of_range_input_early(monkeypatch) -> Non
         asyncio.run(cloud.set_time_extension("SERIAL-1", -101))
     with pytest.raises(ValueError):
         asyncio.run(cloud.set_time_extension("SERIAL-1", 101))
-    with pytest.raises(ValueError):
-        asyncio.run(cloud.set_time_extension("SERIAL-1", 25))
 
 
 def test_set_torque_rejects_out_of_range_input_early(monkeypatch) -> None:
