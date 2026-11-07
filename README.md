@@ -282,8 +282,12 @@ async with WorxCloud("user@example.com", "secret", "worx") as cloud:
 ## Deprecations
 
 > [!WARNING]
-> The old Pause mode names are deprecated and are planned for removal after `2026-09-15`.
+> The old Pause mode names are deprecated and became eligible for removal on `2026-09-15`.
+> Removal is deferred to a future major release; passing this date does not remove the aliases.
 > Compatibility aliases still work for now, but new integrations should use the Party mode names below.
+
+The test suite reports overdue deprecations as warnings so maintainers can plan
+their removal without blocking compatible patch releases.
 
 | Deprecated | Use instead |
 | --- | --- |
