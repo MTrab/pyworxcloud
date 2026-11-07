@@ -195,6 +195,9 @@ class WorxCloud(dict):
         self._mowers_by_serial: dict[str, dict[str, Any]] = {}
         self._mowers_by_uuid: dict[str, dict[str, Any]] = {}
         self._mowers_by_mac: dict[str, dict[str, Any]] = {}
+        self._zone_config_locks: dict[
+            str, tuple[asyncio.AbstractEventLoop, asyncio.Lock]
+        ] = {}
 
         self._api_refresh_task: asyncio.Task | None = None
         self._mqtt_retry_task: asyncio.Task | None = None
@@ -816,6 +819,21 @@ class WorxCloud(dict):
     def _clone_dict(value: dict[str, Any] | None) -> dict[str, Any]:
         """Return a JSON-safe deep copy."""
         return json.loads(json.dumps(value)) if isinstance(value, dict) else {}
+
+    @staticmethod
+    def _clone_list(value: list[Any] | None) -> list[Any]:
+        """Return a JSON-safe deep copy of a list."""
+        return json.loads(json.dumps(value)) if isinstance(value, list) else []
+
+    def _zone_config_lock(self, serial_number: str) -> asyncio.Lock:
+        """Return the event-loop-local lock for one mower's zone configuration."""
+        loop = asyncio.get_running_loop()
+        current = self._zone_config_locks.get(serial_number)
+        if current is None or current[0] is not loop:
+            lock = asyncio.Lock()
+            self._zone_config_locks[serial_number] = (loop, lock)
+            return lock
+        return current[1]
 
     @staticmethod
     def _normalize_auto_schedule_exclusion_days_for_write(
@@ -2256,6 +2274,126 @@ class WorxCloud(dict):
             return int(mower["last_status"]["payload"]["cfg"]["modules"]["EA"]["h"])
         except KeyError:
             raise NoCuttingHeightError("This device does not support cutting height")
+
+    def get_zone_cutting_heights(self, serial_number: str) -> dict[int, int]:
+        """Return configured cutting heights keyed by RTK zone ID.
+
+        RTK mower apps persist cutting height per zone in
+        ``cfg.rtk.zs[*].cfg.modules.EA.h``. This differs from the mower-wide
+        electric adjustment value returned by :meth:`get_cutting_height`.
+
+        Raises:
+            NoCuttingHeightError: Raised when no RTK zone exposes a height.
+        """
+        mower = self.get_mower(serial_number)
+        cfg = self._get_current_cfg_payload(mower)
+        rtk = cfg.get("rtk")
+        zones = rtk.get("zs") if isinstance(rtk, dict) else None
+        heights: dict[int, int] = {}
+        if isinstance(zones, list):
+            for zone in zones:
+                if not isinstance(zone, dict) or "id" not in zone:
+                    continue
+                zone_cfg = zone.get("cfg")
+                modules = (
+                    zone_cfg.get("modules") if isinstance(zone_cfg, dict) else None
+                )
+                electric_adjustment = (
+                    modules.get("EA") if isinstance(modules, dict) else None
+                )
+                height = (
+                    electric_adjustment.get("h")
+                    if isinstance(electric_adjustment, dict)
+                    else None
+                )
+                if isinstance(height, int | float):
+                    heights[int(zone["id"])] = int(height)
+
+        if not heights:
+            raise NoCuttingHeightError(
+                "This device does not expose per-zone cutting height"
+            )
+        return heights
+
+    async def set_zone_cutting_height(
+        self, serial_number: str, zone_id: int, height: int
+    ) -> None:
+        """Set the configured cutting height for one RTK zone.
+
+        The protocol expects the complete cached ``cfg.rtk.zs`` list. Updates
+        are serialized per mower so concurrent changes cannot overwrite each
+        other with stale zone data.
+
+        Raises:
+            NoCuttingHeightError: Raised when the zone has no height setting.
+            OfflineError: Raised if the device is offline.
+            ValueError: Raised for a non-RTK device or an unknown zone ID.
+        """
+        zone_id = self._coerce_int(zone_id, "zone_id", minimum=0)
+        height = self._coerce_int(height, "height", minimum=0)
+        mower = self.get_mower(serial_number)
+        if mower["protocol"] != 1:
+            raise ValueError("Zone cutting height is only supported by RTK devices")
+        if not mower["online"]:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+        async with self._zone_config_lock(serial_number):
+            cfg = self._get_current_cfg_payload(mower)
+            rtk = cfg.get("rtk")
+            zones = rtk.get("zs") if isinstance(rtk, dict) else None
+            if not isinstance(zones, list):
+                raise NoCuttingHeightError(
+                    "This device does not expose per-zone cutting height"
+                )
+
+            updated_zones = self._clone_list(zones)
+            matching_zone = next(
+                (
+                    zone
+                    for zone in updated_zones
+                    if isinstance(zone, dict) and zone.get("id") == zone_id
+                ),
+                None,
+            )
+            if matching_zone is None:
+                raise ValueError(f"Unknown RTK zone ID: {zone_id}")
+
+            zone_cfg = matching_zone.get("cfg")
+            modules = zone_cfg.get("modules") if isinstance(zone_cfg, dict) else None
+            electric_adjustment = (
+                modules.get("EA") if isinstance(modules, dict) else None
+            )
+            if (
+                not isinstance(electric_adjustment, dict)
+                or "h" not in electric_adjustment
+            ):
+                raise NoCuttingHeightError(
+                    f"RTK zone {zone_id} does not expose cutting height"
+                )
+            electric_adjustment["h"] = height
+
+            await self._mqtt_apublish(
+                mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                {"zs": updated_zones},
+                mower["protocol"],
+            )
+
+            last_status = mower.get("last_status")
+            if isinstance(last_status, dict):
+                payload = last_status.get("payload")
+                if isinstance(payload, dict):
+                    cached_cfg = payload.get("cfg")
+                    cached_rtk = (
+                        cached_cfg.get("rtk") if isinstance(cached_cfg, dict) else None
+                    )
+                    if isinstance(cached_rtk, dict):
+                        cached_rtk["zs"] = self._clone_list(updated_zones)
+                        device_handler = self.devices.get(mower["name"])
+                        if device_handler is not None:
+                            device_handler.raw_data = json.dumps(payload)
+
+            await self._schedule_api_refresh()
 
     async def set_cutting_height(self, serial_number: str, height: int) -> None:
         """Set the cutting height of the device.
