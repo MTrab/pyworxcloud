@@ -3155,3 +3155,131 @@ def test_set_party_mode_protocol1_includes_cmd0(monkeypatch) -> None:
             "protocol": 1,
         }
     ]
+
+
+def _rtk_height_mower() -> dict[str, Any]:
+    """Return an online RTK mower with two independently configured zones."""
+    return {
+        "name": "Vision Cloud",
+        "serial_number": "SERIAL-RTK",
+        "uuid": "UUID-RTK",
+        "mac_address": "MAC-RTK",
+        "model": {"friendly_name": "Vision Cloud", "code": "WR312E"},
+        "time_zone": "UTC",
+        "warranty_expires_at": None,
+        "warranty_registered": False,
+        "online": True,
+        "protocol": 1,
+        "mqtt_topics": {"command_in": "topic/rtk", "command_out": "topic/out"},
+        "last_status": {
+            "payload": {
+                "cfg": {
+                    "id": 0,
+                    "modules": {"EA": {"h": 50}},
+                    "rtk": {
+                        "map": "map-id",
+                        "zs": [
+                            {
+                                "id": 1,
+                                "cfg": {
+                                    "cut": {"d": 0, "t": 1},
+                                    "modules": {"EA": {"h": 45}},
+                                },
+                            },
+                            {
+                                "id": 2,
+                                "cfg": {
+                                    "cut": {"d": 90, "t": 2},
+                                    "modules": {"EA": {"h": 55}},
+                                },
+                            },
+                        ],
+                    },
+                },
+                "dat": {"uuid": "UUID-RTK"},
+            }
+        },
+    }
+
+
+def test_get_zone_cutting_heights_reads_rtk_zone_configuration() -> None:
+    """RTK zone heights should be distinct from mower-wide blade height."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    cloud._mowers = [_rtk_height_mower()]
+    cloud._rebuild_mower_indices()
+
+    assert cloud.get_cutting_height("SERIAL-RTK") == 50
+    assert cloud.get_zone_cutting_heights("SERIAL-RTK") == {1: 45, 2: 55}
+
+
+def test_set_zone_cutting_height_publishes_complete_zone_list() -> None:
+    """A zone height write should preserve every zone and unrelated setting."""
+    cloud = WorxCloud("user@example.com", "secret", "worx")
+    mqtt = RecordingMQTT()
+    cloud.mqtt = mqtt
+    cloud._mowers = [_rtk_height_mower()]
+    cloud._rebuild_mower_indices()
+
+    asyncio.run(cloud.set_zone_cutting_height("SERIAL-RTK", 2, 60))
+
+    assert len(mqtt.calls) == 1
+    assert mqtt.calls[0]["serial"] == "UUID-RTK"
+    assert mqtt.calls[0]["topic"] == "topic/rtk"
+    assert mqtt.calls[0]["protocol"] == 1
+    zones = mqtt.calls[0]["message"]["zs"]
+    assert [zone["id"] for zone in zones] == [1, 2]
+    assert zones[0]["cfg"] == {
+        "cut": {"d": 0, "t": 1},
+        "modules": {"EA": {"h": 45}},
+    }
+    assert zones[1]["cfg"] == {
+        "cut": {"d": 90, "t": 2},
+        "modules": {"EA": {"h": 60}},
+    }
+    assert cloud.get_zone_cutting_heights("SERIAL-RTK") == {1: 45, 2: 60}
+
+
+def test_concurrent_zone_height_writes_do_not_lose_updates() -> None:
+    """Concurrent zone writes should serialize around the shared zone list."""
+
+    class BlockingFirstPublishMQTT(RecordingMQTT):
+        def __init__(self) -> None:
+            super().__init__()
+            self.first_started = asyncio.Event()
+            self.release_first = asyncio.Event()
+
+        async def apublish(
+            self,
+            serial: str,
+            topic: str,
+            message: Any,
+            protocol: int | None = None,
+        ) -> None:
+            await super().apublish(serial, topic, message, protocol)
+            if len(self.calls) == 1:
+                self.first_started.set()
+                await self.release_first.wait()
+
+    async def run_writes() -> tuple[WorxCloud, BlockingFirstPublishMQTT]:
+        cloud = WorxCloud("user@example.com", "secret", "worx")
+        mqtt = BlockingFirstPublishMQTT()
+        cloud.mqtt = mqtt
+        cloud._mowers = [_rtk_height_mower()]
+        cloud._rebuild_mower_indices()
+
+        first = asyncio.create_task(cloud.set_zone_cutting_height("SERIAL-RTK", 1, 40))
+        await mqtt.first_started.wait()
+        second = asyncio.create_task(cloud.set_zone_cutting_height("SERIAL-RTK", 2, 60))
+        await asyncio.sleep(0)
+        assert len(mqtt.calls) == 1
+        mqtt.release_first.set()
+        await asyncio.gather(first, second)
+        return cloud, mqtt
+
+    cloud, mqtt = asyncio.run(run_writes())
+
+    assert len(mqtt.calls) == 2
+    assert [
+        zone["cfg"]["modules"]["EA"]["h"] for zone in mqtt.calls[1]["message"]["zs"]
+    ] == [40, 60]
+    assert cloud.get_zone_cutting_heights("SERIAL-RTK") == {1: 40, 2: 60}

@@ -28,6 +28,7 @@ This document visualizes how the JSON `cfg`/`dat` payloads from the Worx/Kress/L
 | `rd` | Rain delay configured minutes. | Drives `device.rainsensor.delay` and is compared with `rain.cnt` for remaining time. |
 | `tq` | Torque helper flag. | Grants `DeviceCapability.TORQUE`. |
 | `mz` / `mzv` | Multi-zone start distances and index map. | Sets `zone.starting_point` / `zone.indicies` and derived `zone.current`. |
+| `rtk.zs` | RTK zone definitions and per-zone settings. | Provides zone IDs and the app-configured cutting height from each zone's `cfg.modules.EA.h`. |
 | `modules` | Module configuration (`DF`, `US`, `PL`, etc.). | Grants capabilities (Off-Limits / ACS / position light) and flags `offlimit`, `offlimit_shortcut`, `acs_enabled`, `position_light_enabled`. |
 | `sc` | Schedule definition (legacy `d` arrays or new `slots`). | Drives `schedules["slots"]` plus `["active"]`, `["time_extension"]`, `["pause_mode_enabled"]`, `["one_time_schedule"]` and related metadata. |
 | `slots` | Derived slot list for every configured run. | Exposed via `schedules["slots"]`, so protocol 1 devices with more than two programs can still enumerate each entry verbatim. |
@@ -54,6 +55,7 @@ For every `sc` payload:
 ## Additional notes
 
 - Raw payloads remain available via `device.raw_cfg`/`device.raw_dat`, ensuring every numeric value can be inspected even after transformation.
+- `get_zone_cutting_heights()` reads the per-zone RTK heights separately from the mower-wide electric adjustment value. `set_zone_cutting_height()` preserves and sends the complete cached `rtk.zs` list as the observed `{"zs": [...]}` MQTT command.
 - `schedules.update_progress_and_next()` keeps `daily_progress`/`next_schedule_start` synced with the current timezone; `daily_progress` stays `None` on days without schedule slots.
 - Live write checks currently confirm that top-level `product-items` `PUT` calls can update `auto_schedule`, `lawn_size`, `lawn_perimeter`, `auto_schedule_settings.boost`, `auto_schedule_settings.grass_type`, `auto_schedule_settings.soil_type`, `auto_schedule_settings.irrigation`, `auto_schedule_settings.nutrition`, and `auto_schedule_settings.exclusion_scheduler`.
 - Disabling nutrition is currently observed by sending `auto_schedule_settings.nutrition = null`; sending `{ "n": 0, "p": 0, "k": 0 }` keeps nutrition enabled with zero values.
