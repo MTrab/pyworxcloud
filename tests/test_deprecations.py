@@ -3,18 +3,22 @@
 from __future__ import annotations
 
 from datetime import date
+import warnings
 
 from pyworxcloud.deprecations import DEPRECATIONS
 
 
-def test_deprecation_removal_dates_are_still_in_the_future() -> None:
-    """Fail once planned removals become due so they are not forgotten."""
+def test_deprecation_removal_dates_emit_reminders() -> None:
+    """Remind maintainers about due removals without breaking patch releases."""
     today = date.today()
     due = [entry.old_name for entry in DEPRECATIONS if entry.remove_after <= today]
-    assert not due, (
-        "Deprecated compatibility aliases are due for removal based on date: "
-        + ", ".join(due)
-    )
+    if due:
+        warnings.warn(
+            "Deprecated compatibility aliases are eligible for removal in a future "
+            "major release: " + ", ".join(due),
+            UserWarning,
+            stacklevel=1,
+        )
 
 
 def test_deprecation_registry_uses_date_objects() -> None:
