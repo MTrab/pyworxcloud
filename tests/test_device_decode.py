@@ -98,6 +98,31 @@ def test_devicehandler_maps_module_capabilities() -> None:
     assert device.capabilities.check(DeviceCapability.ACS) is True
 
 
+def test_devicehandler_maps_position_light_module() -> None:
+    """Position-light configuration should expose capability and enabled state."""
+    payload = {
+        "cfg": {
+            "sn": "SERIAL-LIGHT",
+            "rd": 0,
+            "modules": {"PL": {"enabled": 1, "level": 30}},
+            "sc": {"enabled": 1, "slots": []},
+        },
+        "dat": {
+            "uuid": "UUID-LIGHT",
+            "conn": "online",
+            "ls": 1,
+            "le": 0,
+            "modules": {"PL": {"on": 1, "stat": "ok"}},
+        },
+    }
+    mower = _build_mower(payload, 1, "Position Light Fixture")
+
+    device = DeviceHandler(api=object(), mower=mower, tz="UTC")
+
+    assert device.capabilities.check(DeviceCapability.POSITION_LIGHT) is True
+    assert device.position_light_enabled is True
+
+
 def test_devicehandler_reports_bound_mqtt_connection_state() -> None:
     """Device MQTT state should resolve from the bound cloud callback."""
     _, payload = HTTP_FIXTURES[0]

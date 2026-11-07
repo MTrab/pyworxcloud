@@ -884,6 +884,61 @@ def test_set_lock_rejects_non_bool_input_early(monkeypatch) -> None:
         asyncio.run(cloud.set_lock("SERIAL-1", "true"))
 
 
+def test_set_position_light_publishes_module_payload() -> None:
+    """Position-light writes should use the observed PL module configuration."""
+    cloud = WorxCloud("user@example.com", "secret", "kress")
+    mqtt = RecordingMQTT()
+    cloud.mqtt = mqtt
+    cloud._mowers = [
+        {
+            "name": "Target",
+            "model": {"friendly_name": "Fixture", "code": "FX"},
+            "serial_number": "SERIAL-1",
+            "uuid": "UUID-1",
+            "mac_address": "MAC-1",
+            "online": True,
+            "protocol": 1,
+            "time_zone": "UTC",
+            "warranty_expires_at": None,
+            "warranty_registered": False,
+            "mqtt_topics": {"command_in": "topic/in", "command_out": "topic/out"},
+            "last_status": {
+                "payload": {
+                    "cfg": {
+                        "rd": 0,
+                        "modules": {"PL": {"enabled": 0, "level": 30}},
+                        "sc": {"enabled": 1, "slots": []},
+                        "tm": "12:00:00",
+                        "dt": "07/11/2026",
+                        "tz": "UTC",
+                    },
+                    "dat": {
+                        "uuid": "UUID-1",
+                        "mac": "MAC-1",
+                        "conn": "online",
+                        "ls": 1,
+                        "le": 0,
+                        "rain": {"s": 0, "cnt": 0},
+                    },
+                }
+            },
+        }
+    ]
+    cloud._rebuild_mower_indices()
+
+    asyncio.run(cloud.set_position_light("SERIAL-1", True))
+
+    assert mqtt.calls == [
+        {
+            "serial": "UUID-1",
+            "topic": "topic/in",
+            "message": {"cmd": 0, "modules": {"PL": {"enabled": 1}}},
+            "protocol": 1,
+        }
+    ]
+    asyncio.run(cloud.disconnect())
+
+
 def test_set_time_extension_rejects_out_of_range_input_early(monkeypatch) -> None:
     """set_time_extension should validate the percentage before mower lookup."""
     cloud = WorxCloud("user@example.com", "secret", "worx")

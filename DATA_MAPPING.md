@@ -28,7 +28,7 @@ This document visualizes how the JSON `cfg`/`dat` payloads from the Worx/Kress/L
 | `rd` | Rain delay configured minutes. | Drives `device.rainsensor.delay` and is compared with `rain.cnt` for remaining time. |
 | `tq` | Torque helper flag. | Grants `DeviceCapability.TORQUE`. |
 | `mz` / `mzv` | Multi-zone start distances and index map. | Sets `zone.starting_point` / `zone.indicies` and derived `zone.current`. |
-| `modules` | Module configuration (`DF`, `US`, etc.). | Grants capabilities (Off-Limits / ACS) and flags `offlimit`, `offlimit_shortcut`, `acs_enabled`. |
+| `modules` | Module configuration (`DF`, `US`, `PL`, etc.). | Grants capabilities (Off-Limits / ACS / position light) and flags `offlimit`, `offlimit_shortcut`, `acs_enabled`, `position_light_enabled`. |
 | `sc` | Schedule definition (legacy `d` arrays or new `slots`). | Drives `schedules["slots"]` plus `["active"]`, `["time_extension"]`, `["pause_mode_enabled"]`, `["one_time_schedule"]` and related metadata. |
 | `slots` | Derived slot list for every configured run. | Exposed via `schedules["slots"]`, so protocol 1 devices with more than two programs can still enumerate each entry verbatim. |
 | `sc.p` | Time extension modifier (minutes to add to each slot). | Stored as `schedules["time_extension"]` and applied to every `slot` end time. |
