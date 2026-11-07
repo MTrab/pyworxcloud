@@ -32,7 +32,7 @@ jobs:
         run: git pull || true
       - name: Run formatting
         run: |
-          python -m isort -v --multi-line 3 --trailing-comma -l 88 --recursive .
+          python -m isort -v --multi-line 3 --trailing-comma -l 88 .
           python -m black -v .
       - name: Commit files
         run: |
