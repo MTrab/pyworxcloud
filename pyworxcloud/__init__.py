@@ -38,10 +38,7 @@ from .exceptions import (
     NoFirmwareOtaError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
-)
-from .exceptions import NoPartymodeError as NoPartymodeError
-from .exceptions import NoPauseModeError as NoPauseModeError
-from .exceptions import (
+    NoPositionLightError,
     NotFoundError,
     OfflineError,
     RequestError,
@@ -49,6 +46,8 @@ from .exceptions import (
     ZoneNoProbability,
     ZoneNotDefined,
 )
+from .exceptions import NoPartymodeError as NoPartymodeError
+from .exceptions import NoPauseModeError as NoPauseModeError
 from .helpers import convert_to_time, get_logger, redact_email_address
 from .utils import MQTT, DeviceCapability, DeviceHandler, ScheduleEntry, ScheduleModel
 from .utils.lawn import Lawn
@@ -59,9 +58,9 @@ from .utils.schedule_codec import delete_schedule_entry as delete_schedule_entry
 from .utils.schedule_codec import (
     schedule_model_from_payload,
     schedule_payload_from_model,
+    validate_schedule_model,
 )
 from .utils.schedule_codec import update_schedule_entry as update_schedule_entry_model
-from .utils.schedule_codec import validate_schedule_model
 
 if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")
@@ -2313,3 +2312,23 @@ class WorxCloud(dict):
                 )
         else:
             raise OfflineError("The device is currently offline, no action was sent.")
+
+    async def set_position_light(self, serial_number: str, state: bool) -> None:
+        """Enable or disable the position light module."""
+        state = self._require_bool(state, "state")
+        mower = self.get_mower(serial_number)
+        if not mower["online"]:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+        device = DeviceHandler(self._api, mower, self._tz)
+        if not device.capabilities.check(DeviceCapability.POSITION_LIGHT):
+            raise NoPositionLightError(
+                "This device does not have a position light module installed."
+            )
+
+        await self._mqtt_apublish(
+            serial_number if mower["protocol"] == 0 else mower["uuid"],
+            mower["mqtt_topics"]["command_in"],
+            {"cmd": 0, "modules": {"PL": {"enabled": 1 if state else 0}}},
+            mower["protocol"],
+        )

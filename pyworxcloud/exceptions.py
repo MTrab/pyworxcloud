@@ -126,6 +126,10 @@ class NoACSModuleError(Exception):
     """Raised when the mower doesn't have ACS module."""
 
 
+class NoPositionLightError(Exception):
+    """Raised when the mower doesn't have a position light module."""
+
+
 class NoFirmwareOtaError(Exception):
     """Raised when the mower does not support OTA firmware upgrades."""
 

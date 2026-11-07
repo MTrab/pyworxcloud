@@ -78,6 +78,7 @@ class DeviceHandler(LDict):
         self.offlimit: bool | None = None
         self.offlimit_shortcut: bool | None = None
         self.acs_enabled: bool | None = None
+        self.position_light_enabled: bool | None = None
         self.partymode_enabled: bool | None = None
         self.pause_mode_enabled: bool | None = None
 
@@ -395,6 +396,11 @@ class DeviceHandler(LDict):
             if "US" in modules_cfg:
                 self.capabilities.add(DeviceCapability.ACS)
                 self.acs_enabled = bool(str(modules_cfg["US"].get("enabled")) == "1")
+            if "PL" in modules_cfg:
+                self.capabilities.add(DeviceCapability.POSITION_LIGHT)
+                self.position_light_enabled = bool(
+                    str(modules_cfg["PL"].get("enabled")) == "1"
+                )
 
         sc_payload = cfg_payload.get("sc")
         if not isinstance(sc_payload, dict):

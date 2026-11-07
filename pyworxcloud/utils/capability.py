@@ -34,6 +34,7 @@ class DeviceCapability(IntEnum, metaclass=_DeviceCapabilityMeta):
     OFF_LIMITS = 16
     CUTTING_HEIGHT = 32
     ACS = 64
+    POSITION_LIGHT = 128
 
 
 CAPABILITY_TO_TEXT = {
@@ -44,6 +45,7 @@ CAPABILITY_TO_TEXT = {
     DeviceCapability.OFF_LIMITS: "Off Limits",
     DeviceCapability.CUTTING_HEIGHT: "Cutting Height",
     DeviceCapability.ACS: "ACS",
+    DeviceCapability.POSITION_LIGHT: "Position light",
 }
 
 
@@ -86,6 +88,9 @@ class Capability:
             pass
 
         try:
+            if "modules" in cfg and "PL" in cfg["modules"]:
+                self.add(DeviceCapability.POSITION_LIGHT)
+
             if "modules" in dat:
                 # Offlimits module
                 if "DF" in dat["modules"]:
