@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date
 import warnings
+from datetime import date
 
 from pyworxcloud.deprecations import DEPRECATIONS
 

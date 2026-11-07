@@ -38,6 +38,10 @@ from .exceptions import (
     NoFirmwareOtaError,
     NoOfflimitsError,
     NoOneTimeScheduleError,
+)
+from .exceptions import NoPartymodeError as NoPartymodeError
+from .exceptions import NoPauseModeError as NoPauseModeError
+from .exceptions import (
     NoPositionLightError,
     NotFoundError,
     OfflineError,
@@ -46,8 +50,6 @@ from .exceptions import (
     ZoneNoProbability,
     ZoneNotDefined,
 )
-from .exceptions import NoPartymodeError as NoPartymodeError
-from .exceptions import NoPauseModeError as NoPauseModeError
 from .helpers import convert_to_time, get_logger, redact_email_address
 from .utils import MQTT, DeviceCapability, DeviceHandler, ScheduleEntry, ScheduleModel
 from .utils.lawn import Lawn
@@ -58,9 +60,9 @@ from .utils.schedule_codec import delete_schedule_entry as delete_schedule_entry
 from .utils.schedule_codec import (
     schedule_model_from_payload,
     schedule_payload_from_model,
-    validate_schedule_model,
 )
 from .utils.schedule_codec import update_schedule_entry as update_schedule_entry_model
+from .utils.schedule_codec import validate_schedule_model
 
 if sys.version_info < (3, 9, 0):
     sys.exit("The pyWorxcloud module requires Python 3.9.0 or later")

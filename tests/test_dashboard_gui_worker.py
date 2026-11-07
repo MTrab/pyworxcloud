@@ -10,8 +10,8 @@ import pytest
 
 pytest.importorskip("tkinter")
 
-from test_dashboard_gui import CloudWorker, WorkerMessage
 from pyworxcloud.exceptions import TimeoutException
+from test_dashboard_gui import CloudWorker, WorkerMessage
 
 
 def _device(name: str, serial: str) -> SimpleNamespace:
